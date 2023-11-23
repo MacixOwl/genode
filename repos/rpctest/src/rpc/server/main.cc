@@ -32,6 +32,8 @@ const int MAINMEM_STORE_LEN = PAGE_SIZE * 1024 * 25; // 100 MB
 
 const int MAINMEM_ALLOC_SLOT = MAINMEM_STORE_LEN / PAGE_SIZE;
 
+const int PRE_ALLOC_PAGENUM = 100;
+
 
 namespace RPCplus {
 	struct Session_component;
@@ -45,13 +47,17 @@ struct RPCplus::Session_component : Genode::Rpc_object<Session>
 	//服务端创建一块ram dataspace，用于RPC消息
 	Genode::Attached_ram_dataspace rpc_buffer;
 	Genode::Attached_ram_dataspace &storage;
+	Genode::Attached_ram_dataspace **pagelist;
 
 	genode_uint8_t alloc_slot[MAINMEM_ALLOC_SLOT];
 	genode_uint64_t alloc_id;
 
-	Session_component(Genode::Env &env, Genode::Attached_ram_dataspace &main_store)
+	Session_component(Genode::Env &env, 
+					Genode::Attached_ram_dataspace &main_store,
+					Genode::Attached_ram_dataspace **pagelist)
 	:	rpc_buffer(env.ram(), env.rm(), RPC_BUFFER_LEN),
 		storage(main_store),
+		pagelist(pagelist),
 		alloc_id(0)
 	{	
 		void* storage_ptr = storage.local_addr<int>();
@@ -65,6 +71,11 @@ struct RPCplus::Session_component : Genode::Rpc_object<Session>
 			alloc_slot[i] = 0;
 		}
 		Genode::log("alloc slot array init as ", alloc_slot[MAINMEM_ALLOC_SLOT-1]);
+
+		// for (int i = 0; i < PRE_ALLOC_PAGENUM; ++i) {
+		// 	Genode::log("pagelist [", i, "] at addr: ", pagelist[i]);
+		// 	Genode::log(pagelist[i]->cap());
+		// }
 	}
 
 	void say_hello() override {
@@ -122,6 +133,12 @@ struct RPCplus::Session_component : Genode::Rpc_object<Session>
 		}
 		return 0;
 	}
+
+	Genode::Ram_dataspace_capability capfrom_pagelist(int i) override {
+		Genode::log("page_cap in server is ", pagelist[i]->cap());
+		return pagelist[i]->cap();
+	}
+
 };
 
 
@@ -133,6 +150,9 @@ class RPCplus::Root_component
 	private:
 		//加个env
 		Genode::Env &_env;
+
+		Genode::Heap heap{_env.ram(), _env.rm()};
+		Genode::Attached_ram_dataspace* pagelist[PRE_ALLOC_PAGENUM];
 	
 	protected:
 
@@ -141,7 +161,7 @@ class RPCplus::Root_component
 			Genode::log("creating rpcplus session");
 			//把env作为参数传给Session_component，Session_component才能创建Attached_ram_dataspace
 			//we also add the main memory store space to the session
-			return new (md_alloc()) Session_component(_env, _main_store);
+			return new (md_alloc()) Session_component(_env, _main_store, pagelist);
 		}
 	
 	public:
@@ -156,6 +176,14 @@ class RPCplus::Root_component
 			_main_store(main_store)
 		{
 			Genode::log("creating root component");
+
+			for (int i = 0; i < PRE_ALLOC_PAGENUM; ++i){
+				pagelist[i] = new(heap)Genode::Attached_ram_dataspace( _env.ram(), _env.rm(), 4096);
+			}
+			for (int i = 0; i < PRE_ALLOC_PAGENUM; ++i) {
+				Genode::log("pagelist [", i, "] at addr: ", pagelist[i]);
+				Genode::log(pagelist[i]->cap());
+			}
 		}
 };
 
@@ -191,4 +219,5 @@ void Component::construct(Genode::Env &env)
 {	
 	Timer::Connection _timer(env);
 	static RPCplus::Main main(env, _timer);
+
 }

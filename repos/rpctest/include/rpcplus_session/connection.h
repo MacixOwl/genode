@@ -28,7 +28,7 @@ struct RPCplus::Connection : Genode::Connection<Session>, Session_client
 	:
 		/* create session */
 		Genode::Connection<RPCplus::Session>(env, Label(),
-		                                   Ram_quota { 8*1024 }, Args()),
+		                                   Ram_quota { 32*1024 }, Args()),
 		/* initialize RPC interface */
 		Session_client(cap())
 	{ }

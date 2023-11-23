@@ -232,6 +232,8 @@ Allocator_avl_base::Range_result Allocator_avl_base::add_range(addr_t new_addr, 
 	if (_find_by_address(new_addr, new_size, true))
 		return Alloc_error::DENIED;
 
+	// Genode::log("Allocator_avl_base add_range: ", new_addr, " + ", new_size);
+
 	return _alloc_block_metadata().convert<Range_result>(
 
 		[&] (Block *new_block_ptr) {

@@ -177,7 +177,10 @@ struct Core::Fault
 		};
 	};
 
-	void print(Output &out) const { Genode::print(out, access, " at address ", hotspot); }
+	void print(Output &out) const { 
+		Genode::print(out, access, " at address ", hotspot); 
+		Genode::print(out, "\n\nlog point in Core::Fault.\n\n");
+	}
 };
 
 

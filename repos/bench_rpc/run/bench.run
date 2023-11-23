@@ -24,7 +24,7 @@ install_config {
 	<default-route>
 		<any-service> <parent/> <any-child/> </any-service>
 	</default-route>
-	<default caps="200"/>
+	<default caps="1000"/>
 
 	<start name="timer">
 		<resource name="RAM" quantum="4M"/>
@@ -33,7 +33,7 @@ install_config {
 	
 	<start name="rpc_server">
 		<affinity xpos="0" ypos="0" width="1" height="1" />
-		<resource name="RAM" quantum="128M"/>
+		<resource name="RAM" quantum="256M"/>
 		<provides> <service name="RPCplus"/> </provides>
 	</start>
 <!-- 

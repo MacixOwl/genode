@@ -209,12 +209,10 @@ struct RPCplus::Main
 };
 
 
-void Component::construct(Genode::Env &env)
-{	
-	Timer::Connection _timer(env);
-	static RPCplus::Main main(env, _timer);
-
+void heap_space_arrange_test(Genode::Env &env){
 	Genode::Heap heap{env.ram(), env.rm()};
+	Timer::Connection _timer(env);
+
 	Genode::log("Time malloc test start: ", _timer.curr_time().trunc_to_plain_ms());
 
 	void* buf[6000];
@@ -234,5 +232,84 @@ void Component::construct(Genode::Env &env)
 
 	for (int i = 0; i < 5000; ++i){
 		heap.free(buf[i], 1<<12);
+	}
+}
+
+void heap_available_vaddr_test(Genode::Env &env){
+	Genode::Heap heap{env.ram(), env.rm()};
+
+	// try to find the available vaddr space when alloc 4K mem
+	void* buf1 = heap.alloc(1<<12);
+	Genode::log("addr: ", buf1);
+	int* bufint1 = (int*)buf1;
+	Genode::log("bufint 0: ", bufint1[0]);
+	Genode::log("bufint +1000: ", bufint1[1000]);
+	Genode::log("bufint +?: ", bufint1[373751]);
+	Genode::log("bufint -1: ", bufint1[-1]);
+	Genode::log("bufint -?: ", bufint1[-8]);
+
+	// 0x20000 -- 0x14e000 [for NOVA]
+	// 0x20000 -- 0x18d000 [for SEL4]
+	// and how about allocate another one
+
+	void* buf2 = heap.alloc(1<<12);
+	Genode::log("addr: ", buf2);
+	int* bufint2 = (int*)buf2;
+	Genode::log("bufint 0: ", bufint2[0]);
+	Genode::log("bufint +1000: ", bufint2[1000]);
+	Genode::log("bufint +?: ", bufint2[372727]);
+	Genode::log("bufint -1: ", bufint2[-1]);
+	Genode::log("bufint -?: ", bufint2[-1032]);
+
+	// available space is unchanged
+
+	bufint1[1000] = 1;
+	Genode::log("bufint1 +1000: ", bufint1[1000], " bufint2 -24: ", bufint2[-24]);
+	bufint2[100] = 2;
+	Genode::log("bufint1 +1124: ", bufint1[1124], " bufint2 +100: ", bufint2[100]);
+
+	// write is visable to each other
+
+	bufint1[1524] = 5;
+	Genode::log("bufint1 +1524: ", bufint1[1524], " bufint2 +500: ", bufint2[500]);
+
+	// write overflow index is allowed
+
+	bufint1[3024] = 10;
+	Genode::log("bufint1 +3024: ", bufint1[3024], " bufint2 +2000: ", bufint2[2000]);
+	bufint1[4024] = 10;
+	Genode::log("bufint1 +4024: ", bufint1[4024], " bufint2 +3000: ", bufint2[3000]);
+	bufint1[373751] = 10000;
+
+	// write outside allocated space is allowed, iff read is allowed
+
+	Genode::log("bufint1 +8184: ", bufint1[8184]);
+	bufint1[8184] = 10;
+
+	// Ooops,,, the available vaddr is not continuous
+	// 0x28000 is not readable/writable ,,,,,,
+}
+
+
+void Component::construct(Genode::Env &env)
+{	
+	Timer::Connection _timer(env);
+	static RPCplus::Main main(env, _timer);
+
+	Genode::Heap heap{env.ram(), env.rm()};
+
+	Genode::Attached_ram_dataspace* pagelist[100];
+	for (int i = 0; i < 100; ++i){
+		pagelist[i] = new(heap)Genode::Attached_ram_dataspace( env.ram(), env.rm(), 4096);
+	}
+
+	for (int i = 0; i < 100; ++i) {
+		Genode::log("pagelist [", i, "] at addr: ", pagelist[i]);
+		Genode::log(pagelist[i]->cap());
+	}
+	
+	Genode::log(sizeof(Genode::Attached_ram_dataspace));
+	for (int i = 0; i < 100; ++i) {
+		heap.free(pagelist[i], sizeof(Genode::Attached_ram_dataspace));
 	}
 }

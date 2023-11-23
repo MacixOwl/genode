@@ -77,6 +77,19 @@ void Component::construct(Genode::Env &env)
 	contents[0] = 'q';
 	Genode::log("contents[0] is ", contents[0]);
 
+	Genode::Ram_dataspace_capability page_0 = rpc.capfrom_pagelist(0);
+	Genode::log("page_cap in client is ", page_0);
+	Genode::Ram_dataspace_capability page_1 = rpc.capfrom_pagelist(1);
+	Genode::addr_t pages = 0x66000000;
+	env.rm().attach_at(page_0, pages);
+	env.rm().attach_at(page_1, pages + 4096);
+	int* pageint = (int*) pages;
+	pageint[1] = 7;
+	pageint[2000] = 7;
+	Genode::log("page contents: ", pageint[0], " ", pageint[1], " ", pageint[2000]);
+	pageint[2047] = 7;
+
+
 	Genode::Milliseconds time_end = _timer.curr_time().trunc_to_plain_ms();
 	Genode::log("Client test end at ", time_end);
 

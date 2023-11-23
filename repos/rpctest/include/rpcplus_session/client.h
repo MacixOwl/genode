@@ -98,6 +98,11 @@ struct RPCplus::Session_client : Genode::Rpc_client<Session>
 		return call<Rpc_free>(ret);
 	}
 
+	Genode::Ram_dataspace_capability capfrom_pagelist(int i) override 
+	{
+		return call<Rpc_capfrom_pagelist>(i);
+	}
+
 };
 
 #endif /* _INCLUDE__RPCPLUS_SESSION_H__CLIENT_H_ */

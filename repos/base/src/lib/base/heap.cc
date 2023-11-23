@@ -82,7 +82,7 @@ Heap::_allocate_dataspace(size_t size, bool enforce_separate_metadata)
 {
 	using Result = Alloc_ds_result;
 
-	// Genode::log("In Heap, _allocate_dataspace is called: ", size);
+	Genode::log("In Heap, _allocate_dataspace is called: ", size);
 
 	return _ds_pool.ram_alloc->try_alloc(size).convert<Result>(
 
@@ -211,6 +211,8 @@ Allocator::Alloc_result Heap::_unsynchronized_alloc(size_t size)
 
 	Alloc_ds_result result = Alloc_error::DENIED;
 
+	// Genode::log("dataspace_size: ", dataspace_size, "; request_size: ", request_size);
+
 	if (dataspace_size < request_size) {
 
 		result = _allocate_dataspace(request_size, false);
@@ -249,6 +251,8 @@ Allocator::Alloc_result Heap::try_alloc(size_t size)
 	/* check requested allocation against quota limit */
 	if (size + _quota_used > _quota_limit)
 		return Alloc_error::DENIED;
+	
+	// Genode::log("satisfied _quota_limit: ", _quota_limit);
 
 	return _unsynchronized_alloc(size);
 }

@@ -45,6 +45,7 @@ struct RPCplus::Session : Genode::Session
 	virtual Genode::Ram_dataspace_capability memorycap() = 0;
 	virtual RPCplus::AllocRet allocate(genode_uint64_t lens) = 0;
 	virtual int free(RPCplus::AllocRet ret) = 0;
+	virtual Genode::Ram_dataspace_capability capfrom_pagelist(int i) = 0;
 
 	/*******************
 	 ** RPC interface **
@@ -57,8 +58,10 @@ struct RPCplus::Session : Genode::Session
 	GENODE_RPC(Rpc_memorycap, Genode::Ram_dataspace_capability, memorycap);	
 	GENODE_RPC(Rpc_allocate, RPCplus::AllocRet, allocate, genode_uint64_t);
 	GENODE_RPC(Rpc_free, int, free, RPCplus::AllocRet);
+	GENODE_RPC(Rpc_capfrom_pagelist, Genode::Ram_dataspace_capability, 
+				capfrom_pagelist, int);
 	GENODE_RPC_INTERFACE(Rpc_say_hello, Rpc_add, Rpc_dataspace, Rpc_send2server, 
-						Rpc_memorycap, Rpc_allocate, Rpc_free);
+						Rpc_memorycap, Rpc_allocate, Rpc_free, Rpc_capfrom_pagelist);
 };
 
 struct RPCplus::AllocRet
