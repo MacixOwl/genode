@@ -82,7 +82,7 @@ Heap::_allocate_dataspace(size_t size, bool enforce_separate_metadata)
 {
 	using Result = Alloc_ds_result;
 
-	Genode::log("In Heap, _allocate_dataspace is called: ", size);
+	// Genode::log("In Heap, _allocate_dataspace is called: ", size);
 
 	return _ds_pool.ram_alloc->try_alloc(size).convert<Result>(
 

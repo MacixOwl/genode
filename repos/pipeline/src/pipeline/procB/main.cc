@@ -1,0 +1,168 @@
+/*
+ * \brief  Main program of the Hello server
+ * \author zhenlin
+ * \date   2024-04-12
+ */
+
+/*
+ * Copyright (C) 2008-2017 Genode Labs GmbH
+ *
+ * This file is part of the Genode OS framework, which is distributed
+ * under the terms of the GNU Affero General Public License version 3.
+ */
+
+#include <base/component.h>
+#include <base/log.h>
+#include <base/heap.h>
+#include <root/component.h>
+#include <rpc_session/rpc_session.h>
+#include <base/rpc_server.h>
+#include <rpc_session/connection.h>
+
+namespace Pipeline {
+	struct Session_component;
+	struct Root_component;
+	struct Main;
+}
+
+volatile int queued_callnum = 0;
+volatile int callnum_count = 0;
+const int qbuffer_cpcty = 1 << 8;
+
+struct Pipeline_Thread : Genode::Thread
+{
+	int _thread_id;
+	Pipeline::Connection2C call2C;
+
+	Pipeline_Thread(Genode::Env &env, int thread_id)
+	:	Genode::Thread(env, "Pipeline_Thread", 16*1024),
+		_thread_id(thread_id),
+		call2C(env)
+	{
+		start(); 
+	}
+
+	void entry() override
+	{
+		Genode::log("thread ", _thread_id);
+		int tmp;
+		while (true){
+			if (queued_callnum > 0) {
+				// Genode::log("queued call to funcC0");
+				call2C.funcC0();
+				tmp = queued_callnum - 1;
+				queued_callnum = tmp;
+				tmp = callnum_count + 1;
+				callnum_count = tmp;
+			}
+		}
+	}
+};
+
+
+struct Pipeline::Session_component : Genode::Rpc_object<SessionB>
+{	
+	Pipeline::Connection2C call2C;
+	Pipeline_Thread call_worker;
+
+	Session_component(Genode::Env &env)
+	:	call2C(env),
+		call_worker(env, 17)
+	{ }
+
+	void say_hello() override {
+		Genode::log("I am here... Hello."); 
+		call2C.say_hello(); 
+		int const sum = call2C.add(2, 5);
+		Genode::log("added 2 + 5 = ", sum);
+	}
+
+	int add(int a, int b) override {
+		return a + b;
+	}
+
+	int funcB0() override {
+		return 0;
+	}
+
+	int funcC0() override {
+		return call2C.funcC0();
+	}
+
+	int funcC0_usync() override {
+		int tmp = queued_callnum + 1;
+		queued_callnum = tmp;
+		if (queued_callnum >= qbuffer_cpcty * 2){
+			// Genode::log("queue full"); 
+			while(queued_callnum > qbuffer_cpcty / 2){}
+		}
+		return 0;
+	}
+
+	Genode::uint64_t getcallnum() override {
+		int tmp;
+		while(queued_callnum > 0) {
+			tmp = queued_callnum;
+			if (tmp == 0) break;
+		}
+		return callnum_count;
+	}
+
+};
+
+
+class Pipeline::Root_component
+:
+	public Genode::Root_component<Session_component>
+{
+	private:
+		Genode::Env &env;
+	
+	protected:
+
+		Session_component *_create_session(const char *) override
+		{
+			Genode::log("creating session");
+			return new (md_alloc()) Session_component(env);
+		}
+
+	public:
+
+		Root_component(Genode::Env &env,
+					Genode::Entrypoint &ep,
+		            Genode::Allocator &alloc) 
+		:	Genode::Root_component<Session_component>(ep, alloc),
+			env(env) 
+		{
+			Genode::log("creating root component");
+		}
+};
+
+
+struct Pipeline::Main
+{
+	Genode::Env &env;
+
+	/*
+	 * A sliced heap is used for allocating session objects - thereby we
+	 * can release objects separately.
+	 */
+	Genode::Sliced_heap sliced_heap { env.ram(), env.rm() };
+
+	Pipeline::Root_component root {env, env.ep(), sliced_heap };
+
+	Main(Genode::Env &env) : env(env) 
+	{
+		/*
+		 * Create a RPC object capability for the root interface and
+		 * announce the service to our parent.
+		 */
+		env.parent().announce(env.ep().manage(root));
+	}
+};
+
+
+void Component::construct(Genode::Env &env)
+{
+	static Pipeline::Main main(env);
+}
