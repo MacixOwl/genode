@@ -18,6 +18,7 @@
 #include <rpc_session/rpc_session.h>
 #include <base/rpc_server.h>
 #include <rpc_session/connection.h>
+#include <cpu/atomic.h>
 
 namespace Pipeline {
 	struct Session_component;
@@ -46,12 +47,16 @@ struct Pipeline_Thread : Genode::Thread
 	{
 		Genode::log("thread ", _thread_id);
 		int tmp;
+		int res;
 		while (true){
 			if (queued_callnum > 0) {
 				// Genode::log("queued call to funcC0");
 				call2C.funcC0();
-				tmp = queued_callnum - 1;
-				queued_callnum = tmp;
+				res = 0;
+				while (!res){
+					tmp = queued_callnum - 1;
+					res = Genode::cmpxchg(&queued_callnum, tmp + 1, tmp);
+				}
 				tmp = callnum_count + 1;
 				callnum_count = tmp;
 			}
@@ -90,8 +95,12 @@ struct Pipeline::Session_component : Genode::Rpc_object<SessionB>
 	}
 
 	int funcC0_usync() override {
-		int tmp = queued_callnum + 1;
-		queued_callnum = tmp;
+		int res = 0;
+		int tmp;
+		while (!res){
+			tmp = queued_callnum + 1;
+			res = Genode::cmpxchg(&queued_callnum, tmp - 1, tmp);
+		}
 		if (queued_callnum >= qbuffer_cpcty * 2){
 			// Genode::log("queue full"); 
 			while(queued_callnum > qbuffer_cpcty / 2){}
