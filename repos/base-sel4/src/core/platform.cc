@@ -59,8 +59,8 @@ extern unsigned _prog_img_beg, _prog_img_end;
 
 bool Mapped_mem_allocator::_map_local(addr_t virt_addr, addr_t phys_addr, size_t size)
 {
-	if (platform_in_construction)
-		warning("need physical memory, but Platform object not constructed yet");
+	// if (platform_in_construction)
+	// 	warning("need physical memory, but Platform object not constructed yet");
 
 	size_t const num_pages = size / get_page_size();
 

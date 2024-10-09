@@ -1,0 +1,52 @@
+#
+# Build
+#
+
+build { core init memory apps/test1 apps/test2 }
+
+create_boot_directory
+
+#
+# Generate config
+#
+
+install_config {
+<config>
+	<parent-provides>
+		<service name="LOG"/>
+		<service name="PD"/>
+		<service name="CPU"/>
+		<service name="ROM"/>
+	</parent-provides>
+
+	<default-route>
+		<any-service> <parent/> <any-child/> </any-service>
+	</default-route>
+
+	<default caps="200"/>
+
+	<start name="memory_server">
+		<resource name="RAM" quantum="1200M"/>
+		<provides> <service name="MtsysMemory"/> </provides>
+	</start>
+
+    <start name="testapp1">
+        <resource name="RAM" quantum="1M"/>
+	</start>
+
+	<start name="testapp2">
+        <resource name="RAM" quantum="1M"/>
+	</start>
+	
+</config>}
+
+#
+# Boot image
+#
+
+build_boot_image { core ld.lib.so init memory_server testapp1 testapp2 }
+
+append qemu_args " -nographic "
+
+run_genode_until forever
+# run_genode_until "testapp completed.*\n" 300
