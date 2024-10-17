@@ -2,7 +2,7 @@
 # Build
 #
 
-build { core init memory apps/test1 apps/test2 }
+build { core init timer memory kv apps/test1 apps/test2 }
 
 create_boot_directory
 
@@ -17,6 +17,8 @@ install_config {
 		<service name="PD"/>
 		<service name="CPU"/>
 		<service name="ROM"/>
+		<service name="IRQ"/>
+		<service name="IO_PORT"/>
 	</parent-provides>
 
 	<default-route>
@@ -25,9 +27,19 @@ install_config {
 
 	<default caps="200"/>
 
+	<start name="timer">
+		<resource name="RAM" quantum="1M"/>
+		<provides> <service name="Timer"/> </provides>
+	</start>
+
 	<start name="memory_server">
 		<resource name="RAM" quantum="1200M"/>
 		<provides> <service name="MtsysMemory"/> </provides>
+	</start>
+
+	<start name="kv_server">
+		<resource name="RAM" quantum="1M"/>
+		<provides> <service name="MtsysKv"/> </provides>
 	</start>
 
     <start name="testapp1">
@@ -44,7 +56,7 @@ install_config {
 # Boot image
 #
 
-build_boot_image { core ld.lib.so init memory_server testapp1 testapp2 }
+build_boot_image { core ld.lib.so init timer memory_server kv_server testapp1 testapp2 }
 
 append qemu_args " -nographic "
 

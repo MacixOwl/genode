@@ -4,11 +4,14 @@
 #include <base/heap.h>
 #include <root/component.h>
 #include <base/rpc_server.h>
+#include <dataspace/capability.h>
+#include <dataspace/client.h>
+#include <base/attached_ram_dataspace.h>
 
-#include <memory/memory_session.h>
-#include <kv/kv_connection.h>
+#include <kv/kv_session.h>
+#include <memory/memory_connection.h>
 
-namespace MtsysMemory {
+namespace MtsysKv {
 	struct Component_state;
 	struct Session_component;
 	struct Root_component;
@@ -16,35 +19,26 @@ namespace MtsysMemory {
 }
 
 
-struct MtsysMemory::Component_state
+struct MtsysKv::Component_state
 {
-	genode_uint64_t address_base;
-	genode_uint64_t address_end;
-	genode_uint64_t address_free;
-	genode_uint64_t address_used;
+	Genode::Ram_dataspace_capability ds_cap;
 
-	Component_state(genode_uint64_t base, genode_uint64_t end, 
-		genode_uint64_t free, genode_uint64_t used)
-	: address_base(base), 
-	address_end(end), 
-	address_free(free), 
-	address_used(used)
-	{ }
+	Component_state(Genode::Env &env)
+	: ds_cap()
+	{
+        ds_cap = env.ram().alloc(0x1000);
+    }
 };
 
 
-struct MtsysMemory::Session_component : Genode::Rpc_object<Session>
+struct MtsysKv::Session_component : Genode::Rpc_object<Session>
 {	
 	int client_id;
 	Component_state &state;
 
-	void Memory_hello() override {
-		Genode::log("Hi, Mtsys Memory server for client ", client_id); 
-	}
-
-	genode_uint64_t query_free_space () override{
-		state.address_free -= 0x1000;
-		return state.address_free;
+	void Kv_hello() override {
+		Genode::log("Hi, Mtsys Kv server for client ", client_id); 
+        Genode::log("Kv init dataspace cap: ", state.ds_cap);
 	}
 
 	Session_component(int id, Component_state &s) 
@@ -55,7 +49,7 @@ struct MtsysMemory::Session_component : Genode::Rpc_object<Session>
 };
 
 
-class MtsysMemory::Root_component
+class MtsysKv::Root_component
 :
 	public Genode::Root_component<Session_component>
 {	
@@ -67,7 +61,7 @@ class MtsysMemory::Root_component
 
 		Session_component *_create_session(const char *) override
 		{
-			Genode::log("Creating MtsysMemory session");
+			Genode::log("Creating MtsysKv session");
 			int new_client_id = -1;
 			for (int i = 0; i < max_client; i++) {
 				if (client_used[i] == 0) {
@@ -85,13 +79,14 @@ class MtsysMemory::Root_component
 	public:
 
 		Root_component(Genode::Entrypoint &ep,
-		               Genode::Allocator &alloc)
+		               Genode::Allocator &alloc, 
+                       Genode::Env &env)
 		:
 			Genode::Root_component<Session_component>(ep, alloc),
-			stat(0x400000000, 0xfffffffff, 0xc00000000, 0),
+			stat(env),
 			client_used()
 		{
-			Genode::log("Creating MtsysMemory root component");
+			Genode::log("Creating MtsysKv root component");
 			for (int i = 0; i < max_client; i++) {
 				client_used[i] = 0;
 			}
@@ -99,7 +94,7 @@ class MtsysMemory::Root_component
 };
 
 
-struct MtsysMemory::Main
+struct MtsysKv::Main
 {
 	Genode::Env &env;
 
@@ -109,22 +104,26 @@ struct MtsysMemory::Main
 	 */
 	Genode::Sliced_heap sliced_heap { env.ram(), env.rm() };
 
-	MtsysMemory::Root_component root { env.ep(), sliced_heap };
+	MtsysKv::Root_component root { env.ep(), sliced_heap, env };
 
-	Main(Genode::Env &env) : env(env)
+	Main(Genode::Env &env) 
+    : 
+    env(env)
 	{
 		/*
 		 * Create a RPC object capability for the root interface and
 		 * announce the service to our parent.
 		 */
 		env.parent().announce(env.ep().manage(root));
-		Genode::log("MtsysMemory service is ready");
+        Genode::log("MtsysKv service is ready");
 	}
 };
 
 
 void Component::construct(Genode::Env &env)
 {
-	static MtsysMemory::Main main(env);
-	
+	static MtsysKv::Main main(env);
+
+    MtsysMemory::Connection mem_obj(env);
+    mem_obj.Memory_hello();
 }
