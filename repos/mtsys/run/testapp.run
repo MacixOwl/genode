@@ -2,7 +2,7 @@
 # Build
 #
 
-build { core init timer memory kv apps/test1 apps/test2 }
+build { core init timer pivot memory kv apps/test1 apps/test2 }
 
 create_boot_directory
 
@@ -42,6 +42,11 @@ install_config {
 		<provides> <service name="MtsysKv"/> </provides>
 	</start>
 
+	<start name="mtsys_pivot">
+		<resource name="RAM" quantum="4M"/>
+		<provides> <service name="MtsysPivot"/> </provides>
+	</start>
+
     <start name="testapp1">
         <resource name="RAM" quantum="1M"/>
 	</start>
@@ -56,7 +61,7 @@ install_config {
 # Boot image
 #
 
-build_boot_image { core ld.lib.so init timer memory_server kv_server testapp1 testapp2 }
+build_boot_image { core ld.lib.so init mtsys_pivot timer memory_server kv_server testapp1 testapp2 }
 
 append qemu_args " -nographic "
 
