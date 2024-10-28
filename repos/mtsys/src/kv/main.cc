@@ -54,22 +54,28 @@ class MtsysKv::Root_component
 	public Genode::Root_component<Session_component>
 {	
 	private:
-		const static int max_client = 64;
+		const static int MAX_CLIENT = 64;
 		Component_state stat;
-		int client_used[max_client];
+		int client_used[MAX_CLIENT] = { 0 };
+		int next_client_id = 0;
 	protected:
 
 		Session_component *_create_session(const char *) override
 		{
 			Genode::log("Creating MtsysKv session");
 			int new_client_id = -1;
-			for (int i = 0; i < max_client; i++) {
-				if (client_used[i] == 0) {
-					client_used[i] = 1;
-					new_client_id = i;
+
+			// find unused client slot
+			for (int offset = 0; offset < MAX_CLIENT; offset++) {
+				auto new_id = (next_client_id + offset) % MAX_CLIENT;
+				if (client_used[new_id] == 0) {
+					client_used[new_id] = 1;
+					new_client_id = new_id;
+					next_client_id = (new_id + 1) % MAX_CLIENT;
 					break;
 				}
 			}
+			
 			if (new_client_id == -1) {
 				Genode::log("[[ERROR]]No more clients can be created");	
 			}
@@ -87,9 +93,6 @@ class MtsysKv::Root_component
 			client_used()
 		{
 			Genode::log("Creating MtsysKv root component");
-			for (int i = 0; i < max_client; i++) {
-				client_used[i] = 0;
-			}
 		}
 };
 
