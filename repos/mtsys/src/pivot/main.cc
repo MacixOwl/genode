@@ -7,6 +7,7 @@
 #include <dataspace/capability.h>
 #include <dataspace/client.h>
 #include <base/attached_ram_dataspace.h>
+#include <timer_session/connection.h>
 
 #include <pivot/pivot_session.h>
 
@@ -25,8 +26,20 @@ struct MtsysPivot::Component_state
     int pivot_ipc_service2service[MAX_SERVICE][MAX_SERVICE];
     int lockstate;
 
+	Genode::Env &env;
+	Timer::Connection timer;
+
+	void update_ipc_stats(Genode::Duration) {
+		Genode::log("Updating IPC stats");
+	}
+
+	Timer::Periodic_timeout<MtsysPivot::Component_state> timeout;
+
 	Component_state(Genode::Env &env)
-	: lockstate(0)
+	: lockstate(0),
+	env(env),
+	timer(env),
+	timeout(timer, *this, &Component_state::update_ipc_stats, Genode::Microseconds{500 * 1000})
     {
         for (int i = 0; i < MAX_USERAPP; i++) {
             pivot_appid_used[i] = 0;

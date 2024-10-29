@@ -30,7 +30,10 @@ namespace {
 	{
 		Env &_env;
 
-		void _handle() { _env.parent().heartbeat_response(); }
+		void _handle() { 
+			_env.parent().heartbeat_response(); 
+			// Genode::log("Heartbeat response");
+		}
 
 		Io_signal_handler<Heartbeat_handler> _handler {
 			_env.ep(), *this, &Heartbeat_handler::_handle };

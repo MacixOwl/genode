@@ -2,7 +2,8 @@
 # Build
 #
 
-build { core init timer pivot memory kv apps/test1 apps/test2 }
+build { core init timer pivot 
+	memory kv apps/test1 apps/test2 }
 
 create_boot_directory
 
@@ -12,6 +13,11 @@ create_boot_directory
 
 install_config {
 <config>
+
+	<default-route>
+		<any-service> <parent/> <any-child/> </any-service>
+	</default-route>
+
 	<parent-provides>
 		<service name="LOG"/>
 		<service name="PD"/>
@@ -20,10 +26,6 @@ install_config {
 		<service name="IRQ"/>
 		<service name="IO_PORT"/>
 	</parent-provides>
-
-	<default-route>
-		<any-service> <parent/> <any-child/> </any-service>
-	</default-route>
 
 	<default caps="200"/>
 
@@ -61,7 +63,8 @@ install_config {
 # Boot image
 #
 
-build_boot_image { core ld.lib.so init mtsys_pivot timer memory_server kv_server testapp1 testapp2 }
+build_boot_image { core ld.lib.so init mtsys_pivot timer 
+	memory_server kv_server testapp1 testapp2 }
 
 append qemu_args " -nographic "
 
