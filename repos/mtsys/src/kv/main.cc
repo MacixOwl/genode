@@ -8,6 +8,7 @@
 #include <dataspace/client.h>
 #include <base/attached_ram_dataspace.h>
 
+#include <pivot/pivot_session.h>
 #include <kv/kv_session.h>
 #include <memory/memory_connection.h>
 
@@ -16,17 +17,32 @@ namespace MtsysKv {
 	struct Session_component;
 	struct Root_component;
 	struct Main;
-}
+} 
 
 
 struct MtsysKv::Component_state
 {
 	Genode::Ram_dataspace_capability ds_cap;
+	int cid_in4service[MAX_SERVICE] = { 0 };
+	int ipc_count[MAX_USERAPP] = { 0 };
+
+	Genode::Env &env;
+	MtsysMemory::Connection mem_obj;
 
 	Component_state(Genode::Env &env)
-	: ds_cap()
-	{
-        ds_cap = env.ram().alloc(0x1000);
+	: ds_cap(),
+	cid_in4service(),
+	ipc_count(),
+	env(env),
+	mem_obj(env)
+	{	
+		// get cids in services for later use
+		int cid_mem = mem_obj.Memory_hello();
+		Genode::log("Memory service cid: ", cid_mem);
+		cid_in4service[SID_MEMORY_SERVICE] = cid_mem;
+		// fake implementation for now
+		if (!ds_cap.valid())
+        	ds_cap = env.ram().alloc(0x1000);
     }
 };
 
@@ -36,9 +52,33 @@ struct MtsysKv::Session_component : Genode::Rpc_object<Session>
 	int client_id;
 	Component_state &state;
 
-	void Kv_hello() override {
+
+	int Kv_hello() override {
 		Genode::log("Hi, Mtsys Kv server for client ", client_id); 
         Genode::log("Kv init dataspace cap: ", state.ds_cap);
+		return client_id;
+	}
+
+	MtsysKv::cid_4service get_cid_4services() override {
+		Genode::log("Getting cids for services");
+		MtsysKv::cid_4service cids;
+		cids.cid_4memory = state.cid_in4service[SID_MEMORY_SERVICE];
+		cids.cid_fake = 777;
+		return cids;
+	}
+
+	void null_function() override {
+		// we need update ipc count here
+		state.ipc_count[client_id]++;
+		return;
+	}
+
+	int get_IPC_stats(int client_id) override {
+		// note that caller can get IPC stats for any client
+		int count = state.ipc_count[client_id];
+		state.ipc_count[client_id] = 0;
+		// Genode::log("Getting IPC stats for client ", client_id, " count ", count);
+		return count;
 	}
 
 	Session_component(int id, Component_state &s) 
@@ -54,9 +94,8 @@ class MtsysKv::Root_component
 	public Genode::Root_component<Session_component>
 {	
 	private:
-		const static int MAX_CLIENT = 64;
 		Component_state stat;
-		int client_used[MAX_CLIENT] = { 0 };
+		int client_used[MAX_USERAPP] = { 0 };
 		int next_client_id = 0;
 	protected:
 
@@ -66,18 +105,19 @@ class MtsysKv::Root_component
 			int new_client_id = -1;
 
 			// find unused client slot
-			for (int offset = 0; offset < MAX_CLIENT; offset++) {
-				auto new_id = (next_client_id + offset) % MAX_CLIENT;
+			for (int offset = 0; offset < MAX_USERAPP; offset++) {
+				auto new_id = (next_client_id + offset) % MAX_USERAPP;
 				if (client_used[new_id] == 0) {
 					client_used[new_id] = 1;
 					new_client_id = new_id;
-					next_client_id = (new_id + 1) % MAX_CLIENT;
+					next_client_id = (new_id + 1) % MAX_USERAPP;
 					break;
 				}
 			}
 			
 			if (new_client_id == -1) {
 				Genode::log("[[ERROR]]No more clients can be created");	
+				return nullptr;
 			}
 			return new (md_alloc()) Session_component(new_client_id, stat);
 		}
@@ -127,6 +167,4 @@ void Component::construct(Genode::Env &env)
 {
 	static MtsysKv::Main main(env);
 
-    MtsysMemory::Connection mem_obj(env);
-    mem_obj.Memory_hello();
 }

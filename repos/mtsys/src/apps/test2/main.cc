@@ -20,5 +20,8 @@ void Component::construct(Genode::Env &env)
 
 	kv_obj.Kv_hello();
 
+	for (int i = 0; i < 100000; i++) {
+		kv_obj.null_function();
+	}
 	Genode::log("testapp completed");
 }

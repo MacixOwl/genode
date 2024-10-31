@@ -13,6 +13,28 @@ static const int MAX_SERVICE = 10;
 static const int MAX_COMPSVC = (1 << MAX_SERVICE);
 static const int MAX_USERAPP = 64;
 
+enum SERVICE_VIRTUAL_ID {
+	SID_MEMORY_SERVICE = 0,
+	SID_KV_SERVICE = 1,
+	SID_BLOCK_SERVICE = 2,
+	SID_FS_SERVICE = 3
+};
+
+inline const char *id2_service_name(int service)
+{
+	switch (service) {
+		case SID_MEMORY_SERVICE: return "Memory";
+		case SID_KV_SERVICE: return "KV";
+		case SID_BLOCK_SERVICE: return "Block";
+		case SID_FS_SERVICE: return "FS";
+		default: return "Unknown";
+	}
+}
+
+inline int compsvc_id(int id1, int id2)
+{
+	return (1 << id1) | (1 << id2);
+}
 
 struct MtsysPivot::Session : Genode::Session
 {

@@ -5,6 +5,7 @@
 #include <root/component.h>
 #include <base/rpc_server.h>
 
+#include <pivot/pivot_session.h>
 #include <memory/memory_session.h>
 #include <kv/kv_connection.h>
 
@@ -23,12 +24,17 @@ struct MtsysMemory::Component_state
 	genode_uint64_t address_free;
 	genode_uint64_t address_used;
 
+	int memory_ipc_fAPP[MAX_USERAPP] = { 0 };
+	int memory_ipc_fSERVICE[MAX_SERVICE] = { 0 };
+
 	Component_state(genode_uint64_t base, genode_uint64_t end, 
 		genode_uint64_t free, genode_uint64_t used)
 	: address_base(base), 
 	address_end(end), 
 	address_free(free), 
-	address_used(used)
+	address_used(used),
+	memory_ipc_fAPP(),
+	memory_ipc_fSERVICE()
 	{ }
 };
 
@@ -38,11 +44,15 @@ struct MtsysMemory::Session_component : Genode::Rpc_object<Session>
 	int client_id;
 	Component_state &state;
 
-	void Memory_hello() override {
-		Genode::log("Hi, Mtsys Memory server for client ", client_id); 
+	int Memory_hello() override {
+		Genode::log("Hi, Mtsys Memory server for client ", client_id);
+		return client_id;
 	}
 
 	genode_uint64_t query_free_space () override{
+		// change ipc stats 
+		state.memory_ipc_fAPP[client_id]++;
+		// a fake implementation now
 		state.address_free -= 0x1000;
 		return state.address_free;
 	}
@@ -60,9 +70,8 @@ class MtsysMemory::Root_component
 	public Genode::Root_component<Session_component>
 {	
 	private:
-		const static int MAX_CLIENT = 64;
 		Component_state stat;
-		int client_used[MAX_CLIENT] = { 0 };
+		int client_used[MAX_USERAPP] = { 0 };
 		int next_client_id = 0;
 	protected:
 
@@ -72,18 +81,19 @@ class MtsysMemory::Root_component
 			int new_client_id = -1;
 
 			// find unused client slot
-			for (int offset = 0; offset < MAX_CLIENT; offset++) {
-				auto new_id = (next_client_id + offset) % MAX_CLIENT;
+			for (int offset = 0; offset < MAX_USERAPP; offset++) {
+				auto new_id = (next_client_id + offset) % MAX_USERAPP;
 				if (client_used[new_id] == 0) {
 					client_used[new_id] = 1;
 					new_client_id = new_id;
-					next_client_id = (new_id + 1) % MAX_CLIENT;
+					next_client_id = (new_id + 1) % MAX_USERAPP;
 					break;
 				}
 			}
 
 			if (new_client_id == -1) {
 				Genode::log("[[ERROR]]No more clients can be created");	
+				return nullptr;
 			}
 			return new (md_alloc()) Session_component(new_client_id, stat);
 		}

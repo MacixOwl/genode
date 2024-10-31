@@ -14,11 +14,12 @@ struct MtsysMemory::Session_client : Genode::Rpc_client<Session>
 	Session_client(Genode::Capability<Session> cap)
 	: Genode::Rpc_client<Session>(cap) { }
 
-	void Memory_hello() override
+	int Memory_hello() override
 	{
 		// Genode::log("issue RPC for saying hello");
-		call<Rpc_Memory_hello>();
+		int r = call<Rpc_Memory_hello>();
 		// Genode::log("returned from 'say_hello' RPC call");
+		return r;
 	}
 
 	genode_uint64_t query_free_space() override

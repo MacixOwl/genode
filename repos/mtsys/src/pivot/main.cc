@@ -8,8 +8,11 @@
 #include <dataspace/client.h>
 #include <base/attached_ram_dataspace.h>
 #include <timer_session/connection.h>
+#include <cpu/atomic.h>
 
 #include <pivot/pivot_session.h>
+#include <memory/memory_connection.h>
+#include <kv/kv_connection.h>
 
 namespace MtsysPivot {
 	struct Component_state;
@@ -19,39 +22,109 @@ namespace MtsysPivot {
 }
 
 
+const int IPC_UPDATE_INTERVAL = 500; // update period in ms
+const double IPC_STATS_FADEOUT = 0.8; // in which rate the IPC stats fade out 
+
+
 struct MtsysPivot::Component_state
-{
-    int pivot_appid_used[MAX_USERAPP];
+{	
+	int cid_service2service[MAX_SERVICE][MAX_SERVICE];
+    int pivot_appid_used[MAX_USERAPP] = { 0 };
     int pivot_ipc_app2comp[MAX_USERAPP][MAX_COMPSVC];
     int pivot_ipc_service2service[MAX_SERVICE][MAX_SERVICE];
-    int lockstate;
+
+    volatile int lock_state;
+	volatile int service_main_id[MAX_SERVICE] = { 0 };
 
 	Genode::Env &env;
 	Timer::Connection timer;
 
-	void update_ipc_stats(Genode::Duration) {
-		Genode::log("Updating IPC stats");
-	}
+	MtsysMemory::Connection mem_obj;
+	MtsysKv::Connection kv_obj;
 
 	Timer::Periodic_timeout<MtsysPivot::Component_state> timeout;
 
+	int transform_service_main(int service_id, int* comp_ids, int num){
+		int a = (1 << service_id);
+		for (int i = 0; i < num; i++) {
+			a |= (1 << comp_ids[i]);
+		}
+		int res = 0;
+		while (!res){
+			res = Genode::cmpxchg(&lock_state, 0, 1);
+		} 
+		service_main_id[service_id] = a;
+		res = Genode::cmpxchg(&lock_state, 1, 0);
+		return (!res);
+	}
+
+	void update_ipc_stats(Genode::Duration) {
+		Genode::log("Updating IPC stats");
+		// first transform the service main id
+		int comp_ids[3] = {SID_MEMORY_SERVICE, SID_KV_SERVICE, SID_BLOCK_SERVICE};
+		// fake transform for an example
+		transform_service_main(SID_KV_SERVICE, nullptr, 0);
+
+		int comp_id = 0;
+		for (int i = 0; i < MAX_USERAPP; i++) {
+			for (int j = 0; j < MAX_SERVICE; j++) {
+				comp_id = service_main_id[j];
+				pivot_ipc_app2comp[i][comp_id] = 
+					(int)((double)(pivot_ipc_app2comp[i][comp_id]) * IPC_STATS_FADEOUT);
+				pivot_ipc_service2service[j][j] = 
+					(int)((double)(pivot_ipc_service2service[j][j]) * IPC_STATS_FADEOUT);
+			}
+		}
+		// update kv service ipc stats
+		int kv_comp_id = service_main_id[SID_KV_SERVICE];
+		// Genode::log("KV service main id: ", kv_comp_id);
+		for (int i = 0; i < 5; i++) {
+			int new_ipc = kv_obj.get_IPC_stats(i);
+			pivot_ipc_app2comp[i][kv_comp_id] += new_ipc;
+		}
+		// log them for now
+		Genode::log("IPC stats for Kv service: ", pivot_ipc_app2comp[0][kv_comp_id], 
+			" ", pivot_ipc_app2comp[1][kv_comp_id], " ", pivot_ipc_app2comp[2][kv_comp_id], 
+			" ", pivot_ipc_app2comp[3][kv_comp_id], " ", pivot_ipc_app2comp[4][kv_comp_id]);
+
+		return;
+	}
+
 	Component_state(Genode::Env &env)
-	: lockstate(0),
+	: lock_state(0),
 	env(env),
 	timer(env),
-	timeout(timer, *this, &Component_state::update_ipc_stats, Genode::Microseconds{500 * 1000})
+	mem_obj(env),
+	kv_obj(env),
+	timeout(timer, *this, &Component_state::update_ipc_stats, 
+		Genode::Microseconds{IPC_UPDATE_INTERVAL * 1000})
     {
-        for (int i = 0; i < MAX_USERAPP; i++) {
+        for (int i = 0; i < MAX_SERVICE; i++) {
+			for (int j = 0; j < MAX_SERVICE; j++) { 
+				cid_service2service[i][j] = 0;
+			}
+		}
+		for (int i = 0; i < MAX_USERAPP; i++) {
             pivot_appid_used[i] = 0;
             for (int j = 0; j < MAX_COMPSVC; j++) {
                 pivot_ipc_app2comp[i][j] = 0;
             }
         }
         for (int i = 0; i < MAX_SERVICE; i++) {
-            for (int j = 0; j < MAX_SERVICE; j++) {
+            for (int j = 0; j < MAX_SERVICE; j++) { 
                 pivot_ipc_service2service[i][j] = 0;
             }
         }
+
+		// init the cid service2service table
+		MtsysKv::cid_4service cids = kv_obj.get_cid_4services();
+		Genode::log("KV service cids: ", cids.cid_4memory, " ", cids.cid_fake);	
+		cid_service2service[SID_MEMORY_SERVICE][SID_KV_SERVICE] = cids.cid_4memory;
+
+		// transform all service main ids to itself
+		for (int i = 0; i < MAX_SERVICE; i++) {
+			transform_service_main(i, nullptr, 0);
+		}
     }
 };
 
@@ -63,7 +136,7 @@ struct MtsysPivot::Session_component : Genode::Rpc_object<Session>
 
 	void Pivot_hello() override {
 		Genode::log("Hi, Mtsys Pivot for client ", client_id); 
-        Genode::log("Pivot init lockstate: ", state.lockstate);
+        Genode::log("Pivot init lock state: ", state.lock_state);
 	}
 
     int Pivot_App_getid() override {
@@ -89,7 +162,7 @@ class MtsysPivot::Root_component
 {	
 	private:
 		Component_state stat;
-		int client_used[MAX_USERAPP];
+		int client_used[MAX_USERAPP] = { 0 };
 	protected:
 
 		Session_component *_create_session(const char *) override
@@ -103,10 +176,11 @@ class MtsysPivot::Root_component
 					break;
 				}
 			}
-            stat.pivot_appid_used[new_client_id] = 1;
 			if (new_client_id == -1) {
-				Genode::log("[[ERROR]]No more apps can be created");	
+				Genode::log("[[ERROR]]No more apps can be created");
+				return nullptr;
 			}
+            stat.pivot_appid_used[new_client_id] = 1;
 			return new (md_alloc()) Session_component(new_client_id, stat);
 		}
 
