@@ -88,6 +88,23 @@ class MtsysMemory::Root_component
 			return new (md_alloc()) Session_component(new_client_id, stat);
 		}
 
+
+		virtual void _destroy_session(Session_component* session) override {
+			// we should free client id here
+			auto& cid = session->client_id;
+
+			if (cid < 0 || cid >= MAX_CLIENT || !client_used[cid]) {
+				Genode::log("[Critical] _destroy_session: Bad client id: %d\n", cid);
+				goto END;
+			}
+
+			client_used[cid] = 0;
+
+END:
+			// call super method
+			Genode::Root_component<Session_component>::_destroy_session(session);
+		}
+
 	public:
 
 		Root_component(Genode::Entrypoint &ep,
