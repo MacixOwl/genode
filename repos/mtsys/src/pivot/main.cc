@@ -28,10 +28,10 @@ const double IPC_STATS_FADEOUT = 0.8; // in which rate the IPC stats fade out
 
 struct MtsysPivot::Component_state
 {	
-	int cid_service2service[MAX_SERVICE][MAX_SERVICE];
+	int cid_service2service[MAX_SERVICE][MAX_SERVICE] = { 0 };
     int pivot_appid_used[MAX_USERAPP] = { 0 };
-    int pivot_ipc_app2comp[MAX_USERAPP][MAX_COMPSVC];
-    int pivot_ipc_service2service[MAX_SERVICE][MAX_SERVICE];
+    int pivot_ipc_app2comp[MAX_USERAPP][MAX_COMPSVC] = { 0 };
+    int pivot_ipc_service2service[MAX_SERVICE][MAX_SERVICE] = { 0 };
 
     volatile int lock_state;
 	volatile int service_main_id[MAX_SERVICE] = { 0 };
@@ -99,23 +99,6 @@ struct MtsysPivot::Component_state
 	timeout(timer, *this, &Component_state::update_ipc_stats, 
 		Genode::Microseconds{IPC_UPDATE_INTERVAL * 1000})
     {
-        for (int i = 0; i < MAX_SERVICE; i++) {
-			for (int j = 0; j < MAX_SERVICE; j++) { 
-				cid_service2service[i][j] = 0;
-			}
-		}
-		for (int i = 0; i < MAX_USERAPP; i++) {
-            pivot_appid_used[i] = 0;
-            for (int j = 0; j < MAX_COMPSVC; j++) {
-                pivot_ipc_app2comp[i][j] = 0;
-            }
-        }
-        for (int i = 0; i < MAX_SERVICE; i++) {
-            for (int j = 0; j < MAX_SERVICE; j++) { 
-                pivot_ipc_service2service[i][j] = 0;
-            }
-        }
-
 		// init the cid service2service table
 		MtsysKv::cid_4service cids = kv_obj.get_cid_4services();
 		Genode::log("KV service cids: ", cids.cid_4memory, " ", cids.cid_fake);	
@@ -184,6 +167,23 @@ class MtsysPivot::Root_component
 			return new (md_alloc()) Session_component(new_client_id, stat);
 		}
 
+
+		virtual void _destroy_session(Session_component* session) override {
+			// we should free client id in client_used
+			auto& cid = session->client_id;
+
+			if (cid < 0 || cid >= MAX_USERAPP || !client_used[cid] || !stat.pivot_appid_used[cid]) {
+				Genode::log("[Critical] _destroy_session: Bad client id: %d\n", cid);
+				goto END;
+			}
+
+			client_used[cid] = stat.pivot_appid_used[cid] = 0;
+
+END:
+			// call super method
+			Genode::Root_component<Session_component>::_destroy_session(session);
+		}
+
 	public:
 
 		Root_component(Genode::Entrypoint &ep,
@@ -195,9 +195,6 @@ class MtsysPivot::Root_component
 			client_used()
 		{
 			Genode::log("Creating MtsysPivot root component");
-			for (int i = 0; i < MAX_USERAPP; i++) {
-				client_used[i] = 0;
-			}
 		}
 };
 
