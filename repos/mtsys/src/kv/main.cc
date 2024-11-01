@@ -128,7 +128,7 @@ class MtsysKv::Root_component
 			// we should free client id here
 			auto& cid = session->client_id;
 
-			if (cid < 0 || cid >= MAX_CLIENT || !client_used[cid]) {
+			if (cid < 0 || cid >= MAX_USERAPP || !client_used[cid]) {
 				Genode::log("[Critical] _destroy_session: Bad client id: %d\n", cid);
 				goto END;
 			}
