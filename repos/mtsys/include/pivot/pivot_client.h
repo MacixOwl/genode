@@ -26,6 +26,11 @@ struct MtsysPivot::Session_client : Genode::Rpc_client<Session>
         return call<Rpc_Pivot_App_getid>();
     }
 
+    MtsysPivot::Service_Main_Id Pivot_service_mainIDs() override
+    {
+        return call<Rpc_Pivot_service_mainIDs>();
+    }
+
     void Pivot_IPC_stats(int appid, int num) override
     {
         call<Rpc_Pivot_IPC_stats>(appid, num);

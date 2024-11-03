@@ -134,6 +134,7 @@ class MtsysKv::Root_component
 			}
 			
 			client_used[cid] = 0;
+			Genode::log("Destroying MtsysKv session for client ", cid);
 
 END:
 			// call super method

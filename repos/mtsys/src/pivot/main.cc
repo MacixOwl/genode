@@ -131,6 +131,15 @@ struct MtsysPivot::Session_component : Genode::Rpc_object<Session>
         state.pivot_ipc_app2comp[appid][num]++; // increment the IPC count
     }
 
+	MtsysPivot::Service_Main_Id Pivot_service_mainIDs() override {
+		Genode::log("Getting service main IDs");
+		MtsysPivot::Service_Main_Id ids;
+		for (int i = 0; i < MAX_SERVICE; i++) {
+			ids.id_array[i] = state.service_main_id[i];
+		}
+		return ids;
+	}
+
 	Session_component(int id, Component_state &s) 
 	: client_id(id),
 	state(s)

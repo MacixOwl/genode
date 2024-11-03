@@ -7,7 +7,10 @@
 #include <session/session.h>
 #include <base/rpc.h>
 
-namespace MtsysPivot { struct Session; }
+namespace MtsysPivot { 
+	struct Service_Main_Id;
+	struct Session; 
+}
 
 static const int MAX_SERVICE = 10;
 static const int MAX_COMPSVC = (1 << MAX_SERVICE);
@@ -19,6 +22,13 @@ enum SERVICE_VIRTUAL_ID {
 	SID_BLOCK_SERVICE = 2,
 	SID_FS_SERVICE = 3
 };
+
+struct MtsysPivot::Service_Main_Id
+{
+	int id_array[MAX_SERVICE] = { 0 };
+};
+
+
 
 inline const char *id2_service_name(int service)
 {
@@ -46,6 +56,8 @@ struct MtsysPivot::Session : Genode::Session
 
 	virtual int Pivot_App_getid() = 0;
 
+	virtual Service_Main_Id Pivot_service_mainIDs() = 0;
+
     virtual void Pivot_IPC_stats(int appid, int num) = 0;
 
 
@@ -55,9 +67,13 @@ struct MtsysPivot::Session : Genode::Session
 
 	GENODE_RPC(Rpc_Pivot_hello, void, Pivot_hello);
 	GENODE_RPC(Rpc_Pivot_App_getid, int, Pivot_App_getid);
+	GENODE_RPC(Rpc_Pivot_service_mainIDs, Service_Main_Id, Pivot_service_mainIDs);
     GENODE_RPC(Rpc_Pivot_IPC_stats, void, Pivot_IPC_stats, int, int);
 
-	GENODE_RPC_INTERFACE(Rpc_Pivot_hello, Rpc_Pivot_App_getid, Rpc_Pivot_IPC_stats);
+	GENODE_RPC_INTERFACE(Rpc_Pivot_hello, 
+						Rpc_Pivot_service_mainIDs,
+						Rpc_Pivot_App_getid, 
+						Rpc_Pivot_IPC_stats);
 };
 
 #endif /* _INCLUDE__PIVOT_SESSION_H_ */
