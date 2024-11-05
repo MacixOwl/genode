@@ -36,7 +36,7 @@ struct MtsysKv::Component_state
 	env(env),
 	mem_obj(env)
 	{	
-		// get cids in services for later use
+		// get cids in services for later use, filled manually for now
 		int cid_mem = mem_obj.Memory_hello();
 		Genode::log("Memory service cid: ", cid_mem);
 		cid_in4service[SID_MEMORY_SERVICE] = cid_mem;

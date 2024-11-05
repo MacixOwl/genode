@@ -16,7 +16,7 @@ void Component::construct(Genode::Env &env)
 	hub.Memory_hello();
 	Genode::log("free space: ", hub.query_free_space());
 
-	hub.timer_obj.usleep(100000);
+	hub.Time_usleep(100000);
 
 	hub.Kv_hello();
 

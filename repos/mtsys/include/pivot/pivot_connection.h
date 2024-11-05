@@ -57,6 +57,13 @@ struct MtsysPivot::ServiceHub{
 		}
 	}
 
+	// APIs from Timer
+	void Time_usleep(int usec) { timer_obj.usleep(usec); }
+	Genode::Milliseconds Time_now_ms() { 
+		return timer_obj.curr_time().trunc_to_plain_ms(); }
+	Genode::Microseconds Time_now_us() { 
+		return timer_obj.curr_time().trunc_to_plain_us(); }
+
 	// APIs from pivot
 	void Pivot_hello() {
 		pivot_obj.Pivot_hello(); 

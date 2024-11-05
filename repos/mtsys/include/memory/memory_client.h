@@ -14,6 +14,11 @@ struct MtsysMemory::Session_client : Genode::Rpc_client<Session>
 	Session_client(Genode::Capability<Session> cap)
 	: Genode::Rpc_client<Session>(cap) { }
 
+	int Transform_activation(int flag) override
+	{
+		return call<Rpc_Transform_activation>(flag);
+	}
+
 	int Memory_hello() override
 	{
 		// Genode::log("issue RPC for saying hello");

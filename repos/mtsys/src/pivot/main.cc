@@ -53,6 +53,20 @@ struct MtsysPivot::Component_state
 		while (!res){
 			res = Genode::cmpxchg(&lock_state, 0, 1);
 		} 
+
+		// notice the services to transform their activation status
+		switch (service_id) {
+			case SID_MEMORY_SERVICE:
+				if (a == 1) {
+					mem_obj.Transform_activation(1);
+				}
+				break;
+			case SID_KV_SERVICE:
+				break;
+			default:
+				break;
+		}
+
 		service_main_id[service_id] = a;
 		res = Genode::cmpxchg(&lock_state, 1, 0);
 		return (!res);
@@ -99,15 +113,16 @@ struct MtsysPivot::Component_state
 	timeout(timer, *this, &Component_state::update_ipc_stats, 
 		Genode::Microseconds{IPC_UPDATE_INTERVAL * 1000})
     {
+		// transform all service main ids to itself, must at first
+		for (int i = 0; i < MAX_SERVICE; i++) {
+			transform_service_main(i, nullptr, 0);
+		}
+		
 		// init the cid service2service table
 		MtsysKv::cid_4service cids = kv_obj.get_cid_4services();
 		Genode::log("KV service cids: ", cids.cid_4memory, " ", cids.cid_fake);	
 		cid_service2service[SID_MEMORY_SERVICE][SID_KV_SERVICE] = cids.cid_4memory;
 
-		// transform all service main ids to itself
-		for (int i = 0; i < MAX_SERVICE; i++) {
-			transform_service_main(i, nullptr, 0);
-		}
     }
 };
 

@@ -4,6 +4,7 @@
 #include <base/heap.h>
 #include <root/component.h>
 #include <base/rpc_server.h>
+#include <cpu/atomic.h>
 
 #include <pivot/pivot_session.h>
 #include <memory/memory_session.h>
@@ -24,6 +25,8 @@ struct MtsysMemory::Component_state
 	genode_uint64_t address_free;
 	genode_uint64_t address_used;
 
+	volatile int activated;
+
 	int memory_ipc_fAPP[MAX_USERAPP] = { 0 };
 	int memory_ipc_fSERVICE[MAX_SERVICE] = { 0 };
 
@@ -33,6 +36,7 @@ struct MtsysMemory::Component_state
 	address_end(end), 
 	address_free(free), 
 	address_used(used),
+	activated(1), // single-source services are activated by default
 	memory_ipc_fAPP(),
 	memory_ipc_fSERVICE()
 	{ }
@@ -44,12 +48,31 @@ struct MtsysMemory::Session_component : Genode::Rpc_object<Session>
 	int client_id;
 	Component_state &state;
 
+	int Transform_activation(int flag) override {
+		Genode::log("[INFO] Transform activation flag: ", flag);
+		int res = 0;
+		int original;
+		while (!res){
+			original = state.activated;
+			res = Genode::cmpxchg(&(state.activated), original, flag);
+		} 
+		return (!res);
+	}
+
 	int Memory_hello() override {
+		if (state.activated == 0) {
+			Genode::log("[INFO] Memory server not activated");
+			return -1;
+		}
 		Genode::log("Hi, Mtsys Memory server for client ", client_id);
 		return client_id;
 	}
 
 	genode_uint64_t query_free_space () override{
+		if (state.activated == 0) {
+			Genode::log("[INFO] Memory server not activated");
+			return -1;
+		}
 		// change ipc stats 
 		state.memory_ipc_fAPP[client_id]++;
 		// a fake implementation now
