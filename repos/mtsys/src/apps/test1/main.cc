@@ -20,10 +20,11 @@ void Component::construct(Genode::Env &env)
 
 	hub.Kv_hello();
 
-	hub.Kv_insert("qzl", "nice");
-	hub.Kv_insert("qzl", "great");
+	hub.Kv_insert("111", "aaa");
+	hub.Kv_insert("222", "ccc");
+	hub.Kv_insert("111", "bbb");
 
-	Genode::log(hub.Kv_read("qzl").string());
+	Genode::log(hub.Kv_read("111").string());
 
 	Genode::log("testapp completed");
 }

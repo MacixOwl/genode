@@ -7,8 +7,8 @@
 #include <base/exception.h>
 #include <base/allocator.h>
 
-#include "kv/TString/TString.h"
-#include "kv/TString/TStringAdv.h"
+#include <kv/TString/TString.h>
+#include <kv/TString/TStringAdv.h>
 using namespace std;
 
 
@@ -54,11 +54,11 @@ TString::TString(const int x)
 {
     if (x == 0) { // x == NULL
         len = 0;
-        content = NULL;
+        content = nullptr;
     }
     else {
         len = 0;
-        content = NULL;
+        content = nullptr;
     }
 }
 #endif

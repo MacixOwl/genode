@@ -11,8 +11,7 @@
 #include <pivot/pivot_session.h>
 #include <kv/kv_session.h>
 #include <memory/memory_connection.h>
-
-#include "./RedBlackTree.hpp"
+#include <kv/RedBlackTree.hpp>
 
 
 namespace MtsysKv {
