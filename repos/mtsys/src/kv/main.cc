@@ -12,6 +12,9 @@
 #include <kv/kv_session.h>
 #include <memory/memory_connection.h>
 
+#include "./RedBlackTree.hpp"
+
+
 namespace MtsysKv {
 	struct Component_state;
 	struct Session_component;
@@ -51,6 +54,7 @@ struct MtsysKv::Session_component : Genode::Rpc_object<Session>
 {	
 	int client_id;
 	Component_state &state;
+	RedBlackTree<KvRpcString, KvRpcString> rbtree;
 
 
 	int Kv_hello() override {
@@ -81,10 +85,53 @@ struct MtsysKv::Session_component : Genode::Rpc_object<Session>
 		return count;
 	}
 
-	Session_component(int id, Component_state &s) 
+
+
+	virtual int insert(const KvRpcString key, const KvRpcString value) override {
+		rbtree.setData(key, value);
+		return 0;
+	}
+
+
+	virtual int del(const KvRpcString key) override {
+		
+		if (rbtree.hasKey(key)) {
+			rbtree.removeKey(key);
+			return 0;
+		} else {
+			return 1;
+		}
+	}
+
+
+	virtual const KvRpcString read(const KvRpcString key) override {
+		return rbtree.hasKey(key) ? rbtree.getData(key) : KvRpcString {};
+	}
+
+
+	virtual int update(const KvRpcString key, const KvRpcString value) override {
+		return insert(key, value);
+	}
+
+	virtual int range_scan(
+		const KvRpcString leftBound, 
+		const KvRpcString rightBound, 
+		bool leftInclusive, 
+		bool rightInclusive
+	) override {
+
+		Genode::error("range_scan is unimplemented\n");
+		return -1;  // TODO: not implemented
+	}
+
+
+	Session_component(int id, Component_state &s, Genode::Allocator* allocator) 
 	: client_id(id),
-	state(s)
-	{ }
+		state(s),
+		rbtree(allocator)
+	{
+		
+	}
 
 };
 
@@ -119,7 +166,7 @@ class MtsysKv::Root_component
 				Genode::log("[[ERROR]]No more clients can be created");	
 				return nullptr;
 			}
-			return new (md_alloc()) Session_component(new_client_id, stat);
+			return new (md_alloc()) Session_component(new_client_id, stat, md_alloc());
 		}
 
 

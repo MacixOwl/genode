@@ -114,9 +114,41 @@ namespace Genode {
 	 __attribute((optimize("no-tree-loop-distribute-patterns")))
 	inline size_t strlen(const char *s)
 	{
-		size_t res = 0;
-		for (; s && *s; s++, res++);
-		return res;
+		// learnt from glibc
+
+		const char*& str = s;
+		const char* charPtr = str;
+		while (((long) charPtr & (sizeof(long) - 1)) != 0) {
+			if (*charPtr == '\0') {
+				return charPtr - str;
+			} else {
+				++charPtr;
+			}
+		}
+
+		const unsigned long* longPtr = (const unsigned long*) charPtr;
+
+		unsigned long highMagic = 0x80808080L;
+		unsigned long lowMagic = 0x01010101L;
+		if (sizeof(long) > 4) {
+			highMagic = ((highMagic << 16) << 16) | highMagic;
+			lowMagic = ((lowMagic << 16) << 16) | lowMagic;
+		}
+
+		while (true) {
+			const unsigned long& longWords = *longPtr++;
+			if (((longWords - lowMagic) & ~longWords & highMagic) != 0) {
+				auto prevLongPtr = longPtr - 1;
+				const char* p = (const char*) prevLongPtr;
+				while (p < ((const char*) prevLongPtr) + sizeof(long)) {
+					if (*p == '\0') {
+						return p - str;
+					} else {
+						++p;
+					}
+				}
+			}
+		}
 	}
 
 
@@ -134,6 +166,53 @@ namespace Genode {
 	{
 		for (; *s1 && *s1 == *s2 && len; s1++, s2++, len--) ;
 		return len ? *s1 - *s2 : 0;
+	}
+
+
+	inline char* strcpy(char* dest, const char* src) {
+		char* pDest = dest;
+		const char* pSrc = src;
+		while ((*pDest++ = *pSrc++) != '\0')
+			;
+
+		return dest;
+	}
+
+
+	inline int strncmp(const char* lhs, const char* rhs, size_t count) {
+		const char* pLhs = lhs;
+		const char* pRhs = rhs;
+
+		while (pLhs < lhs + count) {
+			if (*pLhs != *pRhs) {
+				return *(const unsigned char*) pLhs - *(const unsigned char*) pRhs;
+			} 
+			else if (*pLhs == '\0') {
+				return 0;
+			} 
+			else {
+				++pLhs;
+				++pRhs;
+			}
+		}
+
+		return 0;
+	}
+
+
+	inline char* strstr(const char* str, const char* substr) {
+		size_t lenOfSubstr = strlen(substr);
+		size_t lenOfStr = strlen(str);
+		const char* pStr = str;
+		while (lenOfSubstr + (pStr - str) <= lenOfStr) {
+			if (strncmp(pStr, substr, lenOfSubstr) == 0) {
+				return (char*) pStr;
+			} else {
+				++pStr;
+			}
+		}
+
+		return nullptr;
 	}
 
 

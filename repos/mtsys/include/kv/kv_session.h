@@ -1,13 +1,15 @@
 
-#ifndef _INCLUDE__KV_SESSION_H_
-#define _INCLUDE__KV_SESSION_H_
+#pragma once
 
 #include <session/session.h>
 #include <base/rpc.h>
+#include <util/array.h>
 
 namespace MtsysKv { 
 	struct Session; 
 	struct cid_4service;
+
+	using KvRpcString = Genode::String<32>;
 }
 
 struct MtsysKv::cid_4service
@@ -32,6 +34,21 @@ struct MtsysKv::Session : Genode::Session
 	virtual int get_IPC_stats(int client_id) = 0;
 
 
+	virtual int insert(const KvRpcString key, const KvRpcString value) = 0;
+	virtual int del(const KvRpcString key) = 0;
+	virtual const KvRpcString read(const KvRpcString key) = 0;
+	virtual int update(const KvRpcString key, const KvRpcString value) = 0;
+
+	// we believe GCC's NRV would optimize the return value for us..
+	virtual int range_scan(  // not supported now
+		const KvRpcString leftBound, 
+		const KvRpcString rightBound, 
+		bool leftInclusive, 
+		bool rightInclusive
+	) = 0;
+
+
+
 	/*******************
 	 ** RPC interface **
 	 *******************/
@@ -41,8 +58,24 @@ struct MtsysKv::Session : Genode::Session
 	GENODE_RPC(Rpc_null_function, void, null_function);
 	GENODE_RPC(Rpc_get_IPC_stats, int, get_IPC_stats, int);
 
-	GENODE_RPC_INTERFACE(Rpc_Kv_hello, Rpc_get_cid_4services,
-						Rpc_null_function, Rpc_get_IPC_stats);
+	GENODE_RPC(Rpc_insert, int, insert,const KvRpcString, const KvRpcString);
+	GENODE_RPC(Rpc_del, int, del, const KvRpcString);
+	GENODE_RPC(Rpc_read, const KvRpcString, read, const KvRpcString);
+	GENODE_RPC(Rpc_update, int, update, const KvRpcString, const KvRpcString);
+	GENODE_RPC(Rpc_range_scan, int, range_scan, const KvRpcString, const KvRpcString, bool, bool);
+
+	GENODE_RPC_INTERFACE(
+		Rpc_Kv_hello, 
+		Rpc_get_cid_4services,				
+		Rpc_null_function, 
+		Rpc_get_IPC_stats,
+
+		Rpc_insert,
+		Rpc_del,
+		Rpc_read,
+		Rpc_update,
+		Rpc_range_scan
+	);
 };
 
-#endif /* _INCLUDE__KV_SESSION_H_ */
+
