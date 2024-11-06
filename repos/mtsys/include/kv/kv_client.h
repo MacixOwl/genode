@@ -38,7 +38,37 @@ struct MtsysKv::Session_client : Genode::Rpc_client<Session>
 	{
 		return call<Rpc_get_IPC_stats>(client_id);
 	}
-	
+
+
+	virtual int insert(const KvRpcString key, const KvRpcString value) override {
+		return call<Rpc_insert>(key, value);
+	}
+
+
+	virtual int del(const KvRpcString key) override {
+		return call<Rpc_del>(key);
+	}
+
+
+	virtual const KvRpcString read(const KvRpcString key) override {
+		return call<Rpc_read>(key);
+	}
+
+
+	virtual int update(const KvRpcString key, const KvRpcString value) override {
+		return call<Rpc_update>(key, value);
+	}
+
+
+	virtual int range_scan(
+		const KvRpcString leftBound, 
+		const KvRpcString rightBound, 
+		bool leftInclusive, 
+		bool rightInclusive
+	) override {
+		return call<Rpc_range_scan>(leftBound, rightBound, leftInclusive, rightInclusive);
+	}
+
 
 };
 
