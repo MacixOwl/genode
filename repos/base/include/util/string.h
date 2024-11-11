@@ -912,6 +912,26 @@ class Genode::String
 			return strcmp(string(), other.string()) > 0;
 		}
 
+		template <size_t N>
+		bool operator >= (String<N> const &other) const
+		{
+			return strcmp(string(), other.string()) >= 0;
+		}
+
+
+		template <size_t N>
+		bool operator < (String<N> const &other) const
+		{
+			return strcmp(string(), other.string()) < 0;
+		}
+
+
+		template <size_t N>
+		bool operator <= (String<N> const &other) const
+		{
+			return strcmp(string(), other.string()) <= 0;
+		}
+
 		void print(Output &out) const { Genode::print(out, string()); }
 };
 

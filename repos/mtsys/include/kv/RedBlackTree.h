@@ -11,6 +11,8 @@
 
 #pragma once
 
+#include <base/stdint.h>
+
 namespace Genode {
 	class Allocator;
 	class Exception;
@@ -65,6 +67,23 @@ public:
 	 */
 	RedBlackTree<KeyType, DataType>& removeKey(const KeyType& key);
 
+	/**
+	 * Range scan. This method will search for keys inside [lhs, rhs],
+	 * and calls collector with data for each node discovered.
+	 * 
+	 * @param lhs inclusive
+	 * @param rhs inclusive
+	 * @param data to be passed to collector
+	 * @param collector 
+	 * @return How many elements collected.
+	 */
+	Genode::size_t rangeScan(
+		const KeyType& lhs, 
+		const KeyType& rhs, 
+		void* data,
+		bool (*collector) (void* data, const KeyType&, const DataType&)
+	);
+
 
 public:
 	struct RuntimeError : Genode::Exception {};
@@ -90,9 +109,22 @@ protected:
 	/**
 	 * Release one node with all of its children, recursively.
 	 * 
-	 * @param node 递归释放的第一个节点。
+	 * @param node first node to be released recursively
 	 */
 	void cleanup(Node* node);
+
+
+	/**
+	 * Non-locked version of range scan. Designed to be called by public rangeScan method.
+	 */
+	Genode::size_t doRangeScan(
+		const Node* node,
+		const KeyType& lhs, 
+		const KeyType& rhs, 
+		void* data,
+		bool (*collector) (void* data, const KeyType&, const DataType&)
+	);
+
 
 	/**
 	 * Rotate left.

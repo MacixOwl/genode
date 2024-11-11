@@ -8,9 +8,24 @@
 namespace MtsysKv { 
 	struct Session; 
 	struct cid_4service;
+	struct RPCDataPack;
 
 	using KvRpcString = Genode::String<32>;
 }
+
+
+struct MtsysKv::RPCDataPack {
+
+	struct {
+		Genode::size_t dataSize;
+	} header;
+
+	static const Genode::size_t HEADER_SIZE = sizeof(header);
+
+	Genode::int8_t data[0];
+	
+} __attribute__((__packed__));
+
 
 struct MtsysKv::cid_4service
 {
@@ -39,12 +54,9 @@ struct MtsysKv::Session : Genode::Session
 	virtual const KvRpcString read(const KvRpcString key) = 0;
 	virtual int update(const KvRpcString key, const KvRpcString value) = 0;
 
-	// we believe GCC's NRV would optimize the return value for us..
-	virtual int range_scan(  // not supported now
+	virtual Genode::Ram_dataspace_capability range_scan(
 		const KvRpcString leftBound, 
-		const KvRpcString rightBound, 
-		bool leftInclusive, 
-		bool rightInclusive
+		const KvRpcString rightBound
 	) = 0;
 
 
@@ -62,7 +74,8 @@ struct MtsysKv::Session : Genode::Session
 	GENODE_RPC(Rpc_del, int, del, const KvRpcString);
 	GENODE_RPC(Rpc_read, const KvRpcString, read, const KvRpcString);
 	GENODE_RPC(Rpc_update, int, update, const KvRpcString, const KvRpcString);
-	GENODE_RPC(Rpc_range_scan, int, range_scan, const KvRpcString, const KvRpcString, bool, bool);
+	GENODE_RPC(Rpc_range_scan, Genode::Ram_dataspace_capability, range_scan, const KvRpcString, const KvRpcString);
+
 
 	GENODE_RPC_INTERFACE(
 		Rpc_Kv_hello, 
