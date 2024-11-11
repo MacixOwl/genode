@@ -5,6 +5,7 @@
 #include <kv/kv_session.h>
 #include <base/rpc_client.h>
 #include <base/log.h>
+#include <base/stdint.h>
 
 namespace MtsysKv { struct Session_client; }
 
@@ -60,15 +61,12 @@ struct MtsysKv::Session_client : Genode::Rpc_client<Session>
 	}
 
 
-	virtual int range_scan(
+	virtual Genode::Ram_dataspace_capability range_scan(
 		const KvRpcString leftBound, 
-		const KvRpcString rightBound, 
-		bool leftInclusive, 
-		bool rightInclusive
+		const KvRpcString rightBound
 	) override {
-		return call<Rpc_range_scan>(leftBound, rightBound, leftInclusive, rightInclusive);
+		return call<Rpc_range_scan>(leftBound, rightBound);
 	}
-
 
 };
 

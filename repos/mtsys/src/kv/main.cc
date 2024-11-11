@@ -12,6 +12,7 @@
 #include <kv/kv_session.h>
 #include <memory/memory_connection.h>
 #include <kv/RedBlackTree.hpp>
+#include <kv/ArrayList.hpp>
 
 
 namespace MtsysKv {
@@ -31,12 +32,15 @@ struct MtsysKv::Component_state
 	Genode::Env &env;
 	MtsysMemory::Connection mem_obj;
 
-	Component_state(Genode::Env &env)
+	RedBlackTree<KvRpcString, KvRpcString> rbtree;
+
+	Component_state(Genode::Env &env, Genode::Allocator& alloc)
 	: ds_cap(),
 	cid_in4service(),
 	ipc_count(),
 	env(env),
-	mem_obj(env)
+	mem_obj(env),
+	rbtree(&alloc)
 	{	
 		// get cids in services for later use, filled manually for now
 		int cid_mem = mem_obj.Memory_hello();
@@ -53,7 +57,10 @@ struct MtsysKv::Session_component : Genode::Rpc_object<Session>
 {	
 	int client_id;
 	Component_state &state;
-	RedBlackTree<KvRpcString, KvRpcString> rbtree;
+	Genode::Env& env;
+	Genode::Allocator* allocator;
+
+	Genode::Attached_ram_dataspace rangeScanRamDataspace;
 
 
 	int Kv_hello() override {
@@ -87,15 +94,15 @@ struct MtsysKv::Session_component : Genode::Rpc_object<Session>
 
 
 	virtual int insert(const KvRpcString key, const KvRpcString value) override {
-		rbtree.setData(key, value);
+		state.rbtree.setData(key, value);
 		return 0;
 	}
 
 
 	virtual int del(const KvRpcString key) override {
 		
-		if (rbtree.hasKey(key)) {
-			rbtree.removeKey(key);
+		if (state.rbtree.hasKey(key)) {
+			state.rbtree.removeKey(key);
 			return 0;
 		} else {
 			return 1;
@@ -104,7 +111,7 @@ struct MtsysKv::Session_component : Genode::Rpc_object<Session>
 
 
 	virtual const KvRpcString read(const KvRpcString key) override {
-		return rbtree.hasKey(key) ? rbtree.getData(key) : KvRpcString {};
+		return state.rbtree.hasKey(key) ? state.rbtree.getData(key) : KvRpcString {};
 	}
 
 
@@ -112,22 +119,53 @@ struct MtsysKv::Session_component : Genode::Rpc_object<Session>
 		return insert(key, value);
 	}
 
-	virtual int range_scan(
+	virtual Genode::Ram_dataspace_capability range_scan(
 		const KvRpcString leftBound, 
-		const KvRpcString rightBound, 
-		bool leftInclusive, 
-		bool rightInclusive
+		const KvRpcString rightBound
 	) override {
+		
+		struct {
+			ArrayList<KvRpcString> list;
+		} scanData = {
+			.list {*allocator}
+		};
 
-		Genode::error("range_scan is unimplemented\n");
-		return -1;  // TODO: not implemented
+		const auto& collect = [] (void* untypedData, const KvRpcString& k, const KvRpcString& v) {
+
+			auto& data = *reinterpret_cast< decltype(scanData)* >(untypedData);
+			
+			data.list.append(k);
+			data.list.append(v);
+
+			return true;
+		};
+
+		state.rbtree.rangeScan(leftBound, rightBound, &scanData, collect);
+
+		Genode::size_t dataSize = sizeof(scanData.list[0]) * scanData.list.size();
+		Genode::size_t dataPackSize = RPCDataPack::HEADER_SIZE + dataSize;
+		rangeScanRamDataspace.realloc(&env.ram(), dataPackSize);
+
+		if (rangeScanRamDataspace.size() < dataPackSize) {
+			Genode::error("Failed to alloc memory for range scan result!");
+			throw -1;  // TODO: should solve this more gracefully.
+		}
+
+		auto pDataPack = rangeScanRamDataspace.local_addr<RPCDataPack>();
+		pDataPack->header.dataSize = dataSize;
+
+		Genode::memcpy(pDataPack->data, scanData.list.data(), dataSize);
+
+		return rangeScanRamDataspace.cap();
 	}
 
 
-	Session_component(int id, Component_state &s, Genode::Allocator* allocator) 
+	Session_component(int id, Component_state &s, Genode::Allocator* allocator, Genode::Env& env) 
 	: client_id(id),
 		state(s),
-		rbtree(allocator)
+		env(env),
+		rangeScanRamDataspace(env.ram(), env.rm(), 0),
+		allocator(allocator)
 	{
 		
 	}
@@ -143,6 +181,7 @@ class MtsysKv::Root_component
 		Component_state stat;
 		int client_used[MAX_USERAPP] = { 0 };
 		int next_client_id = 0;
+		Genode::Env& env;
 	protected:
 
 		Session_component *_create_session(const char *) override
@@ -165,7 +204,7 @@ class MtsysKv::Root_component
 				Genode::log("[[ERROR]]No more clients can be created");	
 				return nullptr;
 			}
-			return new (md_alloc()) Session_component(new_client_id, stat, md_alloc());
+			return new (md_alloc()) Session_component(new_client_id, stat, md_alloc(), env);
 		}
 
 
@@ -194,7 +233,8 @@ END:
                        Genode::Env &env)
 		:
 			Genode::Root_component<Session_component>(ep, alloc),
-			stat(env),
+			stat(env, alloc),
+			env(env),
 			client_used()
 		{
 			Genode::log("Creating MtsysKv root component");

@@ -35,6 +35,8 @@ struct MtsysPivot::ServiceHub {
 	Timer::Connection timer_obj;
 	MtsysPivot::Connection pivot_obj;
 
+	Genode::Sliced_heap sliced_heap { env.ram(), env.rm() };
+
 	int service_main_id_cache[MAX_SERVICE] = { 0 };
 	int main_id_cache_dirty = 1;
 	MtsysMemory::Connection mem_obj;
@@ -134,13 +136,34 @@ struct MtsysPivot::ServiceHub {
 	}
 
 
-	int Kv_range_scan(
+	/**
+	 * The caller is responsible for freeing the memory 
+	 * received from this structure by simply calling
+	 * `Kv_recycle_rpc_datapack`.
+	 */
+	MtsysKv::RPCDataPack* Kv_range_scan(
 		const MtsysKv::KvRpcString leftBound, 
-		const MtsysKv::KvRpcString rightBound, 
-		bool leftInclusive, 
-		bool rightInclusive
+		const MtsysKv::KvRpcString rightBound
 	) {
-		return kv_obj.range_scan(leftBound, rightBound, leftInclusive, rightInclusive);
+		auto ds = kv_obj.range_scan(leftBound, rightBound);
+		
+		Genode::addr_t tmpAddr = 0x7000;  // TODO: really this address?
+		env.rm().attach_at(ds, tmpAddr);
+
+		auto pTmpData = (MtsysKv::RPCDataPack*) tmpAddr;
+
+		Genode::size_t dataPackSize = pTmpData->header.dataSize + pTmpData->HEADER_SIZE;
+		auto data = (MtsysKv::RPCDataPack*) sliced_heap.alloc(dataPackSize);
+		Genode::memcpy(data, pTmpData, dataPackSize);
+
+		env.rm().detach(tmpAddr);
+
+		return data;
+	}
+
+	
+	void Kv_recycle_rpc_datapack(MtsysKv::RPCDataPack* dataPack) {
+		sliced_heap.free(dataPack, dataPack->HEADER_SIZE + dataPack->header.dataSize);
 	}
 
 

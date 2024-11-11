@@ -614,6 +614,23 @@ RedBlackTree<KeyType, DataType>& RedBlackTree<KeyType, DataType>::removeKey(
 
 
 template<typename KeyType, typename DataType>
+Genode::size_t RedBlackTree<KeyType, DataType>::rangeScan(
+    const KeyType& lhs, 
+    const KeyType& rhs, 
+    void* data,
+    bool (*collector) (void* data, const KeyType&, const DataType&)
+) {
+    Genode::Mutex::Guard _g {this->mutex};
+    
+    if (this->root == nullptr)
+        return 0;
+        
+    return doRangeScan(this->root, lhs, rhs, data, collector);
+}
+
+
+
+template<typename KeyType, typename DataType>
 void RedBlackTree<KeyType, DataType>::cleanup(Node* node)
 {
     if (node->leftChild != nullptr) {
@@ -623,6 +640,36 @@ void RedBlackTree<KeyType, DataType>::cleanup(Node* node)
         cleanup(node->rightChild);
     }
     allocator->free(node, sizeof(Node));
+}
+
+
+template<typename KeyType, typename DataType>
+Genode::size_t RedBlackTree<KeyType, DataType>::doRangeScan(
+    const Node* node,
+    const KeyType& lhs, 
+    const KeyType& rhs, 
+    void* data,
+    bool (*collector) (void* data, const KeyType&, const DataType&)
+) {
+    Genode::size_t count = 0;
+
+    auto left = node->leftChild;
+    auto right = node->rightChild;
+
+    if (left && node->key >= lhs)
+        count += doRangeScan(left, lhs, rhs, data, collector);
+
+    if (node->key >= lhs && rhs >= node->key) {
+        count++;
+        if (collector) {
+            collector(data, node->key, node->data);
+        }
+    }
+
+    if (right && rhs >= node->key)
+        count += doRangeScan(right, lhs, rhs, data, collector);
+
+    return count;
 }
 
 
