@@ -88,7 +88,8 @@ public:
     }
 
     ~ArrayList() {
-        allocator->free(_data, _capacity * sizeof(_data[0])); // todo: should call destructor
+        if (_capacity)
+            allocator->free(_data, _capacity * sizeof(_data[0])); // todo: should call destructor
     }
 
     inline Genode::size_t size() {

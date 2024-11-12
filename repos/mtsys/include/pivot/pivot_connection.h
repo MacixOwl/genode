@@ -153,6 +153,7 @@ struct MtsysPivot::ServiceHub {
 		auto pTmpData = (MtsysKv::RPCDataPack*) tmpAddr;
 
 		Genode::size_t dataPackSize = pTmpData->header.dataSize + pTmpData->HEADER_SIZE;
+
 		auto data = (MtsysKv::RPCDataPack*) sliced_heap.alloc(dataPackSize);
 		Genode::memcpy(data, pTmpData, dataPackSize);
 

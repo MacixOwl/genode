@@ -142,13 +142,15 @@ struct MtsysKv::Session_component : Genode::Rpc_object<Session>
 
 		state.rbtree.rangeScan(leftBound, rightBound, &scanData, collect);
 
-		Genode::size_t dataSize = sizeof(scanData.list[0]) * scanData.list.size();
-		Genode::size_t dataPackSize = RPCDataPack::HEADER_SIZE + dataSize;
-		rangeScanRamDataspace.realloc(&env.ram(), dataPackSize);
+		// Genode::log("Range scan result: ", scanData.list.size(), " elements");
 
-		if (rangeScanRamDataspace.size() < dataPackSize) {
-			Genode::error("Failed to alloc memory for range scan result!");
-			throw -1;  // TODO: should solve this more gracefully.
+		Genode::size_t dataSize = sizeof(MtsysKv::KvRpcString) * scanData.list.size();
+		Genode::size_t dataPackSize = RPCDataPack::HEADER_SIZE + dataSize;
+		// rangeScanRamDataspace.realloc(&env.ram(), dataPackSize);
+
+		if (RANGE_SCAN_BUFFER < dataPackSize) {
+			Genode::error("Failed to copy range scan result at once!");
+			throw -1;  // TODO: should solve this with repeated copy
 		}
 
 		auto pDataPack = rangeScanRamDataspace.local_addr<RPCDataPack>();
@@ -164,7 +166,7 @@ struct MtsysKv::Session_component : Genode::Rpc_object<Session>
 	: client_id(id),
 		state(s),
 		env(env),
-		rangeScanRamDataspace(env.ram(), env.rm(), 0),
+		rangeScanRamDataspace(env.ram(), env.rm(), RANGE_SCAN_BUFFER),
 		allocator(allocator)
 	{
 		
