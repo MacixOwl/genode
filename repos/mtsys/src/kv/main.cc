@@ -63,6 +63,7 @@ struct MtsysKv::Session_component : Genode::Rpc_object<Session>
 	// this is a shared dataspace for range scan result
 	// which is pinned to the client at first call
 	Genode::Attached_ram_dataspace rangeScanRamDataspace;
+	ArrayList<KvRpcString> scanData;
 
 
 	int Kv_hello() override {
@@ -129,28 +130,22 @@ struct MtsysKv::Session_component : Genode::Rpc_object<Session>
 		const KvRpcString leftBound, 
 		const KvRpcString rightBound
 	) override {
-		
-		struct {
-			ArrayList<KvRpcString> list;
-		} scanData = {
-			.list {*allocator}
-		};
 
 		const auto& collect = [] (void* untypedData, const KvRpcString& k, const KvRpcString& v) {
 
 			auto& data = *reinterpret_cast< decltype(scanData)* >(untypedData);
 			
-			data.list.append(k);
-			data.list.append(v);
+			data.append(k);
+			data.append(v);
 
 			return true;
 		};
 
-		state.rbtree.rangeScan(leftBound, rightBound, &scanData, collect);
+		int count = state.rbtree.rangeScan(leftBound, rightBound, &scanData, collect);
 
-		// Genode::log("Range scan result: ", scanData.list.size(), " elements");
+		Genode::log("Range scan result: ", count, " elements");
 
-		Genode::size_t dataSize = sizeof(MtsysKv::KvRpcString) * scanData.list.size();
+		Genode::size_t dataSize = sizeof(MtsysKv::KvRpcString) * scanData.size();
 		Genode::size_t dataPackSize = RPCDataPack::HEADER_SIZE + dataSize;
 		// rangeScanRamDataspace.realloc(&env.ram(), dataPackSize);
 
@@ -162,7 +157,9 @@ struct MtsysKv::Session_component : Genode::Rpc_object<Session>
 		auto pDataPack = rangeScanRamDataspace.local_addr<RPCDataPack>();
 		pDataPack->header.dataSize = dataSize;
 
-		Genode::memcpy(pDataPack->data, scanData.list.data(), dataSize);
+		Genode::memcpy(pDataPack->data, scanData.data(), dataSize);
+
+		scanData.clear();
 
 		return 0;
 	}
@@ -172,8 +169,9 @@ struct MtsysKv::Session_component : Genode::Rpc_object<Session>
 	: client_id(id),
 		state(s),
 		env(env),
+		allocator(allocator),
 		rangeScanRamDataspace(env.ram(), env.rm(), RANGE_SCAN_BUFFER),
-		allocator(allocator)
+		scanData(*allocator)
 	{
 		
 	}

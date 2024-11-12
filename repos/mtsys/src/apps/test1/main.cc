@@ -25,8 +25,11 @@ static int runKvTest(MtsysPivot::ServiceHub& hub) {
 		hub.Kv_recycle_rpc_datapack(res);
 	}
 
-	auto res = hub.Kv_range_scan("aa", "bb");
-	hub.Kv_recycle_rpc_datapack(res);
+	auto res1 = hub.Kv_range_scan("p", "r");
+	hub.Kv_recycle_rpc_datapack(res1);
+
+	auto res2 = hub.Kv_range_scan("aa", "bb");
+	hub.Kv_recycle_rpc_datapack(res2);
 
 	auto r = hub.Kv_read("qzl");
 	Genode::log("read result: ", r);
