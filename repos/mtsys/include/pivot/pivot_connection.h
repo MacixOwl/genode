@@ -39,8 +39,12 @@ struct MtsysPivot::ServiceHub {
 
 	int service_main_id_cache[MAX_SERVICE] = { 0 };
 	int main_id_cache_dirty = 1;
+
 	MtsysMemory::Connection mem_obj;
+
 	MtsysKv::Connection kv_obj;
+	int kvrpc_dataspace_prepared = 0;
+	static const Genode::addr_t Kvrpc_Addr = 0x7000; // TODO: really this address?
 
 	ServiceHub(Genode::Env &env)
 	: env(env), 
@@ -50,6 +54,12 @@ struct MtsysPivot::ServiceHub {
 	mem_obj(env), 
 	kv_obj(env)
 	{ }
+
+	~ServiceHub() {
+		if (kvrpc_dataspace_prepared) {
+			env.rm().detach(Kvrpc_Addr);
+		}
+	}
 
 	void update_service_main_id_cache(){
 		if (main_id_cache_dirty){
@@ -145,20 +155,20 @@ struct MtsysPivot::ServiceHub {
 		const MtsysKv::KvRpcString leftBound, 
 		const MtsysKv::KvRpcString rightBound
 	) {
-		auto ds = kv_obj.range_scan(leftBound, rightBound);
-		
-		Genode::addr_t tmpAddr = 0x7000;  // TODO: really this address?
-		env.rm().attach_at(ds, tmpAddr);
+		if (!kvrpc_dataspace_prepared) {
+			auto ds = kv_obj.range_scan_prepare();
+			env.rm().attach_at(ds, Kvrpc_Addr);
+			kvrpc_dataspace_prepared = 1;
+		}
 
-		auto pTmpData = (MtsysKv::RPCDataPack*) tmpAddr;
+		kv_obj.range_scan(leftBound, rightBound);
+
+		auto pTmpData = (MtsysKv::RPCDataPack*)Kvrpc_Addr;
 
 		Genode::size_t dataPackSize = pTmpData->header.dataSize + pTmpData->HEADER_SIZE;
 
 		auto data = (MtsysKv::RPCDataPack*) sliced_heap.alloc(dataPackSize);
 		Genode::memcpy(data, pTmpData, dataPackSize);
-
-		env.rm().detach(tmpAddr);
-
 		return data;
 	}
 

@@ -59,9 +59,12 @@ struct MtsysKv::Session_client : Genode::Rpc_client<Session>
 	virtual int update(const KvRpcString key, const KvRpcString value) override {
 		return call<Rpc_update>(key, value);
 	}
+	
+	virtual Genode::Ram_dataspace_capability range_scan_prepare() override {
+		return call<Rpc_range_scan_prepare>();
+	}
 
-
-	virtual Genode::Ram_dataspace_capability range_scan(
+	virtual int range_scan(
 		const KvRpcString leftBound, 
 		const KvRpcString rightBound
 	) override {

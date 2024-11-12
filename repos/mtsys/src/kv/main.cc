@@ -60,6 +60,8 @@ struct MtsysKv::Session_component : Genode::Rpc_object<Session>
 	Genode::Env& env;
 	Genode::Allocator* allocator;
 
+	// this is a shared dataspace for range scan result
+	// which is pinned to the client at first call
 	Genode::Attached_ram_dataspace rangeScanRamDataspace;
 
 
@@ -119,7 +121,11 @@ struct MtsysKv::Session_component : Genode::Rpc_object<Session>
 		return insert(key, value);
 	}
 
-	virtual Genode::Ram_dataspace_capability range_scan(
+	virtual Genode::Ram_dataspace_capability range_scan_prepare() override {
+		return rangeScanRamDataspace.cap();
+	}
+
+	virtual int range_scan(
 		const KvRpcString leftBound, 
 		const KvRpcString rightBound
 	) override {
@@ -158,7 +164,7 @@ struct MtsysKv::Session_component : Genode::Rpc_object<Session>
 
 		Genode::memcpy(pDataPack->data, scanData.list.data(), dataSize);
 
-		return rangeScanRamDataspace.cap();
+		return 0;
 	}
 
 
