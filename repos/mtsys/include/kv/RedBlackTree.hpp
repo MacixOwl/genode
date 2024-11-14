@@ -14,7 +14,6 @@
 
 #include <base/allocator.h>
 #include <base/exception.h>
-#include <base/mutex.h>
 
 namespace MtsysKv {
 
@@ -35,7 +34,7 @@ RedBlackTree<KeyType, DataType>::~RedBlackTree()
 template<typename KeyType, typename DataType>
 void RedBlackTree<KeyType, DataType>::clear()
 {
-    Genode::Mutex::Guard _g{mutex};
+    WriteGuard _g {this};
     if (this->root != nullptr) {
         this->cleanup(this->root);
         this->root = nullptr;
@@ -46,44 +45,21 @@ void RedBlackTree<KeyType, DataType>::clear()
 template<typename KeyType, typename DataType>
 bool RedBlackTree<KeyType, DataType>::hasKey(const KeyType& queryKey)
 {
-    Genode::Mutex::Guard _g{mutex};
-
-
-    Node* currentNode = this->root;
-    
-    while (currentNode != nullptr) {
-        if (queryKey == currentNode->key) {
-            return true; // key found.
-        }
-        else if (currentNode->key > queryKey) {
-            currentNode = currentNode->leftChild; // target is less than curr. search from left.
-        }
-        else { // queryKey > currentNode->key
-            currentNode = currentNode->rightChild; // target is more than curr. search from right.
-        }
-    }
-
-    return false; // could not find key.
+    ReadGuard _g {this};
+    return !!locateNode(queryKey);
 }
 
 
 template<typename KeyType, typename DataType>
 DataType& RedBlackTree<KeyType, DataType>::getData(const KeyType& key)
 {
-    Genode::Mutex::Guard _g{mutex};
+    ReadGuard _g {this};
+    auto node = locateNode(key);
 
-    Node* currentNode = root;
-    while (currentNode != nullptr) {
-        if (key == currentNode->key) {
-            return currentNode->data; // key found
-        }
-        else if (currentNode->key > key) {
-            currentNode = currentNode->leftChild; // target is less than curr. search from left.
-        }
-        else { // key > currentNode->key
-            currentNode = currentNode->rightChild; // target is more than curr. search from right.
-        }
+    if (node) {
+        return node->data;  // Warning: Race condition here.
     }
+
 
 #if 0
     throw std::runtime_error("could not find your key in the object."); // key not found.
@@ -95,13 +71,31 @@ DataType& RedBlackTree<KeyType, DataType>::getData(const KeyType& key)
 
 
 template<typename KeyType, typename DataType>
+DataType RedBlackTree<KeyType, DataType>::copyData(const KeyType& key, const DataType* fallback) {
+    ReadGuard _g {this};
+    auto node = locateNode(key);
+    
+    if (node) {
+        return node->data;
+    } else if (fallback) {
+        return *fallback;
+    }
+
+#if 0
+    throw std::runtime_error("could not find your key in the object."); // key not found.
+#else
+    throw RuntimeError {};
+#endif
+}
+
+
+template<typename KeyType, typename DataType>
 RedBlackTree<KeyType, DataType>& RedBlackTree<KeyType, DataType>::setData(
     const KeyType& key, 
     const DataType& data
 )
 {
-
-    Genode::Mutex::Guard _g{mutex};
+    WriteGuard _g {this};
 
 
     Node* currentNode = root;
@@ -163,7 +157,7 @@ RedBlackTree<KeyType, DataType>& RedBlackTree<KeyType, DataType>::removeKey(
     const KeyType& key
 )
 {
-    Genode::Mutex::Guard _g{mutex};
+    WriteGuard _g {this};
 
     
     Node* currentNode = root;
@@ -620,12 +614,8 @@ Genode::size_t RedBlackTree<KeyType, DataType>::rangeScan(
     void* data,
     bool (*collector) (void* data, const KeyType&, const DataType&)
 ) {
-    Genode::Mutex::Guard _g {this->mutex};
-    
-    if (this->root == nullptr)
-        return 0;
-        
-    return doRangeScan(this->root, lhs, rhs, data, collector);
+    ReadGuard _g {this};
+    return this->root ? doRangeScan(this->root, lhs, rhs, data, collector) : 0;
 }
 
 
@@ -640,6 +630,25 @@ void RedBlackTree<KeyType, DataType>::cleanup(Node* node)
         cleanup(node->rightChild);
     }
     allocator->free(node, sizeof(Node));
+}
+
+
+template<typename KeyType, typename DataType>
+RedBlackTree<KeyType, DataType>::Node* RedBlackTree<KeyType, DataType>::locateNode(const KeyType& key) {
+    Node* currentNode = root;
+    while (currentNode != nullptr) {
+        if (key == currentNode->key) {
+            return currentNode; // key found
+        }
+        else if (currentNode->key > key) {
+            currentNode = currentNode->leftChild; // target is less than curr. search from left.
+        }
+        else { // key > currentNode->key
+            currentNode = currentNode->rightChild; // target is more than curr. search from right.
+        }
+    }
+
+    return nullptr;  // key not found.
 }
 
 
@@ -995,6 +1004,52 @@ void RedBlackTree<KeyType, DataType>::rebalanceChildren(Node* node)
         } 
     }
 }
+
+
+template<typename KeyType, typename DataType>
+void RedBlackTree<KeyType, DataType>::lock(LockType lockType) {
+
+    locking.access.down();
+    
+    if (lockType == LockType::READ) {
+
+        Genode::Mutex::Guard _g { locking.mutex };
+    
+        if (locking.readerCount++ == 0) {
+            locking.write.down();
+        }
+        
+        locking.access.up();
+    
+    } else {  // lockType is WRITE
+
+        locking.write.down();
+
+    }
+}
+
+
+template<typename KeyType, typename DataType>
+void RedBlackTree<KeyType, DataType>::unlock(LockType lockType) {
+
+    if (lockType == LockType::READ) {
+
+        Genode::Mutex::Guard _g { locking.mutex };
+
+        if (--locking.readerCount == 0) {
+            locking.write.up();
+        }
+
+    } else {  // lockType is WRITE
+
+        locking.access.up();
+        locking.write.up();
+
+    }
+
+}
+
+
 
 
 }  // namespace MtsysKv
