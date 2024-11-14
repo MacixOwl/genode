@@ -12,6 +12,8 @@
 #pragma once
 
 #include <base/stdint.h>
+#include <base/semaphore.h>
+#include <base/mutex.h>
 
 namespace Genode {
 	class Allocator;
@@ -43,14 +45,19 @@ public:
 	 * 
 	 * @param queryKey
 	 */
-	bool hasKey(const KeyType& queryKey);
+	bool hasKey(const KeyType&);
 
 	/**
-	 * Get data by key.
+	 * Get data (ref) by key.
 	 * 
 	 * @param key 
 	 */
-	DataType& getData(const KeyType& key);
+	DataType& getData(const KeyType&);
+
+	/**
+	 * Get data (clone) by key.
+	 */
+	DataType copyData(const KeyType&, const DataType* fallback = nullptr);
 
 	/**
 	 * Set data. If data with same key already exists, it would be overwritten.
@@ -58,14 +65,14 @@ public:
 	 * @param key 
 	 * @param data 
 	 */
-	RedBlackTree<KeyType, DataType>& setData(const KeyType& key, const DataType& data);
+	RedBlackTree<KeyType, DataType>& setData(const KeyType&, const DataType&);
 
 	/**
 	 * Delete key.
 	 * 
 	 * @param key
 	 */
-	RedBlackTree<KeyType, DataType>& removeKey(const KeyType& key);
+	RedBlackTree<KeyType, DataType>& removeKey(const KeyType&);
 
 	/**
 	 * Range scan. This method will search for keys inside [lhs, rhs],
@@ -114,6 +121,9 @@ protected:
 	void cleanup(Node* node);
 
 
+	Node* locateNode(const KeyType&);
+
+
 	/**
 	 * Non-locked version of range scan. Designed to be called by public rangeScan method.
 	 */
@@ -158,6 +168,14 @@ protected:
 	 */
 	void rebalanceChildren(Node* node);
 
+
+	enum class LockType {
+		READ, WRITE
+	};
+
+	void lock(LockType);
+	void unlock(LockType);
+
 protected:
 	/**
 	 * Root node.
@@ -165,7 +183,34 @@ protected:
 	Node* root = nullptr;
 
 	Genode::Allocator* allocator = nullptr;
-	Genode::Mutex mutex;
+
+
+	/**
+	 * Locking for multi-thread access.
+	 */
+	struct {
+		Genode::Mutex mutex;
+
+		int readerCount = 0;
+
+		Genode::Semaphore access {1};
+		Genode::Semaphore write {1};  
+	} locking;
+
+
+	struct ReadGuard {
+		RedBlackTree<KeyType, DataType>* tree;
+		ReadGuard(RedBlackTree<KeyType, DataType>* t) : tree(t) { tree->lock(LockType::READ); }
+		~ReadGuard() { tree->unlock(LockType::READ); }
+	};
+
+
+	struct WriteGuard {
+		RedBlackTree<KeyType, DataType>* tree;
+		WriteGuard(RedBlackTree<KeyType, DataType>* t) : tree(t) { tree->lock(LockType::WRITE); }
+		~WriteGuard() { tree->unlock(LockType::WRITE); }
+	};
+	
 
 };
 
