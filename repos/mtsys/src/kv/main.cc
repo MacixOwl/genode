@@ -188,6 +188,8 @@ class MtsysKv::Root_component
 		int client_used[MAX_USERAPP] = { 0 };
 		int next_client_id = 0;
 		Genode::Env& env;
+		Genode::Heap heap;
+
 	protected:
 
 		Session_component *_create_session(const char *) override
@@ -210,7 +212,7 @@ class MtsysKv::Root_component
 				Genode::log("[[ERROR]]No more clients can be created");	
 				return nullptr;
 			}
-			return new (md_alloc()) Session_component(new_client_id, stat, md_alloc(), env);
+			return new (md_alloc()) Session_component(new_client_id, stat, &heap, env);
 		}
 
 
@@ -241,7 +243,8 @@ END:
 			Genode::Root_component<Session_component>(ep, alloc),
 			stat(env, alloc),
 			env(env),
-			client_used()
+			client_used(),
+			heap(env.ram(), env.rm())
 		{
 			Genode::log("Creating MtsysKv root component");
 		}
