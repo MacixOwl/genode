@@ -3,15 +3,11 @@
 
 #pragma once
 
-namespace Genode {
-    class Allocator;
-}
+#include "./Allocator.h"
 
+namespace adl {
 
-namespace MtsysKv {
-
-extern Genode::Allocator* tstring_alloc;
-
+static const int INT_MAX = (1 << 31) - 1;
 
 class TString {
 protected:
@@ -78,7 +74,9 @@ public:
     bool operator <= (const TString& str) const;
     bool operator <= (const char* str) const;
 
-
+    TString substr(const int pos, const int len = INT_MAX) const;
+    char& at(const int n);
+    const char& at(const int n) const;
 
     char& operator[] (int i);
     const char& operator[] (int i) const;

@@ -21,9 +21,11 @@
 
 #include <base/stdint.h>
 #include <base/allocator.h>
-#include <util/string.h>
+#include "../string.h"
+#include "../config.h"
+#include "../stdint.h"
 
-namespace MtsysKv {
+namespace adl {
 
 
 template<typename DataType>
@@ -31,12 +33,12 @@ class ArrayListIterator {
     typedef ArrayListIterator Self;
 
 protected:
-    Genode::size_t size;
-    Genode::size_t curr;
+    size_t size;
+    size_t curr;
     DataType* data;
 
 public:
-    ArrayListIterator(DataType* data, Genode::size_t size, Genode::size_t curr) {
+    ArrayListIterator(DataType* data, size_t size, size_t curr) {
         this->size = size;
         this->data = data;
         this->curr = curr;
@@ -73,14 +75,21 @@ template<typename DataType>
 class ArrayList {
 
 protected:
-    Genode::size_t _size = 0;
-    Genode::size_t _capacity = 0;
+    size_t _size = 0;
+    size_t _capacity = 0;
     DataType* _data = nullptr;
-    Genode::Allocator* allocator;
+    Allocator* allocator;
 
 public:
-    ArrayList(Genode::Allocator& allocator) {
+    ArrayList(Allocator& allocator = *defaultAllocator) {
         this->allocator = &allocator;
+        if (&allocator == nullptr) {
+            Genode::error("[CRITICAL] ArrayList's allocator is null!");
+            if (&allocator == defaultAllocator) {
+                Genode::error("> Using default allocator, but it is null.");
+            }
+            return;
+        }
     }
 
     void clear() {
@@ -92,11 +101,11 @@ public:
             allocator->free(_data, _capacity * sizeof(_data[0])); // todo: should call destructor
     }
 
-    inline Genode::size_t size() {
+    inline size_t size() {
         return this->_size;
     }
 
-    inline Genode::size_t capacity() {
+    inline size_t capacity() {
         return this->_capacity;
     }
 
@@ -108,7 +117,7 @@ public:
 
         if (_size == _capacity) {
             // alloc more memory
-            Genode::size_t newCapacity = _capacity;
+            size_t newCapacity = _capacity;
             if (newCapacity == 0) {
                 newCapacity = 16;
             } else {
@@ -120,7 +129,7 @@ public:
                 return 1; // error
             }
 
-            Genode::memcpy(newAddr, _data, _capacity * sizeof(DataType));
+            adl::memcpy(newAddr, _data, _capacity * sizeof(DataType));
 
             if (_capacity)
                 allocator->free(_data, _capacity * sizeof(DataType));
@@ -146,7 +155,7 @@ public:
         return * ( DataType* ) 0;
     }
 
-    DataType& operator [] (Genode::size_t idx) {
+    DataType& operator [] (size_t idx) {
         return _data[idx];
     }
 
@@ -162,4 +171,4 @@ public:
 };
 
 
-}  // namespace MtsysKv
+}  // namespace adl

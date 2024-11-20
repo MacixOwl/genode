@@ -3,18 +3,17 @@
 
 #define _CRT_SECURE_NO_WARNINGS
 
-#include <util/string.h>
 #include <base/exception.h>
-#include <base/allocator.h>
+#include <adl/Allocator.h>
 
-#include <kv/TString/TString.h>
-#include <kv/TString/TStringAdv.h>
+#include <adl/TString.h>
+#include <adl/string.h>
 using namespace std;
 
 
-namespace MtsysKv {
+namespace adl {
 
-Genode::Allocator* tstring_alloc = nullptr;
+adl::Allocator* tstring_alloc = nullptr;
 
 
 TString::TString()
@@ -136,19 +135,23 @@ TString& TString::operator=(const TString& str)
 
 TString& TString::operator=(const char* str)
 {
+    if (str == this->content) {
+        return *this;
+    }
+
     freeUp();
 
     if (str == nullptr || str[0] == '\0') {
         return *this;
     }
     else {
-        len = Genode::strlen(str);
+        len = strlen(str);
         content = new(tstring_alloc) char[len + 1];
         if (content == nullptr) {
             throw Genode::Exception{};
         }
 
-        Genode::strcpy(content, str);
+        strcpy(content, str);
         return *this;
     }
 }
@@ -675,6 +678,30 @@ bool TString::operator<=(const char* str) const
 }
 
 
+TString TString::substr(const int pos, const int len) const {
+    TString ret;
+
+    int targetIdx = pos - 1;
+    int targetLength = (len > this->len - targetIdx) ? this->len - targetIdx : len;
+
+    if (targetIdx < 0 || targetIdx >= this->len || len <= 0)
+    {
+        return ret;
+    }
+
+    ret.len = targetLength;
+    ret.content = new(tstring_alloc) char[targetLength + 1];
+    if (ret.content == nullptr) {    
+        throw Genode::Exception{};
+    }
+
+    Genode::memcpy(ret.content, this->content + targetIdx, targetLength);
+    ret.content[targetLength] = '\0';
+
+    return ret;
+}
+
+
 bool operator>(const char* strA, const TString& strB)
 {
     return strB < strA;
@@ -704,4 +731,4 @@ bool operator!=(const char* strA, const TString& strB)
 }
 
 
-}  // namespace MtsysKv
+}  // namespace adl

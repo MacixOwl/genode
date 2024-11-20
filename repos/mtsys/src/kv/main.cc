@@ -11,8 +11,8 @@
 #include <pivot/pivot_session.h>
 #include <kv/kv_session.h>
 #include <memory/memory_connection.h>
-#include <kv/RedBlackTree.hpp>
-#include <kv/ArrayList.hpp>
+#include <adl/collections/RedBlackTree.hpp>
+#include <adl/collections/ArrayList.hpp>
 
 
 namespace MtsysKv {
@@ -32,7 +32,7 @@ struct MtsysKv::Component_state
 	Genode::Env &env;
 	MtsysMemory::Connection mem_obj;
 
-	RedBlackTree<KvRpcString, KvRpcString> rbtree;
+	adl::RedBlackTree<KvRpcString, KvRpcString> rbtree;
 
 	Component_state(Genode::Env &env, Genode::Allocator& alloc)
 	: ds_cap(),
@@ -63,7 +63,7 @@ struct MtsysKv::Session_component : Genode::Rpc_object<Session>
 	// this is a shared dataspace for range scan result
 	// which is pinned to the client at first call
 	Genode::Attached_ram_dataspace rangeScanRamDataspace;
-	ArrayList<KvRpcString> scanData;
+	adl::ArrayList<KvRpcString> scanData;
 
 
 	int Kv_hello() override {
