@@ -7,6 +7,7 @@
 #include <pivot/pivot_client.h>
 #include <kv/kv_connection.h>
 #include <memory/memory_connection.h>
+#include <memory/local_allocator.h>
 
 #include <base/heap.h>
 
@@ -41,6 +42,7 @@ struct MtsysPivot::ServiceHub {
 	int main_id_cache_dirty = 1;
 
 	MtsysMemory::Connection mem_obj;
+	MtsysMemory::Local_allocator alloc_obj;
 
 	MtsysKv::Connection kv_obj;
 	int kvrpc_dataspace_prepared = 0;
@@ -52,6 +54,7 @@ struct MtsysPivot::ServiceHub {
 	pivot_obj(env),
 	service_main_id_cache(),
 	mem_obj(env), 
+	alloc_obj(env),
 	kv_obj(env)
 	{ }
 

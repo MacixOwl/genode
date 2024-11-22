@@ -6,7 +6,22 @@
 #include <base/rpc_client.h>
 #include <base/log.h>
 
-namespace MtsysMemory { struct Session_client; }
+#include <util/list.h>
+#include <util/reconstructible.h>
+#include <base/ram_allocator.h>
+#include <region_map/region_map.h>
+#include <base/allocator_avl.h>
+#include <base/mutex.h>
+
+#include <util/interface.h>
+#include <base/stdint.h>
+#include <base/exception.h>
+#include <base/quota_guard.h>
+#include <base/allocator.h>
+
+namespace MtsysMemory { 
+	struct Session_client; 
+}
 
 
 struct MtsysMemory::Session_client : Genode::Rpc_client<Session>
@@ -34,4 +49,4 @@ struct MtsysMemory::Session_client : Genode::Rpc_client<Session>
 
 };
 
-#endif /* _INCLUDE__MEMORY__CLIENT_H_ */
+#endif /* _INCLUDE__MEMORY__CLIENT_H_ */ 
