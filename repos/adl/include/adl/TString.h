@@ -12,7 +12,7 @@ static const int INT_MAX = (1 << 31) - 1;
 class TString {
 protected:
     char* content;
-    int   len;
+    size_t   len;
 
     inline void freeUpContent();
 
@@ -34,8 +34,10 @@ public:
 
     void freeUp();
 
-    int length() const;
+    size_t length() const;
     const char* c_str() const;
+    inline char* data() { return this->content; }
+    inline const char* data() const { return this->content; }
 
     TString& operator = (const TString& str);
     TString& operator = (const char* str);

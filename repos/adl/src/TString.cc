@@ -33,7 +33,7 @@ TString::TString(const char* str)
         len = 0;
     }
     else {
-        len = Genode::strlen(str);
+        len = adl::strlen(str);
 
         content = new(tstring_alloc) char[len + 1];
 
@@ -42,7 +42,7 @@ TString::TString(const char* str)
         }
 
 
-        Genode::strcpy(content, str);
+        adl::strcpy(content, str);
     }
 }
 
@@ -75,7 +75,7 @@ TString::TString(const TString& str)
             throw Genode::Exception{};
         }
 
-        Genode::strcpy(content, str.c_str());
+        adl::strcpy(content, str.c_str());
     }
 }
 
@@ -100,7 +100,7 @@ inline void TString::freeUpContent()
     }
 }
 
-int TString::length() const
+size_t TString::length() const
 {
     return len;
 }
@@ -127,7 +127,7 @@ TString& TString::operator=(const TString& str)
             throw Genode::Exception{};
         }
 
-        Genode::strcpy(content, str.c_str());
+        adl::strcpy(content, str.c_str());
         len = str.length();
         return *this;
     }
@@ -173,10 +173,10 @@ const TString TString::operator+(const TString& str) const
 
 
     if (this->content != nullptr) {
-        Genode::memcpy(ret.content, this->content, this->len * sizeof(char));
+        adl::memcpy(ret.content, this->content, this->len * sizeof(char));
     }
     if (str.c_str() != nullptr) {
-        Genode::memcpy(ret.content + this->len, str.c_str(), str.length() * sizeof(char));
+        adl::memcpy(ret.content + this->len, str.c_str(), str.length() * sizeof(char));
     }
     ret.content[ret.len] = '\0';
 
@@ -187,7 +187,7 @@ const TString TString::operator+(const char* str) const
 {
     TString ret;
 
-    int lengthOfStr = (str == nullptr ? 0 : Genode::strlen(str));
+    auto lengthOfStr = (str == nullptr ? 0 : adl::strlen(str));
 
     ret.len = this->len + lengthOfStr;
 
@@ -201,10 +201,10 @@ const TString TString::operator+(const char* str) const
     }
 
     if (this->content != nullptr) {
-        Genode::memcpy(ret.content, this->content, this->len * sizeof(char));
+        adl::memcpy(ret.content, this->content, this->len * sizeof(char));
     }
 
-    Genode::memcpy(ret.content + this->len, str, lengthOfStr * sizeof(char));
+    adl::memcpy(ret.content + this->len, str, lengthOfStr * sizeof(char));
     ret.content[ret.len] = '\0';
 
     return ret;
@@ -214,7 +214,7 @@ const TString operator+(const char* strA, const TString& strB)
 {
     TString ret;
 
-    int lengthOfStrA = (strA == nullptr ? 0 : Genode::strlen(strA));
+    int lengthOfStrA = (strA == nullptr ? 0 : adl::strlen(strA));
     ret.len = lengthOfStrA + strB.length();
 
     if (ret.len == 0) {
@@ -226,8 +226,8 @@ const TString operator+(const char* strA, const TString& strB)
         throw Genode::Exception{};
     }
 
-    Genode::memcpy(ret.content, strA, lengthOfStrA * sizeof(char));
-    Genode::memcpy(ret.content + lengthOfStrA, strB.c_str(), strB.length() * sizeof(char));
+    adl::memcpy(ret.content, strA, lengthOfStrA * sizeof(char));
+    adl::memcpy(ret.content + lengthOfStrA, strB.c_str(), strB.length() * sizeof(char));
     ret.content[ret.len] = '\0';
 
     return ret;
@@ -261,7 +261,7 @@ const TString TString::operator-(const TString& str) const
         return *this;
     }
     else {
-        char* occurenceLocation = Genode::strstr(content, str.content);
+        char* occurenceLocation = adl::strstr(content, str.content);
         if (occurenceLocation == nullptr) {
             return *this;
         }
@@ -277,8 +277,8 @@ const TString TString::operator-(const TString& str) const
             ret.len = len - str.length();
             ret.content = p;
 
-            Genode::memcpy(p, content, (occurenceLocation - content) * sizeof(char));
-            Genode::memcpy(
+            adl::memcpy(p, content, (occurenceLocation - content) * sizeof(char));
+            adl::memcpy(
                 p + (occurenceLocation - content),
                 occurenceLocation + str.length(),
                 (len - (occurenceLocation - content) - str.length()) * sizeof(char)
@@ -296,9 +296,9 @@ const TString TString::operator-(const char* str) const
         return *this;
     }
     else {
-        int lengthOfStr = Genode::strlen(str);
+        int lengthOfStr = adl::strlen(str);
 
-        char* occurenceLocation = Genode::strstr(content, str);
+        char* occurenceLocation = adl::strstr(content, str);
         if (occurenceLocation == nullptr) {
             return *this;
         }
@@ -314,8 +314,8 @@ const TString TString::operator-(const char* str) const
             ret.len = len - lengthOfStr;
             ret.content = p;
 
-            Genode::memcpy(p, content, (occurenceLocation - content) * sizeof(char));
-            Genode::memcpy(
+            adl::memcpy(p, content, (occurenceLocation - content) * sizeof(char));
+            adl::memcpy(
                 p + (occurenceLocation - content),
                 occurenceLocation + lengthOfStr,
                 (len - (occurenceLocation - content) - lengthOfStr) * sizeof(char)
@@ -342,8 +342,8 @@ const TString TString::operator - (const char c) const
                     throw Genode::Exception{};
                 }
 
-                Genode::memcpy(ret.content, content, i * sizeof(char));
-                Genode::memcpy(ret.content + i, content + i + 1, (len - i - 1) * sizeof(char));
+                adl::memcpy(ret.content, content, i * sizeof(char));
+                adl::memcpy(ret.content + i, content + i + 1, (len - i - 1) * sizeof(char));
                 ret[ret.len] = '\0';
                 return ret;
             }
@@ -360,19 +360,19 @@ TString& TString::operator+=(const TString& str)
     }
     else {
         char* p;
-        int resLen = len + str.len;
+        auto resLen = len + str.len;
 
         p = new(tstring_alloc) char[resLen + 1];
         if (p == nullptr) {
             throw Genode::Exception{};
         }
         if (content != nullptr) {
-            Genode::memcpy(p, content, len * sizeof(char));
+            adl::memcpy(p, content, len * sizeof(char));
 
             this->freeUpContent();
         }
 
-        Genode::memcpy(p + len, str.content, str.len * sizeof(char));
+        adl::memcpy(p + len, str.content, str.len * sizeof(char));
         p[resLen] = '\0';
 
         this->len = resLen;
@@ -387,8 +387,8 @@ TString& TString::operator+=(const char* str)
         return *this;
     }
     else {
-        int lengthOfStr = Genode::strlen(str);
-        int resLen = len + lengthOfStr;
+        auto lengthOfStr = adl::strlen(str);
+        auto resLen = len + lengthOfStr;
 
         char* p;
 
@@ -397,11 +397,11 @@ TString& TString::operator+=(const char* str)
             throw Genode::Exception{};
         }
         if (content != nullptr) {
-            Genode::memcpy(p, content, len * sizeof(char));
+            adl::memcpy(p, content, len * sizeof(char));
             this->freeUpContent();
         }
 
-        Genode::memcpy(p + len, str, lengthOfStr * sizeof(char));
+        adl::memcpy(p + len, str, lengthOfStr * sizeof(char));
         p[resLen] = '\0';
 
         this->len = resLen;
@@ -416,7 +416,7 @@ TString& TString::operator+=(const char c)
         return *this;
     }
     else {
-        int resLen = len + 1;
+        auto resLen = len + 1;
         char* p;
 
         p = new(tstring_alloc) char[resLen + 1];
@@ -425,7 +425,7 @@ TString& TString::operator+=(const char c)
         }
 
         if (this->content != nullptr) {
-            Genode::memcpy(p, content, len * sizeof(char));
+            adl::memcpy(p, content, len * sizeof(char));
             this->freeUpContent();
         }
 
@@ -477,7 +477,7 @@ const TString TString::operator*(int x) const
         }
 
         for (int i = 0; i < x; i++) {
-            Genode::memcpy(p + i * len, content, len * sizeof(char));
+            adl::memcpy(p + i * len, content, len * sizeof(char));
         }
 
         ret.content = p;
@@ -537,7 +537,7 @@ bool TString::operator==(const char* str) const
         return false;
     }
 
-    int lenOfStr = Genode::strlen(str);
+    int lenOfStr = adl::strlen(str);
     if (lenOfStr != len) {
         return false;
     }
@@ -584,7 +584,7 @@ bool TString::operator>(const TString& str) const
 
 bool TString::operator>(const char* str) const
 {
-    int lengthOfStr = (str == nullptr ? 0 : Genode::strlen(str));
+    int lengthOfStr = (str == nullptr ? 0 : adl::strlen(str));
     if (this->len + lengthOfStr == 0 || this->len == 0) {
         return false;
     }
@@ -637,7 +637,7 @@ bool TString::operator<(const TString& str) const
 
 bool TString::operator<(const char* str) const
 {
-    int lengthOfStr = (str == nullptr ? 0 : Genode::strlen(str));
+    int lengthOfStr = (str == nullptr ? 0 : adl::strlen(str));
     if (this->len + lengthOfStr == 0 || lengthOfStr == 0) {
         return false;
     }
@@ -695,7 +695,7 @@ TString TString::substr(const int pos, const int len) const {
         throw Genode::Exception{};
     }
 
-    Genode::memcpy(ret.content, this->content + targetIdx, targetLength);
+    adl::memcpy(ret.content, this->content + targetIdx, targetLength);
     ret.content[targetLength] = '\0';
 
     return ret;
