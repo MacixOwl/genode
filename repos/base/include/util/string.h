@@ -169,53 +169,6 @@ namespace Genode {
 	}
 
 
-	inline char* strcpy(char* dest, const char* src) {
-		char* pDest = dest;
-		const char* pSrc = src;
-		while ((*pDest++ = *pSrc++) != '\0')
-			;
-
-		return dest;
-	}
-
-
-	inline int strncmp(const char* lhs, const char* rhs, size_t count) {
-		const char* pLhs = lhs;
-		const char* pRhs = rhs;
-
-		while (pLhs < lhs + count) {
-			if (*pLhs != *pRhs) {
-				return *(const unsigned char*) pLhs - *(const unsigned char*) pRhs;
-			} 
-			else if (*pLhs == '\0') {
-				return 0;
-			} 
-			else {
-				++pLhs;
-				++pRhs;
-			}
-		}
-
-		return 0;
-	}
-
-
-	inline char* strstr(const char* str, const char* substr) {
-		size_t lenOfSubstr = strlen(substr);
-		size_t lenOfStr = strlen(str);
-		const char* pStr = str;
-		while (lenOfSubstr + (pStr - str) <= lenOfStr) {
-			if (strncmp(pStr, substr, lenOfSubstr) == 0) {
-				return (char*) pStr;
-			} else {
-				++pStr;
-			}
-		}
-
-		return nullptr;
-	}
-
-
 	/**
 	 * Copy memory buffer to a potentially overlapping destination buffer
 	 *

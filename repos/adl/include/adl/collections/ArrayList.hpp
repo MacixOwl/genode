@@ -101,15 +101,19 @@ public:
             allocator->free(_data, _capacity * sizeof(_data[0])); // todo: should call destructor
     }
 
-    inline size_t size() {
+    inline size_t size() const {
         return this->_size;
     }
 
-    inline size_t capacity() {
+    inline size_t capacity() const {
         return this->_capacity;
     }
 
     inline DataType* data() {
+        return this->_data;
+    }
+
+    inline const DataType* data() const {
         return this->_data;
     }
 
@@ -156,6 +160,10 @@ public:
     }
 
     DataType& operator [] (size_t idx) {
+        return _data[idx];
+    }
+
+    const DataType& operator [] (size_t idx) const {
         return _data[idx];
     }
 
