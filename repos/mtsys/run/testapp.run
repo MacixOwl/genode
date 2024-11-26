@@ -50,11 +50,11 @@ install_config {
 	</start>
 
     <start name="testapp1">
-        <resource name="RAM" quantum="1M"/>
+        <resource name="RAM" quantum="4M"/>
 	</start>
 
 	<start name="testapp2">
-        <resource name="RAM" quantum="1M"/>
+        <resource name="RAM" quantum="4M"/>
 	</start>
 	
 </config>}

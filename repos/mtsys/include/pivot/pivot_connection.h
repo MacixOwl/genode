@@ -46,7 +46,7 @@ struct MtsysPivot::ServiceHub {
 
 	MtsysKv::Connection kv_obj;
 	int kvrpc_dataspace_prepared = 0;
-	static const Genode::addr_t Kvrpc_Addr = 0x7000; // TODO: really this address?
+	static const Genode::addr_t Kvrpc_Addr = 0xf0000000; // TODO: really this address?
 
 	ServiceHub(Genode::Env &env)
 	: env(env), 
@@ -54,9 +54,10 @@ struct MtsysPivot::ServiceHub {
 	pivot_obj(env),
 	service_main_id_cache(),
 	mem_obj(env), 
-	alloc_obj(env),
+	alloc_obj(env, mem_obj),
 	kv_obj(env)
-	{ }
+	{ 
+	}
 
 	~ServiceHub() {
 		if (kvrpc_dataspace_prepared) {
@@ -120,7 +121,17 @@ struct MtsysPivot::ServiceHub {
 
 	// APIs from kv
 	int Kv_hello() { 
+		// test allocation here
+		void* p = alloc_obj.alloc(4096);
+		Genode::log("Allocated memory at: ", p);
+		p = alloc_obj.alloc(4096);
+		Genode::log("Allocated memory at: ", p);
+		p = alloc_obj.alloc(4096);
+		Genode::log("Allocated memory at: ", p);
+
 		while (true) {
+			// the service here are composed services, and service_main_id is a composed ID, 
+			// where i-th bit represents its availability (inclusion) of i-th service
 			if (service_main_id_cache[SID_KV_SERVICE] == 2) {  // question: why 2 is for kv service?
 				return kv_obj.Kv_hello(); 
 			} else {
