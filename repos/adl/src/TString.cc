@@ -8,6 +8,7 @@
 
 #include <adl/TString.h>
 #include <adl/string.h>
+#include <adl/config.h>
 using namespace std;
 
 
@@ -95,7 +96,7 @@ inline void TString::freeUp()
 inline void TString::freeUpContent()
 {
     if (content != nullptr) {
-        delete[] (content, tstring_alloc);
+        tstring_alloc->free(content, sizeof(content[0]) * this->len);
         content = nullptr;
     }
 }
@@ -214,7 +215,7 @@ const TString operator+(const char* strA, const TString& strB)
 {
     TString ret;
 
-    int lengthOfStrA = (strA == nullptr ? 0 : adl::strlen(strA));
+    auto lengthOfStrA = (strA == nullptr ? 0 : adl::strlen(strA));
     ret.len = lengthOfStrA + strB.length();
 
     if (ret.len == 0) {
@@ -244,7 +245,7 @@ const TString TString::operator!() const
     TString ret = *this;
     if (ret.length() >= 2) {
         char c;
-        for (int i = 0; i < ret.length() / 2; i++) {
+        for (size_t i = 0; i < ret.length() / 2; i++) {
             c = ret[i];
             ret[i] = ret[ret.length() - 1 - i];
             ret[ret.length() - 1 - i] = c;
@@ -296,7 +297,7 @@ const TString TString::operator-(const char* str) const
         return *this;
     }
     else {
-        int lengthOfStr = adl::strlen(str);
+        auto lengthOfStr = adl::strlen(str);
 
         char* occurenceLocation = adl::strstr(content, str);
         if (occurenceLocation == nullptr) {
@@ -333,7 +334,7 @@ const TString TString::operator - (const char c) const
         return *this;
     }
     else {
-        for (int i = 0; i < len; i++) {
+        for (size_t i = 0; i < len; i++) {
             if (c == content[i]) {
                 TString ret;
                 ret.len = len - 1;
@@ -451,12 +452,12 @@ TString& TString::operator-=(const char c)
     return *this = *this - c;
 }
 
-char& TString::operator[](int i)
+char& TString::operator[](size_t i)
 {
     return content[i];
 }
 
-const char& TString::operator[](int i) const
+const char& TString::operator[](size_t i) const
 {
     return content[i];
 }
@@ -516,7 +517,7 @@ bool TString::operator==(const TString& str) const
         return false;
     }
     else {
-        for (int i = 0; i < len; i++) {
+        for (size_t i = 0; i < len; i++) {
             if (this->content[i] != str[i]) {
                 return false;
             }
@@ -537,11 +538,11 @@ bool TString::operator==(const char* str) const
         return false;
     }
 
-    int lenOfStr = adl::strlen(str);
+    auto lenOfStr = adl::strlen(str);
     if (lenOfStr != len) {
         return false;
     }
-    for (int i = 0; i < lenOfStr; i++) {
+    for (size_t i = 0; i < lenOfStr; i++) {
         if (str[i] != content[i]) {
             return false;
         }
@@ -568,8 +569,8 @@ bool TString::operator>(const TString& str) const
         return true;
     }
     else {
-        int minLen = len < str.len ? len : str.len;
-        for (int i = 0; i < minLen; i++) {
+        auto minLen = len < str.len ? len : str.len;
+        for (size_t i = 0; i < minLen; i++) {
             if (content[i] > str[i]) {
                 return true;
             }
@@ -584,7 +585,7 @@ bool TString::operator>(const TString& str) const
 
 bool TString::operator>(const char* str) const
 {
-    int lengthOfStr = (str == nullptr ? 0 : adl::strlen(str));
+    auto lengthOfStr = (str == nullptr ? 0 : adl::strlen(str));
     if (this->len + lengthOfStr == 0 || this->len == 0) {
         return false;
     }
@@ -592,8 +593,8 @@ bool TString::operator>(const char* str) const
         return true;
     }
     else {
-        int minLen = len < lengthOfStr ? len : lengthOfStr;
-        for (int i = 0; i < minLen; i++) {
+        auto minLen = len < lengthOfStr ? len : lengthOfStr;
+        for (size_t i = 0; i < minLen; i++) {
             if (content[i] > str[i]) {
                 return true;
             }
@@ -621,8 +622,8 @@ bool TString::operator<(const TString& str) const
         return true;
     }
     else {
-        int minLen = len < str.len ? len : str.len;
-        for (int i = 0; i < minLen; i++) {
+        auto minLen = len < str.len ? len : str.len;
+        for (size_t i = 0; i < minLen; i++) {
             if (content[i] < str[i]) {
                 return true;
             }
@@ -637,7 +638,7 @@ bool TString::operator<(const TString& str) const
 
 bool TString::operator<(const char* str) const
 {
-    int lengthOfStr = (str == nullptr ? 0 : adl::strlen(str));
+    auto lengthOfStr = (str == nullptr ? 0 : adl::strlen(str));
     if (this->len + lengthOfStr == 0 || lengthOfStr == 0) {
         return false;
     }
@@ -645,8 +646,8 @@ bool TString::operator<(const char* str) const
         return true;
     }
     else {
-        int minLen = len < lengthOfStr ? len : lengthOfStr;
-        for (int i = 0; i < minLen; i++) {
+        auto minLen = len < lengthOfStr ? len : lengthOfStr;
+        for (size_t i = 0; i < minLen; i++) {
             if (content[i] < str[i]) {
                 return true;
             }
@@ -678,25 +679,25 @@ bool TString::operator<=(const char* str) const
 }
 
 
-TString TString::substr(const int pos, const int len) const {
+TString TString::substr(const size_t pos, const size_t len) const {
     TString ret;
 
-    int targetIdx = pos - 1;
-    int targetLength = (len > this->len - targetIdx) ? this->len - targetIdx : len;
-
-    if (targetIdx < 0 || targetIdx >= this->len || len <= 0)
-    {
+    if (len == 0 || pos >= this->len)
         return ret;
+
+    size_t endIdx = pos + len;  // exclusive
+    if (endIdx > this->len) {
+        endIdx = this->len;
     }
 
-    ret.len = targetLength;
-    ret.content = new(tstring_alloc) char[targetLength + 1];
-    if (ret.content == nullptr) {    
+    ret.len = endIdx - pos;
+    ret.content = new(tstring_alloc) char[ret.len + 1];
+    if (ret.content == nullptr) {
         throw Genode::Exception{};
     }
 
-    adl::memcpy(ret.content, this->content + targetIdx, targetLength);
-    ret.content[targetLength] = '\0';
+    adl::memcpy(ret.content, this->content + pos, ret.len);
+    ret.content[ret.len] = '\0';
 
     return ret;
 }

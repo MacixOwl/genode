@@ -262,7 +262,7 @@ char* strtok(char* str, const char* delim) {
 
 void* memchr(const void* ptr, int ch, size_t count) {
     auto* cPtr = (const unsigned char*) ptr;
-    unsigned char b = ch;
+    auto b = (unsigned char) ch;
     while (cPtr < ((const unsigned char*) ptr) + count) {
         if (b == *cPtr) {
             return (void*) cPtr;
