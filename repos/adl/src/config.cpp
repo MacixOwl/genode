@@ -15,6 +15,6 @@
 
 namespace adl {
 
-Allocator* defaultAllocator = nullptr;
+Allocator defaultAllocator;
 
 }

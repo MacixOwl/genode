@@ -13,6 +13,7 @@
 #include <memory/memory_connection.h>
 #include <adl/collections/RedBlackTree.hpp>
 #include <adl/collections/ArrayList.hpp>
+#include <adl/Allocator.h>
 
 
 namespace MtsysKv {
@@ -40,7 +41,7 @@ struct MtsysKv::Component_state
 	ipc_count(),
 	env(env),
 	mem_obj(env),
-	rbtree(&alloc)
+	rbtree()
 	{	
 		// get cids in services for later use, filled manually for now
 		int cid_mem = mem_obj.Memory_hello();
@@ -171,7 +172,7 @@ struct MtsysKv::Session_component : Genode::Rpc_object<Session>
 		env(env),
 		allocator(allocator),
 		rangeScanRamDataspace(env.ram(), env.rm(), RANGE_SCAN_BUFFER),
-		scanData(*allocator)
+		scanData()
 	{
 		
 	}
@@ -267,6 +268,20 @@ struct MtsysKv::Main
     : 
     env(env)
 	{
+
+		adl::defaultAllocator.init({
+
+			.alloc = [] (adl::size_t size, void* data) {
+				return reinterpret_cast<Genode::Sliced_heap*>(data)->alloc(size);
+			},
+			
+			.free = [] (void* addr, adl::size_t size, void* data) {
+				reinterpret_cast<Genode::Sliced_heap*>(data)->free(addr, size);
+			},
+			
+			.data = &sliced_heap
+		});
+
 		/*
 		 * Create a RPC object capability for the root interface and
 		 * announce the service to our parent.

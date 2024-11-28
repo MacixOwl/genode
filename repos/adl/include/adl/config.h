@@ -19,7 +19,7 @@
 
 namespace adl {
 
-extern Allocator* defaultAllocator;
+extern Allocator defaultAllocator;
 
 }
 
