@@ -38,7 +38,16 @@ const int RING_SIZE = 2048;
 const int RING_LEVEL = SLAB_SIZE_LEVELS;
 
 
-inline int DS_SIZE2LEVEL(int size) {
+inline constexpr static int DS_SIZE2LEVEL(int size) {
+#if defined(__GNUC__)
+
+    if (__builtin_popcount(size) != 1)
+        return -1;
+    
+    auto ffs = __builtin_ffs(size);
+    return ffs < 15 ? -1 : (ffs - 15);  // todo: what about when size larger than 33554432?
+
+#else
     switch (size)
     {
     case 16384: return 0;
@@ -55,10 +64,22 @@ inline int DS_SIZE2LEVEL(int size) {
     case 33554432: return 11;
     default: return -1;
     }
+#endif
 }
 
 
-inline int SLAB_SIZE2LEVEL(int size) {
+inline constexpr static int SLAB_SIZE2LEVEL(int size) {
+#if defined(__GNUC__)
+
+    if (__builtin_popcount(size) != 1)
+        return -1;
+    
+    auto ffs = __builtin_ffs(size);
+    return ffs < 5 ? -1 : (ffs - 5);  // todo: what about when size larger than 8388608?
+
+#else
+
+
     switch (size)
     {
     case 16: return 0;
@@ -83,17 +104,26 @@ inline int SLAB_SIZE2LEVEL(int size) {
     case 8388608: return 19;
     default: return -1;
     }
+#endif
 }
 
 
-int highest_oneBit(int n) {
-    if (n == 0) return 0;
+static inline constexpr int highest_oneBit(int n) {
+    if (n == 0) 
+        return 0;
+
+#if defined(__GNUC__)
+
+    return 1 << (32 - __builtin_clz(n) - 1);
+
+#else
     n |= (n >> 1);
     n |= (n >> 2);
     n |= (n >> 4);
     n |= (n >> 8);
     n |= (n >> 16);
     return n & ~(n >> 1);
+#endif
 }
 
 
