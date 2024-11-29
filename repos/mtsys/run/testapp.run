@@ -40,21 +40,21 @@ install_config {
 	</start>
 
 	<start name="kv_server">
-		<resource name="RAM" quantum="1M"/>
+		<resource name="RAM" quantum="8M"/>
 		<provides> <service name="MtsysKv"/> </provides>
 	</start>
 
 	<start name="mtsys_pivot">
-		<resource name="RAM" quantum="4M"/>
+		<resource name="RAM" quantum="8M"/>
 		<provides> <service name="MtsysPivot"/> </provides>
 	</start>
 
     <start name="testapp1">
-        <resource name="RAM" quantum="4M"/>
+        <resource name="RAM" quantum="80M"/>
 	</start>
 
 	<start name="testapp2">
-        <resource name="RAM" quantum="4M"/>
+        <resource name="RAM" quantum="80M"/>
 	</start>
 	
 </config>}

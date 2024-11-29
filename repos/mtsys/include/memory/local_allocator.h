@@ -21,7 +21,7 @@
 
 
 namespace MtsysMemory {  
-	class Local_allocator;
+    class Local_allocator;
 }
 
 
@@ -36,6 +36,7 @@ const int HASH_SIZE = 2048;
 const int HASH_CAPACITY = 20;
 const int RING_SIZE = 2048;
 const int RING_LEVEL = SLAB_SIZE_LEVELS;
+const int PIN_CAPACITY = 64;
 
 
 inline constexpr static int DS_SIZE2LEVEL(int size) {
@@ -132,21 +133,22 @@ int best_fit_slab(int size) {
     if (b != size) b = (b << 1);
     if (b < SLAB_MIN_SIZE) return SLAB_MIN_SIZE;
     if (b > SLAB_MAX_SIZE) {
-        Genode::error("Requested size too large for slab");
-        return 0;
+        // Genode::error("Requested size too large for slab");
+        return -1;
     }
     return b;
 }
 
 
 int best_fit_ds(int size) {
+    if (size > DS_MAX_SIZE) {
+        // Genode::error("Requested size too large for dataspace");
+        return -1;
+    }
     int s = best_fit_slab(size);
+    if (s == -1) return size;
     if (s < DS_MIN_SIZE) return DS_MIN_SIZE;
     s = (s << 2);
-    if (s > DS_MAX_SIZE) {
-        Genode::error("Requested size too large for dataspace");
-        return 0;
-    }
     return s;
 }
 
@@ -165,10 +167,10 @@ int hash_bucket(unsigned long addr) {
 
 class MtsysMemory::Local_allocator : public Genode::Allocator
 {
-	using Alloc_result = Genode::Attempt<void *, Alloc_error>;
+    using Alloc_result = Genode::Attempt<void *, Alloc_error>;
 private:
 
-	Genode::Env &env;
+    Genode::Env &env;
     Genode::Sliced_heap sliced_heap { env.ram(), env.rm() };
     MtsysMemory::Connection &mem_obj;
 
@@ -178,33 +180,45 @@ private:
     int *pinned_mappings;
     // ring buffer store the local cache of slab, with address and base of slab
     // RING_LEVEL * RING_SIZE
-	unsigned long *ring_buffer;
+    unsigned long *ring_buffer;
     unsigned long *slab_base;
+    // pin pointers to ram_dataspace for each allocated memory
+    // HASH_SIZE * PIN_CAPACITY
+    unsigned long *pin_hash;
+    unsigned long *pin_addr;
+    // dataspace hook
+    // HASH_SIZE * PIN_CAPACITY
+    unsigned long *dsaddr_hash;
+    Genode::Attached_ram_dataspace** dsaddr_ds;
     int ring_head[RING_LEVEL] = {0};
     int ring_tail[RING_LEVEL] = {0};
 
-	Genode::size_t _quota_used {0};
+    Genode::size_t _quota_used {0};
 
     Genode::Attached_ram_dataspace* alloc_ds(int size);
+    int free_atds(void* addr);
     int add_new_slab(void* ds_addr, int slab_size, int num_slabs);
     int insert_hash(void* addr, int num_slabs);
+    int reduce_hash(unsigned long addr);
 
 public:
-	
-	Local_allocator(Genode::Env &env, MtsysMemory::Connection &mem_obj);
+    
+    Local_allocator(Genode::Env &env, MtsysMemory::Connection &mem_obj);
 
-	~Local_allocator();
+    ~Local_allocator();
 
-	Alloc_result try_alloc(Genode::size_t) override;
+    Alloc_result try_alloc(Genode::size_t) override;
 
-	void free(void *, Genode::size_t) override;
+    void free(void *, Genode::size_t) override;
 
-	Genode::size_t consumed() const override { return _quota_used; }
-	
-	Genode::size_t overhead(Genode::size_t size) const override 
-	{ return 0; }
-	
-	bool need_size_for_free() const override { return false; }
+    Genode::size_t consumed() const override { return _quota_used; }
+    
+    Genode::size_t overhead(Genode::size_t size) const override 
+    { return 0; }
+    
+    bool need_size_for_free() const override { return false; }
+
+    void free(void *addr) { free(addr, 0); }
 
 };
 
@@ -229,10 +243,10 @@ namespace MtsysMemory {
             p = (p + 1) % RING_SIZE + slab_level * RING_SIZE;
         }
         ring_tail[slab_level] = (ring_tail[slab_level] + num_slabs) % RING_SIZE;
-        Genode::log("ring head: ", ring_head[slab_level], " ring tail: ", ring_tail[slab_level]);
-        for (int i = 0; i < num_slabs; i++) { 
-            Genode::log("ring buffer: ", ring_buffer[slab_level * RING_SIZE + ring_tail[slab_level] - i - 1]);
-        }
+        // Genode::log("ring head: ", ring_head[slab_level], " ring tail: ", ring_tail[slab_level]);
+        // for (int i = 0; i < num_slabs; i++) { 
+        //     Genode::log("ring buffer: ", ring_buffer[slab_level * RING_SIZE + ring_tail[slab_level] - i - 1]);
+        // }
         return 0;
     }
 
@@ -255,6 +269,27 @@ namespace MtsysMemory {
         return 0;
     }
 
+    int Local_allocator::reduce_hash(unsigned long addr) {
+        unsigned long addr_base = (unsigned long)addr;
+        int b = hash_bucket(addr_base);
+        int success = 0;
+        for (int i = 0; i < HASH_CAPACITY; i++) {
+            if (hash_keys[b * HASH_CAPACITY + i] == addr_base) {
+                pinned_mappings[b * HASH_CAPACITY + i] -= 1;
+                if (pinned_mappings[b * HASH_CAPACITY + i] == 0) {
+                    hash_keys[b * HASH_CAPACITY + i] = 0;
+                    free_atds((void *)addr_base);
+                }
+                success = 1;
+            }
+        }
+        if (!success) {
+            Genode::error("address not in hash table but trying to reduce");
+            return -1;
+        }
+        return 0;
+    }
+
     Local_allocator::Local_allocator(Genode::Env &env, MtsysMemory::Connection &mem_obj)
     :
     env(env),
@@ -262,9 +297,13 @@ namespace MtsysMemory {
     {
         // Genode::log("hash of 640: ", hash_bucket(640));
         hash_keys = new(sliced_heap) unsigned long[HASH_SIZE * HASH_CAPACITY];
-		pinned_mappings = new(sliced_heap) int[HASH_SIZE * HASH_CAPACITY];
-		ring_buffer = new(sliced_heap) unsigned long[RING_LEVEL * RING_SIZE];
+        pinned_mappings = new(sliced_heap) int[HASH_SIZE * HASH_CAPACITY];
+        ring_buffer = new(sliced_heap) unsigned long[RING_LEVEL * RING_SIZE];
         slab_base = new(sliced_heap) unsigned long[RING_LEVEL * RING_SIZE];
+        pin_hash = new(sliced_heap) unsigned long[HASH_SIZE * PIN_CAPACITY];
+        pin_addr = new(sliced_heap) unsigned long[HASH_SIZE * PIN_CAPACITY]; 
+        dsaddr_hash = new(sliced_heap) unsigned long[HASH_SIZE * PIN_CAPACITY];
+        dsaddr_ds = new(sliced_heap) Genode::Attached_ram_dataspace*[HASH_SIZE * PIN_CAPACITY];
 
         for (int i = 0; i < HASH_SIZE * HASH_CAPACITY; i++) {
             hash_keys[i] = 0;
@@ -273,6 +312,12 @@ namespace MtsysMemory {
         for (int i = 0; i < RING_LEVEL * RING_SIZE; i++) {
             ring_buffer[i] = 0;
             slab_base[i] = 0;
+        }
+        for (int i = 0; i < HASH_SIZE * PIN_CAPACITY; i++) {
+            pin_hash[i] = 0;
+            pin_addr[i] = 0;
+            dsaddr_hash[i] = 0;
+            dsaddr_ds[i] = 0;
         }
     }
 
@@ -283,6 +328,10 @@ namespace MtsysMemory {
         sliced_heap.free(pinned_mappings, HASH_SIZE * HASH_CAPACITY * sizeof(int));
         sliced_heap.free(ring_buffer, RING_LEVEL * RING_SIZE * sizeof(unsigned long));
         sliced_heap.free(slab_base, RING_LEVEL * RING_SIZE * sizeof(unsigned long));
+        sliced_heap.free(pin_hash, HASH_SIZE * PIN_CAPACITY * sizeof(unsigned long));
+        sliced_heap.free(pin_addr, HASH_SIZE * PIN_CAPACITY * sizeof(unsigned long));
+        sliced_heap.free(dsaddr_hash, HASH_SIZE * PIN_CAPACITY * sizeof(unsigned long));
+        sliced_heap.free(dsaddr_ds, HASH_SIZE * PIN_CAPACITY * sizeof(Genode::Attached_ram_dataspace*));
     }
 
 
@@ -291,10 +340,45 @@ namespace MtsysMemory {
         if (ds_size == 0) return 0;
         // use local dataspace for now
         Genode::Attached_ram_dataspace* ds;
-        ds = new(sliced_heap) Genode::Attached_ram_dataspace(env.ram(), env.rm(), ds_size);
+        if (ds_size > 0){
+            Genode::log("allocating dataspace ds_size: ", ds_size);
+            ds = new(sliced_heap) Genode::Attached_ram_dataspace(env.ram(), env.rm(), ds_size);
+        }
+        else{
+            Genode::log("allocating dataspace size: ", size);
+            ds = new(sliced_heap) Genode::Attached_ram_dataspace(env.ram(), env.rm(), size);
+            Genode::log("allocated dataspace size: ", ds->size(), " addr: ", ds->local_addr<void>());
+        }
         // Genode::log("allocated dataspace size: ", ds->size(), " addr: ", ds->local_addr<void>());
         return ds;
         // return mem_obj.alloc_ds(ds_size);
+    }
+
+
+    int Local_allocator::free_atds(void* addr) {
+        Genode::log("freeing dataspace at addr: ", addr);
+        // now free the local dataspace
+        env.rm().detach(addr);
+        // find the ds in the hash table
+        unsigned long addr_base = (unsigned long)addr;
+        int b = hash_bucket(addr_base);
+        Genode::Attached_ram_dataspace* ds = 0;
+        int success = 0;
+        for (int i = 0; i < PIN_CAPACITY; i++) {
+            if (dsaddr_hash[b * PIN_CAPACITY + i] == addr_base) {
+                ds = dsaddr_ds[b * PIN_CAPACITY + i];
+                dsaddr_hash[b * PIN_CAPACITY + i] = 0;
+                dsaddr_ds[b * PIN_CAPACITY + i] = 0;
+                success = 1;
+                break;
+            }
+        }
+        if (!success) {
+            Genode::error("address not in dsaddr hash but trying to free");
+            return -1;
+        }
+        env.ram().free(ds->cap());
+        return 0;
     }
 
 
@@ -304,23 +388,49 @@ namespace MtsysMemory {
         int slab_size = best_fit_slab(size);
         int slab_level = SLAB_SIZE2LEVEL(slab_size);
         // Genode::log("slab size: ", slab_size, " slab level: ", slab_level);
-        if (slab_level == -1) {
+        if (slab_size < 0 || slab_level < 0 || slab_level >= SLAB_SIZE_LEVELS) {
             Genode::Attached_ram_dataspace* ds = alloc_ds(size);
             if (ds->size()) {
                 _quota_used += size;
                 void* ret = ds->local_addr<void>();
+                // insert into dsaddr hash
+                int success = 0;
+                int b = hash_bucket((unsigned long)ret);
+                for (int i = 0; i < PIN_CAPACITY; i++) {
+                    if (dsaddr_hash[b * PIN_CAPACITY + i] == 0) {
+                        dsaddr_hash[b * PIN_CAPACITY + i] = (unsigned long)ret;
+                        dsaddr_ds[b * PIN_CAPACITY + i] = ds;
+                        success = 1;
+                        break;
+                    }
+                }
+                if (!success) {
+                    Genode::error("dsaddr hash full");
+                    return Alloc_error(Alloc_error::DENIED);
+                }
                 return ret;
             }
             else {
+                Genode::error("allocating dataspace failed");
                 Alloc_error err(Alloc_error::DENIED);
                 return err;
             }
         }
         if (ring_head[slab_level] != ring_tail[slab_level]) {
-            Genode::log("using ring buffer: ", ring_head[slab_level]);
-            unsigned long addr = ring_buffer[slab_level * RING_SIZE + ring_head[slab_level]];
+            // Genode::log("using ring buffer: ", ring_head[slab_level]);
+            int target_id = slab_level * RING_SIZE + ring_head[slab_level];
+            unsigned long addr = ring_buffer[target_id];
             ring_head[slab_level] = (ring_head[slab_level] + 1) % RING_SIZE;
             _quota_used += size;
+            // record the pin address
+            int b = hash_bucket(addr);
+            for (int i = 0; i < PIN_CAPACITY; i++) {
+                if (pin_hash[b * PIN_CAPACITY + i] == 0) {
+                    pin_hash[b * PIN_CAPACITY + i] = addr;
+                    pin_addr[b * PIN_CAPACITY + i] = slab_base[target_id];
+                    break;
+                }
+            }
             return (void *)addr;
         }
         else {
@@ -330,6 +440,29 @@ namespace MtsysMemory {
                 _quota_used += size;
                 // Genode::log("allocated dataspace size: ", ds->size(), " addr: ", ds->local_addr<void>());
                 void* ret = ds->local_addr<void>();
+                // insert into dsaddr hash
+                int success = 0;
+                int b = hash_bucket((unsigned long)ret);
+                for (int i = 0; i < PIN_CAPACITY; i++) {
+                    if (dsaddr_hash[b * PIN_CAPACITY + i] == 0) {
+                        dsaddr_hash[b * PIN_CAPACITY + i] = (unsigned long)ret;
+                        dsaddr_ds[b * PIN_CAPACITY + i] = ds;
+                        success = 1;
+                        break;
+                    }
+                }
+                if (!success) {
+                    Genode::error("dsaddr hash full");
+                    return Alloc_error(Alloc_error::DENIED);
+                }
+                // record the pin address
+                for (int i = 0; i < PIN_CAPACITY; i++) {
+                    if (pin_hash[b * PIN_CAPACITY + i] == 0) {
+                        pin_hash[b * PIN_CAPACITY + i] = (unsigned long)ret;
+                        pin_addr[b * PIN_CAPACITY + i] = (unsigned long)ret;
+                        break;
+                    }
+                }
                 Genode::size_t ds_size = ds->size();
                 int num_slabs = (ds_size / slab_size) - 1;
                 if (add_new_slab(ret, slab_size, num_slabs) == 0){
@@ -338,17 +471,42 @@ namespace MtsysMemory {
                 return ret;
             }
             else {
+                Genode::error("allocating dataspace failed");
                 Alloc_error err(Alloc_error::DENIED);
                 return err;
             }
         }
-
+        Genode::error("Unexpected allocating failed");
         Alloc_error err(Alloc_error::DENIED);
         return err;
     }
 
     void Local_allocator::free(void *addr, Genode::size_t)
     {
+        if (addr == 0) return;
+        // find in the pin hash
+        unsigned long addr_base = (unsigned long)addr;
+        int b = hash_bucket(addr_base);
+        int success = 0;
+        for (int i = 0; i < PIN_CAPACITY; i++) {
+            if (pin_hash[b * PIN_CAPACITY + i] == addr_base) {
+                addr_base = pin_addr[b * PIN_CAPACITY + i];
+                success = 1;
+                // clear the pin hash
+                pin_hash[b * PIN_CAPACITY + i] = 0;
+                pin_addr[b * PIN_CAPACITY + i] = 0;
+                break;
+            }
+        }
+        // reduce pinned mappings if found, otherwise deallocate the dataspace
+        if (success) {
+            Genode::log("freeing addr: ", addr, " base: ", addr_base);
+            reduce_hash(addr_base);
+            return;
+        }
+        else {
+            free_atds(addr);
+        }
         return;
     }
 

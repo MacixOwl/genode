@@ -122,12 +122,24 @@ struct MtsysPivot::ServiceHub {
 	// APIs from kv
 	int Kv_hello() { 
 		// test allocation here
-		void* p = alloc_obj.alloc(4096);
-		Genode::log("Allocated memory at: ", p);
-		p = alloc_obj.alloc(4096);
-		Genode::log("Allocated memory at: ", p);
-		p = alloc_obj.alloc(4096);
-		Genode::log("Allocated memory at: ", p);
+		void* p1 = alloc_obj.alloc(4096);
+		Genode::log("Allocated memory at: ", p1);
+		void* p2 = alloc_obj.alloc(4096);
+		Genode::log("Allocated memory at: ", p2);
+		void* p3 = alloc_obj.alloc(4096);
+		Genode::log("Allocated memory at: ", p3);
+		void* p4 = alloc_obj.alloc(40969);
+		Genode::log("Allocated memory at: ", p4);
+		// note here we need to enlarge cap in run file, as it is local obj
+		void* p5 = alloc_obj.alloc(40960000);
+		Genode::log("Allocated memory at: ", p5);
+
+		// test free here
+		alloc_obj.free(p1);
+		alloc_obj.free(p2);
+		alloc_obj.free(p3);
+		alloc_obj.free(p4);
+		alloc_obj.free(p5);
 
 		while (true) {
 			// the service here are composed services, and service_main_id is a composed ID, 
