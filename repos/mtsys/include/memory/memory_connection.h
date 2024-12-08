@@ -13,7 +13,7 @@ struct MtsysMemory::Connection : Genode::Connection<Session>, Session_client
 	:
 		/* create session */
 		Genode::Connection<MtsysMemory::Session>(env, Label(),
-		                                   Ram_quota { 8*1024 }, Args()),
+		                                   Ram_quota { 8*1024*1024 }, Args()),
 		/* initialize RPC interface */
 		Session_client(cap())
 	{ }

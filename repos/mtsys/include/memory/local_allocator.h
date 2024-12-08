@@ -22,8 +22,11 @@
 
 namespace MtsysMemory {  
     class Local_allocator;
+    struct LocalMemobj;
 }
 
+
+#define MTSYS_MEMORY_ONLYLOCAL 0
 
 const int DS_MIN_SIZE = 4096 << 2;
 const int DS_MAX_SIZE = 4096 << 13;
@@ -32,11 +35,11 @@ const int SLAB_MIN_SIZE = 4 << 2;
 const int SLAB_MAX_SIZE = 4096 << 11;
 const int SLAB_SIZE_LEVELS = 20;
 
-const int HASH_SIZE = 2048;
+const int HASH_SIZE = 4096;
 const int HASH_CAPACITY = 20;
-const int RING_SIZE = 2048;
+const int RING_SIZE = 4096;
 const int RING_LEVEL = SLAB_SIZE_LEVELS;
-const int PIN_CAPACITY = 64;
+const int PIN_CAPACITY = 32;
 
 
 inline constexpr static int DS_SIZE2LEVEL(int size) {
@@ -153,16 +156,24 @@ int best_fit_ds(int size) {
 }
 
 
-int hash_bucket(unsigned long addr) {
+int hash_bucket(unsigned long addr, int bucket_size) {
     // first remove all trailing zeros
     if (addr == 0) return 0;
     unsigned long h = addr;
     while ((h & 1) == 0) h >>= 1;
-    // then restrict within hash size
-    h = h % HASH_SIZE;
+    // then restrict within hash bucket size
+    h = h % bucket_size;
     return (int)h;
 }
-    
+
+
+struct MtsysMemory::LocalMemobj {
+    Genode::Ram_dataspace_capability *cap;
+    unsigned long addr;
+    unsigned long size;
+    LocalMemobj() : cap(0), addr(0), size(0) { }
+};
+
 
 
 class MtsysMemory::Local_allocator : public Genode::Allocator
@@ -189,13 +200,13 @@ private:
     // dataspace hook
     // HASH_SIZE * PIN_CAPACITY
     unsigned long *dsaddr_hash;
-    Genode::Attached_ram_dataspace** dsaddr_ds;
+    MtsysMemory::LocalMemobj** capaddr_list;
     int ring_head[RING_LEVEL] = {0};
     int ring_tail[RING_LEVEL] = {0};
 
     Genode::size_t _quota_used {0};
 
-    Genode::Attached_ram_dataspace* alloc_ds(int size);
+    MtsysMemory::LocalMemobj* alloc_ds(int size);
     int free_atds(void* addr);
     int add_new_slab(void* ds_addr, int slab_size, int num_slabs);
     int insert_hash(void* addr, int num_slabs);
@@ -251,9 +262,10 @@ namespace MtsysMemory {
     }
 
     int Local_allocator::insert_hash(void* addr, int num_slabs) {
+        Genode::log("inserting hash: ", addr, " num_slabs: ", num_slabs);
         unsigned long addr_base = (unsigned long)addr;
         int success = 0;
-        int b = hash_bucket(addr_base);
+        int b = hash_bucket(addr_base, HASH_SIZE);
         for (int i = 0; i < HASH_CAPACITY; i++) {
             if (hash_keys[b * HASH_CAPACITY + i] == 0) {
                 hash_keys[b * HASH_CAPACITY + i] = addr_base;
@@ -271,7 +283,7 @@ namespace MtsysMemory {
 
     int Local_allocator::reduce_hash(unsigned long addr) {
         unsigned long addr_base = (unsigned long)addr;
-        int b = hash_bucket(addr_base);
+        int b = hash_bucket(addr_base, HASH_SIZE);
         int success = 0;
         for (int i = 0; i < HASH_CAPACITY; i++) {
             if (hash_keys[b * HASH_CAPACITY + i] == addr_base) {
@@ -303,7 +315,7 @@ namespace MtsysMemory {
         pin_hash = new(sliced_heap) unsigned long[HASH_SIZE * PIN_CAPACITY];
         pin_addr = new(sliced_heap) unsigned long[HASH_SIZE * PIN_CAPACITY]; 
         dsaddr_hash = new(sliced_heap) unsigned long[HASH_SIZE * PIN_CAPACITY];
-        dsaddr_ds = new(sliced_heap) Genode::Attached_ram_dataspace*[HASH_SIZE * PIN_CAPACITY];
+        capaddr_list = new(sliced_heap) MtsysMemory::LocalMemobj*[HASH_SIZE * PIN_CAPACITY];
 
         for (int i = 0; i < HASH_SIZE * HASH_CAPACITY; i++) {
             hash_keys[i] = 0;
@@ -317,7 +329,7 @@ namespace MtsysMemory {
             pin_hash[i] = 0;
             pin_addr[i] = 0;
             dsaddr_hash[i] = 0;
-            dsaddr_ds[i] = 0;
+            capaddr_list[i] = 0;
         }
     }
 
@@ -331,53 +343,84 @@ namespace MtsysMemory {
         sliced_heap.free(pin_hash, HASH_SIZE * PIN_CAPACITY * sizeof(unsigned long));
         sliced_heap.free(pin_addr, HASH_SIZE * PIN_CAPACITY * sizeof(unsigned long));
         sliced_heap.free(dsaddr_hash, HASH_SIZE * PIN_CAPACITY * sizeof(unsigned long));
-        sliced_heap.free(dsaddr_ds, HASH_SIZE * PIN_CAPACITY * sizeof(Genode::Attached_ram_dataspace*));
+        sliced_heap.free(capaddr_list, HASH_SIZE * PIN_CAPACITY * sizeof(MtsysMemory::LocalMemobj*));
     }
 
 
-    Genode::Attached_ram_dataspace* Local_allocator::alloc_ds(int size) {
+    MtsysMemory::LocalMemobj* Local_allocator::alloc_ds(int size) {
         int ds_size = best_fit_ds(size);
         if (ds_size == 0) return 0;
-        // use local dataspace for now
-        Genode::Attached_ram_dataspace* ds;
-        if (ds_size > 0){
-            Genode::log("allocating dataspace ds_size: ", ds_size);
-            ds = new(sliced_heap) Genode::Attached_ram_dataspace(env.ram(), env.rm(), ds_size);
+        MtsysMemory::LocalMemobj *capaddr = new(sliced_heap) MtsysMemory::LocalMemobj();
+        if (MTSYS_MEMORY_ONLYLOCAL){
+            // use local dataspace
+            Genode::Attached_ram_dataspace* ds;
+            if (ds_size > 0){
+                Genode::log("allocating dataspace ds_size: ", ds_size);
+                ds = new(sliced_heap) Genode::Attached_ram_dataspace(env.ram(), env.rm(), ds_size);
+            }
+            else{
+                Genode::log("allocating dataspace size: ", size);
+                ds = new(sliced_heap) Genode::Attached_ram_dataspace(env.ram(), env.rm(), size);
+                // Genode::log("allocated dataspace size: ", ds->size(), " addr: ", ds->local_addr<void>());
+            }
+            // Genode::log("allocated dataspace size: ", ds->size(), " addr: ", ds->local_addr<void>());
+            Genode::Ram_dataspace_capability cap = ds->cap();
+            capaddr->cap = &cap;
+            capaddr->addr = (unsigned long)ds->local_addr<void>();
+            capaddr->size = ds->size();
         }
         else{
-            Genode::log("allocating dataspace size: ", size);
-            ds = new(sliced_heap) Genode::Attached_ram_dataspace(env.ram(), env.rm(), size);
-            Genode::log("allocated dataspace size: ", ds->size(), " addr: ", ds->local_addr<void>());
+            // use remote dataspace
+            if (ds_size > 0){
+                Genode::Ram_dataspace_capability cap = mem_obj.Memory_alloc(ds_size, capaddr->addr);
+                capaddr->cap = &cap;
+                capaddr->size = ds_size;
+                // attach the dataspace
+                env.rm().attach_at(*(capaddr->cap), capaddr->addr, ds_size);
+            }
+            else{
+                Genode::log("allocating single dataspace size: ", size);
+                Genode::Ram_dataspace_capability cap = mem_obj.Memory_alloc(size, capaddr->addr);
+                capaddr->cap = &cap;
+                capaddr->size = size;
+                // attach the dataspace
+                env.rm().attach_at(*(capaddr->cap), capaddr->addr, size);
+            }
         }
-        // Genode::log("allocated dataspace size: ", ds->size(), " addr: ", ds->local_addr<void>());
-        return ds;
+        return capaddr;
         // return mem_obj.alloc_ds(ds_size);
     }
 
 
     int Local_allocator::free_atds(void* addr) {
         Genode::log("freeing dataspace at addr: ", addr);
-        // now free the local dataspace
-        env.rm().detach(addr);
-        // find the ds in the hash table
-        unsigned long addr_base = (unsigned long)addr;
-        int b = hash_bucket(addr_base);
-        Genode::Attached_ram_dataspace* ds = 0;
-        int success = 0;
-        for (int i = 0; i < PIN_CAPACITY; i++) {
-            if (dsaddr_hash[b * PIN_CAPACITY + i] == addr_base) {
-                ds = dsaddr_ds[b * PIN_CAPACITY + i];
-                dsaddr_hash[b * PIN_CAPACITY + i] = 0;
-                dsaddr_ds[b * PIN_CAPACITY + i] = 0;
-                success = 1;
-                break;
+        if (MTSYS_MEMORY_ONLYLOCAL){            
+            // now free the local dataspace
+            env.rm().detach(addr);
+            // find the cap in the hash table
+            unsigned long addr_base = (unsigned long)addr;
+            int b = hash_bucket(addr_base, HASH_SIZE);
+            MtsysMemory::LocalMemobj* capaddr = 0;
+            int success = 0;
+            for (int i = 0; i < PIN_CAPACITY; i++) {
+                if (dsaddr_hash[b * PIN_CAPACITY + i] == addr_base) {
+                    capaddr = capaddr_list[b * PIN_CAPACITY + i];
+                    dsaddr_hash[b * PIN_CAPACITY + i] = 0;
+                    capaddr_list[b * PIN_CAPACITY + i] = 0;
+                    success = 1;
+                    break;
+                }
             }
+            if (!success) {
+                Genode::error("address not in dsaddr hash but trying to free");
+                return -1;
+            }
+            env.ram().free(*(capaddr->cap));
         }
-        if (!success) {
-            Genode::error("address not in dsaddr hash but trying to free");
-            return -1;
+        else{
+            // free the remote dataspace
+            mem_obj.Memory_free((Genode::addr_t)addr);
         }
-        env.ram().free(ds->cap());
         return 0;
     }
 
@@ -389,17 +432,18 @@ namespace MtsysMemory {
         int slab_level = SLAB_SIZE2LEVEL(slab_size);
         // Genode::log("slab size: ", slab_size, " slab level: ", slab_level);
         if (slab_size < 0 || slab_level < 0 || slab_level >= SLAB_SIZE_LEVELS) {
-            Genode::Attached_ram_dataspace* ds = alloc_ds(size);
-            if (ds->size()) {
+            MtsysMemory::LocalMemobj* ds = alloc_ds(size);
+            Genode::log("allocated dataspace size: ", ds->size, " addr: ", ds->addr, " cap ", *(ds->cap));
+            if (ds->addr) {
                 _quota_used += size;
-                void* ret = ds->local_addr<void>();
+                void* ret = (void*)(ds->addr);
                 // insert into dsaddr hash
                 int success = 0;
-                int b = hash_bucket((unsigned long)ret);
+                int b = hash_bucket((unsigned long)ret, HASH_SIZE);
                 for (int i = 0; i < PIN_CAPACITY; i++) {
                     if (dsaddr_hash[b * PIN_CAPACITY + i] == 0) {
                         dsaddr_hash[b * PIN_CAPACITY + i] = (unsigned long)ret;
-                        dsaddr_ds[b * PIN_CAPACITY + i] = ds;
+                        capaddr_list[b * PIN_CAPACITY + i] = ds;
                         success = 1;
                         break;
                     }
@@ -423,7 +467,7 @@ namespace MtsysMemory {
             ring_head[slab_level] = (ring_head[slab_level] + 1) % RING_SIZE;
             _quota_used += size;
             // record the pin address
-            int b = hash_bucket(addr);
+            int b = hash_bucket(addr, HASH_SIZE);
             for (int i = 0; i < PIN_CAPACITY; i++) {
                 if (pin_hash[b * PIN_CAPACITY + i] == 0) {
                     pin_hash[b * PIN_CAPACITY + i] = addr;
@@ -435,18 +479,19 @@ namespace MtsysMemory {
         }
         else {
             // Genode::log("allocating new ds");
-            Genode::Attached_ram_dataspace* ds = alloc_ds(size);
-            if (ds->size()) {
+            MtsysMemory::LocalMemobj* ds = alloc_ds(size);
+            Genode::log("allocated dataspace size: ", ds->size, " addr: ", ds->addr, " cap ", *(ds->cap));
+            if (ds->addr) {
                 _quota_used += size;
                 // Genode::log("allocated dataspace size: ", ds->size(), " addr: ", ds->local_addr<void>());
-                void* ret = ds->local_addr<void>();
+                void* ret = (void*)(ds->addr);
                 // insert into dsaddr hash
                 int success = 0;
-                int b = hash_bucket((unsigned long)ret);
+                int b = hash_bucket((unsigned long)ret, HASH_SIZE);
                 for (int i = 0; i < PIN_CAPACITY; i++) {
                     if (dsaddr_hash[b * PIN_CAPACITY + i] == 0) {
                         dsaddr_hash[b * PIN_CAPACITY + i] = (unsigned long)ret;
-                        dsaddr_ds[b * PIN_CAPACITY + i] = ds;
+                        capaddr_list[b * PIN_CAPACITY + i] = ds;
                         success = 1;
                         break;
                     }
@@ -463,7 +508,7 @@ namespace MtsysMemory {
                         break;
                     }
                 }
-                Genode::size_t ds_size = ds->size();
+                Genode::size_t ds_size = ds->size;
                 int num_slabs = (ds_size / slab_size) - 1;
                 if (add_new_slab(ret, slab_size, num_slabs) == 0){
                     insert_hash(ret, num_slabs);
@@ -486,7 +531,7 @@ namespace MtsysMemory {
         if (addr == 0) return;
         // find in the pin hash
         unsigned long addr_base = (unsigned long)addr;
-        int b = hash_bucket(addr_base);
+        int b = hash_bucket(addr_base, HASH_SIZE);
         int success = 0;
         for (int i = 0; i < PIN_CAPACITY; i++) {
             if (pin_hash[b * PIN_CAPACITY + i] == addr_base) {

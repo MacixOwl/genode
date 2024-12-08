@@ -47,6 +47,16 @@ struct MtsysMemory::Session_client : Genode::Rpc_client<Session>
 		return call<Rpc_query_free_space>();
 	}
 
+	Genode::Ram_dataspace_capability Memory_alloc(int size, Genode::addr_t &addr) override
+	{
+		return call<Rpc_Memory_alloc>(size, addr);
+	}
+
+	int Memory_free(Genode::addr_t addr) override
+	{
+		return call<Rpc_Memory_free>(addr);
+	}
+
 };
 
-#endif /* _INCLUDE__MEMORY__CLIENT_H_ */ 
+#endif /* _INCLUDE__MEMORY__CLIENT_H_ */
