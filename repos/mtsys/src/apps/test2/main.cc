@@ -33,6 +33,12 @@ void Component::construct(Genode::Env &env)
 	void* p6 = hub.Memory_alloc(8);
 	Genode::log("Allocated memory at: ", p6);
 
+	((char*)p6)[0] = 'a';
+	((char*)p6)[1] = 'b';
+	((char*)p6)[2] = 'c';
+	((char*)p6)[3] = 0;
+	Genode::log("p6: ", (const char*)p6);
+
 	// test free here
 	hub.Memory_free(p1);
 	hub.Memory_free(p2);

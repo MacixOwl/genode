@@ -280,6 +280,13 @@ struct MtsysMemory::Session_component : Genode::Rpc_object<Session>
 	state(s)
 	{ }
 
+	~Session_component() {
+		Genode::log("Destroying MtsysMemory session for client ", client_id);
+		// here we check the address 0x18000 manually, which should be p6
+		// TODO: delete this line in performance test
+		Genode::log("p6: ", (const char*)0x18000);
+	}
+
 };
 
 
