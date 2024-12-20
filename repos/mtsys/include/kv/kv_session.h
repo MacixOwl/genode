@@ -62,6 +62,7 @@ struct MtsysKv::Session : Genode::Session
 
 	virtual int range_scan(const KvRpcString leftBound, const KvRpcString rightBound) = 0;
 
+	virtual Genode::Ram_dataspace_capability get_data_version_addr() = 0;
 
 
 	/*******************
@@ -80,6 +81,7 @@ struct MtsysKv::Session : Genode::Session
 	GENODE_RPC(Rpc_range_scan_prepare, Genode::Ram_dataspace_capability, range_scan_prepare);
 	GENODE_RPC(Rpc_range_scan, int, range_scan, const KvRpcString, const KvRpcString);
 
+	GENODE_RPC(Rpc_get_data_version_addr, Genode::Ram_dataspace_capability, get_data_version_addr);
 
 	GENODE_RPC_INTERFACE(
 		Rpc_Kv_hello, 
@@ -92,7 +94,8 @@ struct MtsysKv::Session : Genode::Session
 		Rpc_read,
 		Rpc_update,
 		Rpc_range_scan_prepare,
-		Rpc_range_scan
+		Rpc_range_scan,
+		Rpc_get_data_version_addr
 	);
 };
 
