@@ -118,16 +118,17 @@ struct MtsysPivot::ServiceHub {
 
 	genode_uint64_t query_free_space() { return mem_obj.query_free_space(); }
 
+	void* Memory_alloc(int size) { 
+		return alloc_obj.alloc(size); 
+	}
+
+	void Memory_free(void* addr) { 
+		alloc_obj.free(addr); 
+	}
+
 
 	// APIs from kv
 	int Kv_hello() { 
-		// test allocation here
-		void* p = alloc_obj.alloc(4096);
-		Genode::log("Allocated memory at: ", p);
-		p = alloc_obj.alloc(4096);
-		Genode::log("Allocated memory at: ", p);
-		p = alloc_obj.alloc(4096);
-		Genode::log("Allocated memory at: ", p);
 
 		while (true) {
 			// the service here are composed services, and service_main_id is a composed ID, 

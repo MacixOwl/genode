@@ -117,6 +117,33 @@ public:
         return this->_data;
     }
 
+    void reserve(size_t new_capacity) {
+        if (new_capacity <= _capacity) {
+            // Do nothing
+            return;
+        }
+        if (!this->allocator) { // Check null ptr
+            Genode::error("[CRITICAL] Allocator is null!");
+            return;
+        }
+        // Allocate new memory
+        auto newAddr = (DataType*) allocator->alloc(new_capacity * sizeof(DataType));
+        Genode::log("After allocate");
+        if (!newAddr) {
+            Genode::error("[CRITICAL] ArrayList reserve failed: insufficient memory.");
+            return;
+        }
+        // Copy the original data to new memory
+        adl::memcpy(newAddr, _data, _size * sizeof(DataType));
+        // Free old memory
+        if (_capacity) {
+            allocator->free(_data, _capacity * sizeof(DataType));
+        }
+        // Update ptr and capacity
+        _data = newAddr;
+        _capacity = new_capacity;
+    }
+
     int append(const DataType& data) {
 
         if (_size == _capacity) {

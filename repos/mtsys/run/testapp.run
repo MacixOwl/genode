@@ -34,27 +34,27 @@ install_config {
 		<provides> <service name="Timer"/> </provides>
 	</start>
 
-	<start name="memory_server">
-		<resource name="RAM" quantum="1200M"/>
+	<start name="memory_server" caps="40000">
+		<resource name="RAM" quantum="4000M"/>
 		<provides> <service name="MtsysMemory"/> </provides>
 	</start>
 
 	<start name="kv_server">
-		<resource name="RAM" quantum="1M"/>
+		<resource name="RAM" quantum="16M"/>
 		<provides> <service name="MtsysKv"/> </provides>
 	</start>
 
 	<start name="mtsys_pivot">
-		<resource name="RAM" quantum="4M"/>
+		<resource name="RAM" quantum="10M"/>
 		<provides> <service name="MtsysPivot"/> </provides>
 	</start>
 
     <start name="testapp1">
-        <resource name="RAM" quantum="4M"/>
+        <resource name="RAM" quantum="16M"/>
 	</start>
 
 	<start name="testapp2">
-        <resource name="RAM" quantum="4M"/>
+        <resource name="RAM" quantum="16M"/>
 	</start>
 	
 </config>}
