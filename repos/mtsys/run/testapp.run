@@ -40,7 +40,7 @@ install_config {
 	</start>
 
 	<start name="kv_server">
-		<resource name="RAM" quantum="8M"/>
+		<resource name="RAM" quantum="16M"/>
 		<provides> <service name="MtsysKv"/> </provides>
 	</start>
 

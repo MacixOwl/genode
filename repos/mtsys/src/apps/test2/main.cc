@@ -1,6 +1,7 @@
 
 #include <base/component.h>
 #include <base/log.h>
+#include <fs/filesys_ram.h>
 
 
 #include <pivot/pivot_connection.h>
@@ -51,6 +52,48 @@ void Component::construct(Genode::Env &env)
 	for (int i = 0; i < 100000; i++) {
 		hub.null_function();
 	}
+
+	// test ramfs here
+	Genode::Heap heap(env.ram(), env.rm());
+	int a = -1;
+
+	Genode::warning("Creating ramfs");
+	Mfs::Ram_file_system ramfs(env, heap);
+	Genode::log("Created ramfs");
+	Mfs::Vfs_handle* handle0 = nullptr;
+	a = ramfs.opendir("/testdir", 1, &handle0, heap);
+	Genode::log("Opened dir: ", a);
+	// if not closing at end, will cause dangling memory
+	ramfs.close(handle0);
+	Mfs::Vfs_handle* handle1 = nullptr;
+	a = ramfs.open("/testdir/testfile1", 
+		Vfs::Directory_service::Open_mode::OPEN_MODE_CREATE | Vfs::Directory_service::Open_mode::OPEN_MODE_RDWR,
+		&handle1, heap);
+	Genode::log("Opened file: ", a);
+	Genode::size_t size = 0;
+	a = ramfs.write(handle1, Genode::Const_byte_range_ptr((char*)"hello world", 11), size);
+	Genode::log("Wrote file: ", a);
+	ramfs.close(handle1);
+	Mfs::Vfs_handle* handle2 = nullptr;
+	a = ramfs.open("/testdir/testfile2", 
+		Vfs::Directory_service::Open_mode::OPEN_MODE_CREATE | Vfs::Directory_service::Open_mode::OPEN_MODE_RDWR,
+		&handle2, heap);
+	Genode::log("Opened file: ", a);
+	a = ramfs.write(handle2, Genode::Const_byte_range_ptr((char*)"aloha world", 11), size);
+	Genode::log("Wrote file: ", a);
+	ramfs.close(handle2);
+	Mfs::Vfs_handle* handle3 = nullptr;
+	a = ramfs.open("/testdir/testfile2", 
+		Vfs::Directory_service::Open_mode::OPEN_MODE_RDONLY,
+		&handle3, heap);
+	Genode::log("Opened file: ", a);
+	char* buf = (char*)heap.alloc(64);
+	Genode::size_t read_size = 0;
+	a = ramfs.complete_read(handle3, Genode::Byte_range_ptr(buf, 64), read_size);
+	Genode::log("Read file: ", a);
+	ramfs.close(handle3);
+	Genode::log("Read result: ", (const char*)buf);
+	heap.free(buf, 64);
 
 	Genode::log("testapp completed");
 }
