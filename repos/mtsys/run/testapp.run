@@ -35,17 +35,17 @@ install_config {
 	</start>
 
 	<start name="memory_server" caps="40000">
-		<resource name="RAM" quantum="4000M"/>
+		<resource name="RAM" quantum="4096M"/>
 		<provides> <service name="MtsysMemory"/> </provides>
 	</start>
 
 	<start name="kv_server">
-		<resource name="RAM" quantum="16M"/>
+		<resource name="RAM" quantum="64M"/>
 		<provides> <service name="MtsysKv"/> </provides>
 	</start>
 
 	<start name="mtsys_pivot">
-		<resource name="RAM" quantum="10M"/>
+		<resource name="RAM" quantum="16M"/>
 		<provides> <service name="MtsysPivot"/> </provides>
 	</start>
 

@@ -7,7 +7,6 @@
 
 namespace adl {
 
-static const int INT_MAX = (1 << 31) - 1;
 
 class TString {
 protected:
@@ -18,6 +17,7 @@ protected:
 
 
 public:
+    static const size_t npos = -1;
 
     TString();
     TString(const char* str);
@@ -76,12 +76,12 @@ public:
     bool operator <= (const TString& str) const;
     bool operator <= (const char* str) const;
 
-    TString substr(const int pos, const int len = INT_MAX) const;
+    TString substr(const size_t pos, const size_t len = npos) const;
     char& at(const int n);
     const char& at(const int n) const;
 
-    char& operator[] (int i);
-    const char& operator[] (int i) const;
+    char& operator[] (size_t i);
+    const char& operator[] (size_t i) const;
 
     friend const TString operator + (const char* strA, const TString& strB);
 

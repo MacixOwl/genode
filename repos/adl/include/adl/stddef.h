@@ -14,3 +14,9 @@
 #pragma once
 
 #define offsetof(type, member) ((unsigned long) &((type*)0)->member)
+
+namespace adl {
+
+using nullptr_t = decltype(nullptr);
+
+}  // namespace adl

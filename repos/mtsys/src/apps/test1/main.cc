@@ -14,7 +14,7 @@ static int runKvTest(MtsysPivot::ServiceHub& hub) {
 	hub.Kv_insert("gty", "cool");
 	hub.Kv_insert("zsa", "wow");
 
-	for (int i = 0; i < 100; i++) {
+	for (int i = 0; i < 2; i++) {
 		auto res = hub.Kv_range_scan("aa", "zz");
 		int nElements = res->header.dataSize / sizeof(MtsysKv::KvRpcString);
 		auto data = (MtsysKv::KvRpcString*) res->data;
@@ -33,7 +33,12 @@ static int runKvTest(MtsysPivot::ServiceHub& hub) {
 
 	auto r = hub.Kv_read("qzl");
 	Genode::log("read result: ", r);
+	r = hub.Kv_read("qzl");
+	Genode::log("read result: ", r);
+	hub.Kv_insert("qqq1", "zzzl");
 	r = hub.Kv_read("qqq");
+	Genode::log("read result: ", r);
+	r = hub.Kv_read("qzl");
 	Genode::log("read result: ", r);
 
 	return 0;

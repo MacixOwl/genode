@@ -81,11 +81,11 @@ protected:
     Allocator* allocator;
 
 public:
-    ArrayList(Allocator& allocator = *defaultAllocator) {
+    ArrayList(Allocator& allocator = defaultAllocator) {
         this->allocator = &allocator;
         if (&allocator == nullptr) {
             Genode::error("[CRITICAL] ArrayList's allocator is null!");
-            if (&allocator == defaultAllocator) {
+            if (&allocator == &defaultAllocator) {
                 Genode::error("> Using default allocator, but it is null.");
             }
             return;

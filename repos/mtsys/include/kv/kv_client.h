@@ -1,19 +1,73 @@
 
-#ifndef _INCLUDE__KV__CLIENT_H_
-#define _INCLUDE__KV__CLIENT_H_
+#pragma once
 
 #include <kv/kv_session.h>
 #include <base/rpc_client.h>
 #include <base/log.h>
 #include <base/stdint.h>
+#include <base/heap.h>
+
+#include <adl/collections/RedBlackTree.hpp>
 
 namespace MtsysKv { struct Session_client; }
 
 
+#define MTSYS_KV_CLIENT_ENSURE_DATA_VERSION() \
+	do { \
+		if (!pRemoteDataVersion) {\
+			this->get_data_version_addr(); \
+		} \
+		Genode::log("remote version: ", *pRemoteDataVersion, ". local version: ", localDataVersion); \
+		if (*pRemoteDataVersion != localDataVersion) { \
+			localDataVersion = *pRemoteDataVersion; \
+			Genode::log("Data updated. Local cache cleared."); \
+			cacheDB.clear(); \
+		} \
+	} while (0)
+
+
 struct MtsysKv::Session_client : Genode::Rpc_client<Session>
 {
-	Session_client(Genode::Capability<Session> cap)
-	: Genode::Rpc_client<Session>(cap) { }
+	
+protected:
+	
+	Genode::Env& env;
+	Genode::Sliced_heap sliced_heap { env.ram(), env.rm() };
+	Genode::uint64_t localDataVersion = 0;
+	Genode::uint64_t* pRemoteDataVersion = nullptr;
+
+	adl::RedBlackTree<KvRpcString, KvRpcString> cacheDB;
+
+	static const Genode::addr_t remoteDataVersionLocalAddr = 0xf1000000; // TODO: really this address?
+
+public:
+
+	Session_client(Genode::Capability<Session> cap, Genode::Env& env)
+	: Genode::Rpc_client<Session>(cap), env(env) 
+	{
+		if (adl::defaultAllocator.notReady()) {
+			adl::defaultAllocator.init({
+
+				.alloc = [] (adl::size_t size, void* data) {
+					return reinterpret_cast<Genode::Sliced_heap*>(data)->alloc(size);
+				},
+				
+				.free = [] (void* addr, adl::size_t size, void* data) {
+					reinterpret_cast<Genode::Sliced_heap*>(data)->free(addr, size);
+				},
+				
+				.data = &sliced_heap  // todo: really use sliced_heap ?
+			});
+
+		}
+
+	}
+
+	~Session_client() {
+		if (pRemoteDataVersion) {
+			env.rm().detach(remoteDataVersionLocalAddr);
+		}
+	}
 
 	int Kv_hello() override
 	{
@@ -52,7 +106,18 @@ struct MtsysKv::Session_client : Genode::Rpc_client<Session>
 
 
 	virtual const KvRpcString read(const KvRpcString key) override {
-		return call<Rpc_read>(key);
+		MTSYS_KV_CLIENT_ENSURE_DATA_VERSION();
+
+		if (cacheDB.hasKey(key)) {
+			Genode::log("Data found in cache.");
+			return cacheDB.getData(key);
+		}
+		
+		Genode::log("Firing RPC read request.");
+		
+		auto result = call<Rpc_read>(key);
+		cacheDB.setData(key, result);
+		return result;
 	}
 
 
@@ -64,6 +129,17 @@ struct MtsysKv::Session_client : Genode::Rpc_client<Session>
 		return call<Rpc_range_scan_prepare>();
 	}
 
+	virtual Genode::Ram_dataspace_capability get_data_version_addr() override {
+		auto cap = call<Rpc_get_data_version_addr>();
+
+		if (!pRemoteDataVersion) {
+			env.rm().attach_at(cap, remoteDataVersionLocalAddr);
+			pRemoteDataVersion = (Genode::uint64_t*) remoteDataVersionLocalAddr;
+		}
+
+		return cap;
+	}
+
 	virtual int range_scan(
 		const KvRpcString leftBound, 
 		const KvRpcString rightBound
@@ -73,4 +149,7 @@ struct MtsysKv::Session_client : Genode::Rpc_client<Session>
 
 };
 
-#endif /* _INCLUDE__KV__CLIENT_H_ */
+
+#undef MTSYS_KV_CLIENT_ENSURE_DATA_VERSION
+
+

@@ -8,11 +8,14 @@
 #include <dataspace/client.h>
 #include <base/attached_ram_dataspace.h>
 
+#include <base/signal.h>
+
 #include <pivot/pivot_session.h>
 #include <kv/kv_session.h>
 #include <memory/memory_connection.h>
 #include <adl/collections/RedBlackTree.hpp>
 #include <adl/collections/ArrayList.hpp>
+#include <adl/Allocator.h>
 
 
 namespace MtsysKv {
@@ -26,6 +29,10 @@ namespace MtsysKv {
 struct MtsysKv::Component_state
 {
 	Genode::Ram_dataspace_capability ds_cap;
+
+	uint64_t *pDataVersion = nullptr;
+	Genode::Attached_ram_dataspace dataVersion;
+
 	int cid_in4service[MAX_SERVICE] = { 0 };
 	int ipc_count[MAX_USERAPP] = { 0 };
 
@@ -33,14 +40,15 @@ struct MtsysKv::Component_state
 	MtsysMemory::Connection mem_obj;
 
 	adl::RedBlackTree<KvRpcString, KvRpcString> rbtree;
-
+	
 	Component_state(Genode::Env &env, Genode::Allocator& alloc)
 	: ds_cap(),
 	cid_in4service(),
 	ipc_count(),
 	env(env),
 	mem_obj(env),
-	rbtree(&alloc)
+	rbtree(),
+	dataVersion(env.ram(), env.rm(), sizeof(*pDataVersion), Genode::UNCACHED)
 	{	
 		// get cids in services for later use, filled manually for now
 		int cid_mem = mem_obj.Memory_hello();
@@ -49,6 +57,8 @@ struct MtsysKv::Component_state
 		// fake implementation for now
 		if (!ds_cap.valid())
         	ds_cap = env.ram().alloc(0x1000);
+		pDataVersion = dataVersion.local_addr<uint64_t>();
+		*pDataVersion = 65472;
     }
 };
 
@@ -63,6 +73,8 @@ struct MtsysKv::Session_component : Genode::Rpc_object<Session>
 	// this is a shared dataspace for range scan result
 	// which is pinned to the client at first call
 	Genode::Attached_ram_dataspace rangeScanRamDataspace;
+
+
 	adl::ArrayList<KvRpcString> scanData;
 
 
@@ -98,6 +110,7 @@ struct MtsysKv::Session_component : Genode::Rpc_object<Session>
 
 	virtual int insert(const KvRpcString key, const KvRpcString value) override {
 		state.rbtree.setData(key, value);
+		(*state.pDataVersion) ++;
 		return 0;
 	}
 
@@ -106,6 +119,7 @@ struct MtsysKv::Session_component : Genode::Rpc_object<Session>
 		
 		if (state.rbtree.hasKey(key)) {
 			state.rbtree.removeKey(key);
+			(*state.pDataVersion) ++;
 			return 0;
 		} else {
 			return 1;
@@ -165,13 +179,18 @@ struct MtsysKv::Session_component : Genode::Rpc_object<Session>
 	}
 
 
+	virtual Genode::Ram_dataspace_capability get_data_version_addr() override {
+		return state.dataVersion.cap();
+	}
+
+
 	Session_component(int id, Component_state &s, Genode::Allocator* allocator, Genode::Env& env) 
 	: client_id(id),
 		state(s),
 		env(env),
 		allocator(allocator),
 		rangeScanRamDataspace(env.ram(), env.rm(), RANGE_SCAN_BUFFER),
-		scanData(*allocator)
+		scanData()
 	{
 		
 	}
@@ -267,6 +286,20 @@ struct MtsysKv::Main
     : 
     env(env)
 	{
+
+		adl::defaultAllocator.init({
+
+			.alloc = [] (adl::size_t size, void* data) {
+				return reinterpret_cast<Genode::Sliced_heap*>(data)->alloc(size);
+			},
+			
+			.free = [] (void* addr, adl::size_t size, void* data) {
+				reinterpret_cast<Genode::Sliced_heap*>(data)->free(addr, size);
+			},
+			
+			.data = &sliced_heap
+		});
+
 		/*
 		 * Create a RPC object capability for the root interface and
 		 * announce the service to our parent.
