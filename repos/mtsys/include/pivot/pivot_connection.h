@@ -8,6 +8,7 @@
 #include <kv/kv_connection.h>
 #include <memory/memory_connection.h>
 #include <memory/local_allocator.h>
+#include <fs/fs_connection.h>
 
 #include <base/heap.h>
 
@@ -48,6 +49,8 @@ struct MtsysPivot::ServiceHub {
 	int kvrpc_dataspace_prepared = 0;
 	static const Genode::addr_t Kvrpc_Addr = 0xf0000000; // TODO: really this address?
 
+	MtsysFs::Connection fs_obj;
+
 	ServiceHub(Genode::Env &env)
 	: env(env), 
 	timer_obj(env), 
@@ -55,7 +58,8 @@ struct MtsysPivot::ServiceHub {
 	service_main_id_cache(),
 	mem_obj(env), 
 	alloc_obj(env, mem_obj),
-	kv_obj(env)
+	kv_obj(env),
+	fs_obj(env)
 	{ 
 	}
 
@@ -196,6 +200,37 @@ struct MtsysPivot::ServiceHub {
 	// MtsysKv::cid_4service get_cid_4services() { return kv_obj.get_cid_4services(); }
 	void null_function() { kv_obj.null_function(); }
 	int get_IPC_stats(int client_id) { return kv_obj.get_IPC_stats(client_id); }
+
+	// APIs from fs
+	int Fs_hello() { 
+		while (1){
+			int res = -1;
+			switch (service_main_id_cache[SID_FS_SERVICE])
+			{
+			case 8: // only fs service
+				res = fs_obj.Fs_hello(); 
+				break;
+			default:
+				break;
+			}
+			if (res == -1){
+				Genode::log("[INFO] Fs service not available or Main ID cache not updated");
+				main_id_cache_dirty = 1;
+				update_service_main_id_cache();
+			}
+			else{
+				return res;
+			}
+		}
+	}
+
+	int Fs_open(const MtsysFs::FsPathString path, unsigned flags, unsigned mode) {
+		return fs_obj.open(path, flags, mode);
+	}
+
+	int Fs_close(int fd) {
+		return fs_obj.close(fd);
+	}
 
 };
 

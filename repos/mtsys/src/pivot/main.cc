@@ -13,6 +13,7 @@
 #include <pivot/pivot_session.h>
 #include <memory/memory_connection.h>
 #include <kv/kv_connection.h>
+#include <fs/fs_connection.h>
 
 namespace MtsysPivot {
 	struct Component_state;
@@ -41,6 +42,7 @@ struct MtsysPivot::Component_state
 
 	MtsysMemory::Connection mem_obj;
 	MtsysKv::Connection kv_obj;
+	MtsysFs::Connection fs_obj;
 
 	Timer::Periodic_timeout<MtsysPivot::Component_state> timeout;
 
@@ -75,9 +77,11 @@ struct MtsysPivot::Component_state
 	void update_ipc_stats(Genode::Duration) {
 		Genode::log("Updating IPC stats");
 		// first transform the service main id
-		int comp_ids[3] = {SID_MEMORY_SERVICE, SID_KV_SERVICE, SID_BLOCK_SERVICE};
+		int comp_ids[4] = {SID_MEMORY_SERVICE, SID_KV_SERVICE, SID_BLOCK_SERVICE, 
+			SID_FS_SERVICE};
 		// fake transform for an example
 		transform_service_main(SID_KV_SERVICE, nullptr, 0);
+		transform_service_main(SID_FS_SERVICE, nullptr, 0);
 
 		int comp_id = 0;
 		for (int i = 0; i < MAX_USERAPP; i++) {
@@ -101,6 +105,18 @@ struct MtsysPivot::Component_state
 			" ", pivot_ipc_app2comp[1][kv_comp_id], " ", pivot_ipc_app2comp[2][kv_comp_id], 
 			" ", pivot_ipc_app2comp[3][kv_comp_id], " ", pivot_ipc_app2comp[4][kv_comp_id]);
 
+		// update fs service ipc stats
+		int fs_comp_id = service_main_id[SID_FS_SERVICE];
+		// Genode::log("FS service main id: ", fs_comp_id);
+		for (int i = 0; i < 5; i++) {
+			int new_ipc = fs_obj.get_IPC_stats(i);
+			pivot_ipc_app2comp[i][fs_comp_id] += new_ipc;
+		}
+		// log them for now
+		Genode::log("IPC stats for FS service: ", pivot_ipc_app2comp[0][fs_comp_id], 
+			" ", pivot_ipc_app2comp[1][fs_comp_id], " ", pivot_ipc_app2comp[2][fs_comp_id], 
+			" ", pivot_ipc_app2comp[3][fs_comp_id], " ", pivot_ipc_app2comp[4][fs_comp_id]);
+
 		return;
 	}
 
@@ -110,6 +126,7 @@ struct MtsysPivot::Component_state
 	timer(env),
 	mem_obj(env),
 	kv_obj(env),
+	fs_obj(env),
 	timeout(timer, *this, &Component_state::update_ipc_stats, 
 		Genode::Microseconds{IPC_UPDATE_INTERVAL * 1000})
     {

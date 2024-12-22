@@ -109,6 +109,7 @@ struct MtsysKv::Session_component : Genode::Rpc_object<Session>
 
 
 	virtual int insert(const KvRpcString key, const KvRpcString value) override {
+		state.ipc_count[client_id]++;
 		state.rbtree.setData(key, value);
 		(*state.pDataVersion) ++;
 		return 0;
@@ -116,7 +117,8 @@ struct MtsysKv::Session_component : Genode::Rpc_object<Session>
 
 
 	virtual int del(const KvRpcString key) override {
-		
+
+		state.ipc_count[client_id]++;
 		if (state.rbtree.hasKey(key)) {
 			state.rbtree.removeKey(key);
 			(*state.pDataVersion) ++;
@@ -128,11 +130,13 @@ struct MtsysKv::Session_component : Genode::Rpc_object<Session>
 
 
 	virtual const KvRpcString read(const KvRpcString key) override {
+		state.ipc_count[client_id]++;
 		return state.rbtree.hasKey(key) ? state.rbtree.getData(key) : KvRpcString {};
 	}
 
 
 	virtual int update(const KvRpcString key, const KvRpcString value) override {
+		state.ipc_count[client_id]++;
 		return insert(key, value);
 	}
 
@@ -145,6 +149,7 @@ struct MtsysKv::Session_component : Genode::Rpc_object<Session>
 		const KvRpcString rightBound
 	) override {
 
+		state.ipc_count[client_id]++;
 		const auto& collect = [] (void* untypedData, const KvRpcString& k, const KvRpcString& v) {
 
 			auto& data = *reinterpret_cast< decltype(scanData)* >(untypedData);
