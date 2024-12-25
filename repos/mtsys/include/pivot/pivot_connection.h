@@ -50,6 +50,8 @@ struct MtsysPivot::ServiceHub {
 	static const Genode::addr_t Kvrpc_Addr = 0xf0000000; // TODO: really this address?
 
 	MtsysFs::Connection fs_obj;
+	int fsIO_dataspace_prepared = 0;
+	Genode::addr_t fsIO_Addr = 0xe0000000;
 
 	ServiceHub(Genode::Env &env)
 	: env(env), 
@@ -61,11 +63,18 @@ struct MtsysPivot::ServiceHub {
 	kv_obj(env),
 	fs_obj(env)
 	{ 
+		// get and attach dataspace for fsIO
+		auto fsIO_ds = fs_obj.get_ds_cap();
+		env.rm().attach_at(fsIO_ds, fsIO_Addr);
+		fsIO_dataspace_prepared = 1;
 	}
 
 	~ServiceHub() {
 		if (kvrpc_dataspace_prepared) {
 			env.rm().detach(Kvrpc_Addr);
+		}
+		if (fsIO_dataspace_prepared) {
+			env.rm().detach(fsIO_Addr);
 		}
 	}
 
@@ -230,6 +239,69 @@ struct MtsysPivot::ServiceHub {
 
 	int Fs_close(int fd) {
 		return fs_obj.close(fd);
+	}
+
+	int Fs_mkdir(const MtsysFs::FsPathString path, unsigned mode) {
+		return fs_obj.mkdir(path, mode);
+	}
+
+	int Fs_rmdir(const MtsysFs::FsPathString path) {
+		return fs_obj.rmdir(path);
+	}
+
+	int Fs_unlink(const MtsysFs::FsPathString path) {
+		return fs_obj.unlink(path);
+	}
+
+	int Fs_rename(const MtsysFs::FsPathString from, const MtsysFs::FsPathString to) {
+		return fs_obj.rename(from, to);
+	}
+
+	int Fs_fstat(const MtsysFs::FsPathString path, MtfStat &stat) {
+		return fs_obj.fstat(path, stat);
+	}
+
+	int Fs_read(int fd, char *buf, Genode::size_t count) {
+		// read one or multiple times to get all data, each time at most FILEIO_DSSIZE
+		Genode::size_t read_count = 0;
+		while (read_count < count) {
+			Genode::size_t read_size = count - read_count;
+			if (read_size > FILEIO_DSSIZE) {
+				read_size = FILEIO_DSSIZE;
+			}
+			int res = fs_obj.read(fd, 0, read_size);
+			if (res == -1) {
+				return -1;
+			}
+			// copy data from fsIO dataspace
+			Genode::memcpy(buf + read_count, (void*)fsIO_Addr, read_size);
+			read_count += read_size;
+		}
+		buf[read_count] = '\0';
+		return (int)read_count;
+	}
+
+	int Fs_write(int fd, const char *buf, Genode::size_t count) {
+		// write one or multiple times to write all data, each time at most FILEIO_DSSIZE
+		Genode::size_t write_count = 0;
+		while (write_count < count) {
+			Genode::size_t write_size = count - write_count;
+			if (write_size > FILEIO_DSSIZE) {
+				write_size = FILEIO_DSSIZE;
+			}
+			// copy data to fsIO dataspace
+			Genode::memcpy((void*)fsIO_Addr, buf + write_count, write_size);
+			int res = fs_obj.write(fd, 0, write_size);
+			if (res == -1) {
+				return -1;
+			}
+			write_count += write_size;
+		}
+		return (int)write_count;
+	}
+
+	int Fs_ftruncate(int fd, Genode::size_t length) {
+		return fs_obj.ftruncate(fd, length);
 	}
 
 };

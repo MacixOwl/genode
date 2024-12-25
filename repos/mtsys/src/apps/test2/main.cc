@@ -56,50 +56,45 @@ void Component::construct(Genode::Env &env)
 	// test ramfs here
 	hub.Fs_hello();
 	int fd1 = hub.Fs_open("testfile", 
-		MtfOpenMode::OPEN_MODE_CREATE | MtfOpenMode::OPEN_MODE_RDWR, 0);
+		MtfOpenMode::OPEN_MODE_CREATE | MtfOpenMode::OPEN_MODE_RDWR, 666);
 	Genode::log("Opened file: ", fd1);
 	hub.Fs_close(fd1);
+	// test dir
+	hub.Fs_mkdir("/testdir0", 666);
+	hub.Fs_mkdir("/testdir1", 666);
+	hub.Fs_rmdir("/testdir1");
+	hub.Fs_unlink("/testfile");
+	fd1 = hub.Fs_open("/testdir0/testfile0", 
+		MtfOpenMode::OPEN_MODE_CREATE | MtfOpenMode::OPEN_MODE_RDWR, 666);
+	// test write and read
+	MtfStat stat;
+	hub.Fs_fstat("/testdir0/testfile0", stat);
+	Genode::log("File size: ", stat.size);
+	char* content = "Hello, world!";
+	hub.Fs_write(fd1, (const char*)content, 14);
+	char* buf = (char*)(hub.Memory_alloc(16));
+	hub.Fs_read(fd1, buf, 14);
+	Genode::log("Read content: ", (const char*)buf);
+	hub.Fs_close(fd1);
+	hub.Fs_rename("/testdir0/testfile0", "/testdir0/testfile1");
+	hub.Fs_fstat("/testdir0/testfile1", stat);
+	Genode::log("File size: ", stat.size);
+	// test truncate
+	fd1 = hub.Fs_open("/testdir0/testfile1", MtfOpenMode::OPEN_MODE_RDWR, 666);
+	hub.Fs_ftruncate(fd1, 6);
+	hub.Fs_read(fd1, buf, 6);
+	Genode::log("Read content: ", (const char*)buf);
+	hub.Fs_fstat("/testdir0/testfile1", stat);
+	Genode::log("File size: ", stat.size);
+	hub.Fs_close(fd1);
+	// test multiple read
+	fd1 = hub.Fs_open("/testdir0/testfile1", MtfOpenMode::OPEN_MODE_RDWR, 666);
+	hub.Fs_read(fd1, buf, 2);
+	Genode::log("Read content: ", (const char*)buf);
+	hub.Fs_read(fd1, buf, 3);
+	Genode::log("Read content: ", (const char*)buf);
+	hub.Fs_close(fd1);
 
-	// Genode::Heap heap(env.ram(), env.rm());
-	// int a = -1;
-
-	// Genode::warning("Creating ramfs");
-	// Mfs::Ram_file_system ramfs(env, heap);
-	// Genode::log("Created ramfs");
-	// Mfs::Vfs_handle* handle0 = nullptr;
-	// a = ramfs.opendir("/testdir", 1, &handle0, heap);
-	// Genode::log("Opened dir: ", a);
-	// // if not closing at end, will cause dangling memory
-	// ramfs.close(handle0);
-	// Mfs::Vfs_handle* handle1 = nullptr;
-	// a = ramfs.open("/testdir/testfile1", 
-	// 	Vfs::Directory_service::Open_mode::OPEN_MODE_CREATE | Vfs::Directory_service::Open_mode::OPEN_MODE_RDWR,
-	// 	&handle1, heap);
-	// Genode::log("Opened file: ", a);
-	// Genode::size_t size = 0;
-	// a = ramfs.write(handle1, Genode::Const_byte_range_ptr((char*)"hello world", 11), size);
-	// Genode::log("Wrote file: ", a);
-	// ramfs.close(handle1);
-	// Mfs::Vfs_handle* handle2 = nullptr;
-	// a = ramfs.open("/testdir/testfile2", 
-	// 	Vfs::Directory_service::Open_mode::OPEN_MODE_CREATE | Vfs::Directory_service::Open_mode::OPEN_MODE_RDWR,
-	// 	&handle2, heap);
-	// Genode::log("Opened file: ", a);
-	// a = ramfs.write(handle2, Genode::Const_byte_range_ptr((char*)"aloha world", 11), size);
-	// Genode::log("Wrote file: ", a);
-	// ramfs.close(handle2);
-	// Mfs::Vfs_handle* handle3 = nullptr;
-	// a = ramfs.open("/testdir/testfile2", 
-	// 	Vfs::Directory_service::Open_mode::OPEN_MODE_RDONLY,
-	// 	&handle3, heap);
-	// Genode::log("Opened file: ", a);
-	// char* buf = (char*)heap.alloc(64);
-	// Genode::size_t read_size = 0;
-	// a = ramfs.complete_read(handle3, Genode::Byte_range_ptr(buf, 64), read_size);
-	// Genode::log("Read file: ", a);
-	// ramfs.close(handle3);
-	// Genode::log("Read result: ", (const char*)buf);
-	// heap.free(buf, 64);
 
 	Genode::log("testapp completed");
 }

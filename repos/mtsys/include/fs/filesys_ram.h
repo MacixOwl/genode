@@ -165,14 +165,14 @@ class Mfs_ram::Node : private Genode::Avl_node<Node>
 			         .executable = true };
 		}
 
-		virtual size_t read(Byte_range_ptr const &, Seek)
+		virtual size_t read(Byte_range_ptr const &, Seek&)
 		{
 			Genode::error("Mfs_ram::Node::read() called");
 			return 0;
 		}
 
 		virtual Vfs::File_io_service::Read_result complete_read(Byte_range_ptr const &,
-		                                                        Seek,
+		                                                        Seek&,
 		                                                        size_t & /* out count */)
 		{
 			Genode::error("Mfs_ram::Node::complete_read() called");
@@ -250,7 +250,7 @@ class Mfs_ram::File : public Mfs_ram::Node
 		File(char const * const name, Allocator &alloc)
 		: Node(name), _chunk(alloc, Seek{0}) { }
 
-		size_t read(Byte_range_ptr const &dst, Seek seek) override
+		size_t read(Byte_range_ptr const &dst, Seek &seek) override
 		{
 			size_t const chunk_used_size = _chunk.used_size();
 
@@ -278,6 +278,8 @@ class Mfs_ram::File : public Mfs_ram::Node
 			}
 
 			_chunk.read(Byte_range_ptr(dst.start, read_len), seek);
+			seek.value += read_len;
+			// Genode::log("seek.value: ", seek.value);
 
 			/* add zero padding if needed */
 			if (read_len < dst.num_bytes)
@@ -287,9 +289,11 @@ class Mfs_ram::File : public Mfs_ram::Node
 		}
 
 		Vfs::File_io_service::Read_result complete_read(Byte_range_ptr const &dst,
-		                                                Seek seek, size_t &out_count) override
-		{
+		                                                Seek &seek, size_t &out_count) override
+		{	
+			// Genode::log("seek.value: ", seek.value);
 			out_count = read(dst, seek);
+			// Genode::log("seek.value: ", seek.value);
 			return Vfs::File_io_service::READ_OK;
 		}
 
@@ -340,7 +344,7 @@ class Mfs_ram::Symlink : public Mfs_ram::Node
 
 		size_t length() override { return _len; }
 
-		Vfs::File_io_service::Read_result complete_read(Byte_range_ptr const &dst, Seek,
+		Vfs::File_io_service::Read_result complete_read(Byte_range_ptr const &dst, Seek&,
 		                                                size_t &out_count) override
 		{
 			out_count = min(dst.num_bytes, _len);
@@ -419,7 +423,7 @@ class Mfs_ram::Directory : public Mfs_ram::Node
 		size_t length() override { return _count; }
 
 		Vfs::File_io_service::Read_result complete_read(Byte_range_ptr const &dst,
-		                                                Seek const seek,
+		                                                Seek& seek,
 		                                                size_t &out_count) override
 		{
 			typedef Vfs::Directory_service::Dirent Dirent;
@@ -884,7 +888,8 @@ class Mfs::Ram_file_system : public Vfs::File_system
 				Genode::warning("File system is allocating env ram dataspace: ", len);
 
 				local_addr = _env.rm().attach(ds_cap);
-				file->read(Byte_range_ptr(local_addr, file->length()), Seek{0});
+				Mfs_ram::Seek seek { 0 };
+				file->read(Byte_range_ptr(local_addr, file->length()), seek);
 				_env.rm().detach(local_addr);
 
 			} catch(...) {
@@ -959,12 +964,13 @@ class Mfs::Ram_file_system : public Vfs::File_system
 			Mfs_ram::Io_handle const &handle =
 				*static_cast<Mfs_ram::Io_handle *>(vfs_handle);
 
-			Mfs_ram::Seek const seek 
-			{ 
-				size_t(handle.seek()) 
-			};
+			Mfs_ram::Seek seek { size_t(handle.seek()) };
 
-			return handle.node.complete_read(dst, seek, out_count);
+			handle.node.complete_read(dst, seek, out_count);
+			vfs_handle->seek(seek.value);
+			// Genode::log("vfs_handle->seek(): ", vfs_handle->seek());
+
+			return Vfs::File_io_service::READ_OK;
 		}
 
 		bool read_ready (Vfs_handle const &) const override { return true; }

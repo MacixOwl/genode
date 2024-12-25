@@ -33,6 +33,11 @@ struct MtsysFs::Session_client : Genode::Rpc_client<Session>
         return call<Rpc_get_IPC_stats>(client_id);
     }
 
+    Genode::Dataspace_capability get_ds_cap() override
+    {
+        return call<Rpc_get_ds_cap>();
+    }
+
     int open(const FsPathString path, unsigned flags, unsigned mode) override
     {
         return call<Rpc_open>(path, flags, mode);
@@ -43,45 +48,45 @@ struct MtsysFs::Session_client : Genode::Rpc_client<Session>
         return call<Rpc_close>(fd);
     }
 
-    // int mkdir(const FsPathString path, unsigned mode) override
-    // {
-    //     return call<Rpc_mkdir>(path, mode);
-    // }
+    int mkdir(const FsPathString path, unsigned mode) override
+    {
+        return call<Rpc_mkdir>(path, mode);
+    }
 
-    // int rmdir(const FsPathString path) override
-    // {
-    //     return call<Rpc_rmdir>(path);
-    // }
+    int rmdir(const FsPathString path) override
+    {
+        return call<Rpc_rmdir>(path);
+    }
 
-    // int unlink(const FsPathString path) override
-    // {
-    //     return call<Rpc_unlink>(path);
-    // }
+    int unlink(const FsPathString path) override
+    {
+        return call<Rpc_unlink>(path);
+    }
 
-    // int rename(const FsPathString from, const FsPathString to) override
-    // {
-    //     return call<Rpc_rename>(from, to);
-    // }
+    int rename(const FsPathString from, const FsPathString to) override
+    {
+        return call<Rpc_rename>(from, to);
+    }
 
-    // int fstat(int fd, MtfStat &stat) override
-    // {
-    //     return call<Rpc_fstat>(fd, stat);
-    // }
+    int fstat(const FsPathString path, MtfStat &stat) override
+    {
+        return call<Rpc_fstat>(path, stat);
+    }
 
-    // int read(int fd, char *buf, size_t count) override
-    // {
-    //     return call<Rpc_read>(fd, buf, count);
-    // }
+    int read(int fd, Genode::size_t buf_off, Genode::size_t count) override
+    {
+        return call<Rpc_read>(fd, buf_off, count);
+    }
 
-    // int write(int fd, const char *buf, size_t count) override
-    // {
-    //     return call<Rpc_write>(fd, buf, count);
-    // }
+    int write(int fd, Genode::size_t buf_off, Genode::size_t count) override
+    {
+        return call<Rpc_write>(fd, buf_off, count);
+    }
 
-    // int ftruncate(int fd, size_t length) override
-    // {
-    //     return call<Rpc_ftruncate>(fd, length);
-    // }
+    int ftruncate(int fd, Genode::size_t length) override
+    {
+        return call<Rpc_ftruncate>(fd, length);
+    }
 };
 
 
