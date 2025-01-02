@@ -179,16 +179,18 @@ This error indicates that the archived source code has changed, which should
 be reflected by incrementing the archive version and updating the hash of
 the recipe. You may update the recipe hash via the following command:
 
-  echo" "$(next_version)" $$hash "> $(RECIPE_HASH_FILE)
+  echo \"$(next_version) $$hash\" > $(RECIPE_HASH_FILE)
 
 The above command takes the current date as version identifier. Should this
 not be your intention, please adjust the hash file manually.
+
+\033[32mFor Amkos, this command is executed automatically. You can just ignore it and retry the command you've just typed. :D\033[0m
 
 endef
 
 
 ifeq ($(UPDATE_VERSIONS),)
-HASH_MISMATCH_CMD = $(ECHO) "$(subst $(NEWLINE),\n,$(HASH_OUT_OF_DATE_MESSAGE))"; false
+HASH_MISMATCH_CMD = $(ECHO) "$(subst $(NEWLINE),\n,$(HASH_OUT_OF_DATE_MESSAGE))" && echo $(next_version) $$hash > $(RECIPE_HASH_FILE); false
 else
 HASH_MISMATCH_CMD = version=$(next_version); \
                     echo "$$version $$hash" > $(RECIPE_HASH_FILE);
