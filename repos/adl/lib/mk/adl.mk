@@ -1,8 +1,8 @@
 
 
 INC_DIR += $(REP_DIR)/src/include
-vpath %.c $(REP_DIR)/src
-vpath %.cc $(REP_DIR)/src
-vpath %.cpp $(REP_DIR)/src
+vpath %.c $(REP_DIR)/src/lib
+vpath %.cc $(REP_DIR)/src/lib
+vpath %.cpp $(REP_DIR)/src/lib
 
-SRC_CC += config.cpp string.cpp TString.cc collections/LinkedList.cpp
+SRC_CC += adl/config.cpp adl/string.cpp adl/TString.cc adl/collections/LinkedList.cpp

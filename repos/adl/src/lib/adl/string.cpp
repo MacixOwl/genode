@@ -320,16 +320,24 @@ void* memset(void* dest, int ch, size_t count) {
  * @return dest
  */
 static inline void* memcpy_aligned(void* dest, const void* src, size_t count) {
+    size_t remain = count;
     char* pDest = (char*) dest;
     char* pSrc = (char*) src;
-    while (pSrc < ((char*) src) + count && (intptr_t(pSrc) & (sizeof(long) - 1))) {
+    while (pSrc < ((char*) src) + count && (uintptr_t(pSrc) & (sizeof(long) - 1))) {
         *pDest++ = *pSrc++;
+        remain--;
     }
 
-    while (pSrc + sizeof(long) - 1 < ((char*) src) + count) {
+    while (remain >= sizeof(long)) {
         *(long*) pDest = *(long*) pSrc;
         pSrc += sizeof(long);
         pDest += sizeof(long);
+        remain -= sizeof(long);
+    }
+
+    while (remain) {
+        *pDest++ = *pSrc++;
+        remain--;
     }
 
     return dest;
@@ -340,7 +348,7 @@ static inline void* memcpy_aligned(void* dest, const void* src, size_t count) {
 void* memcpy(void* dest, const void* src, size_t count) {
 
     // 如果 src 和 dest 可以互相对齐，则使用快速拷贝。
-    if (!((intptr_t(dest) ^ intptr_t(src)) & (sizeof(long) - 1))) {
+    if (!((uintptr_t(dest) ^ uintptr_t(src)) & (sizeof(long) - 1))) {
         return memcpy_aligned(dest, src, count);
     }
 
