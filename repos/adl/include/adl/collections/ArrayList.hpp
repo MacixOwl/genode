@@ -93,12 +93,12 @@ public:
     }
 
     void clear() {
-        _size = 0; // todo: should call element destructor
+        _size = 0;
     }
 
     ~ArrayList() {
         if (_capacity)
-            allocator->free(_data, _capacity * sizeof(_data[0])); // todo: should call destructor
+            allocator->free(_data);
     }
 
     inline size_t size() const {
@@ -127,7 +127,7 @@ public:
             return;
         }
         // Allocate new memory
-        auto newAddr = (DataType*) allocator->alloc(new_capacity * sizeof(DataType));
+        auto newAddr = allocator->alloc<DataType>(new_capacity);
         Genode::log("After allocate");
         if (!newAddr) {
             Genode::error("[CRITICAL] ArrayList reserve failed: insufficient memory.");
@@ -137,7 +137,7 @@ public:
         adl::memcpy(newAddr, _data, _size * sizeof(DataType));
         // Free old memory
         if (_capacity) {
-            allocator->free(_data, _capacity * sizeof(DataType));
+            allocator->free(_data);
         }
         // Update ptr and capacity
         _data = newAddr;
@@ -155,7 +155,7 @@ public:
                 newCapacity += newCapacity / 2;
             }
 
-            auto newAddr = (DataType*) allocator->alloc(newCapacity * sizeof(DataType));
+            auto newAddr = allocator->alloc<DataType>(newCapacity);
             if (!newAddr) {
                 return 1; // error
             }
@@ -163,7 +163,7 @@ public:
             adl::memcpy(newAddr, _data, _capacity * sizeof(DataType));
 
             if (_capacity)
-                allocator->free(_data, _capacity * sizeof(DataType));
+                allocator->free(_data);
 
             _data = newAddr;
             _capacity = newCapacity;

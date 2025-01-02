@@ -15,6 +15,7 @@
 #include "../Allocator.h"
 #include "../config.h"
 #include "../sys/types.h"
+#include <base/semaphore.h>
 
 namespace adl {
 
@@ -316,7 +317,7 @@ RedBlackTree<KeyType, DataType>& RedBlackTree<KeyType, DataType>::setData(
     */
 
     // create node
-    currentNode = (Node*) allocator->alloc(sizeof(Node));
+    currentNode = allocator->alloc<Node>();
     currentNode->father = currentFather;
     currentNode->leftChild = nullptr;
     currentNode->rightChild = nullptr;
@@ -529,7 +530,7 @@ RedBlackTree<KeyType, DataType>& RedBlackTree<KeyType, DataType>::removeKey(
 
     if (currentNode == this->root) { // if deleting root
         this->root = nullptr;
-        allocator->free(currentNode, sizeof(Node));
+        allocator->free(currentNode);
     } 
     else if (currentNode->color == NodeColor::RED) {
         if (currentNode == currentNode->father->leftChild) {
@@ -538,7 +539,7 @@ RedBlackTree<KeyType, DataType>& RedBlackTree<KeyType, DataType>::removeKey(
         else {
             currentNode->father->rightChild = nullptr;
         }
-        allocator->free(currentNode, sizeof(Node));
+        allocator->free(currentNode);
     } 
     else { 
         // target node's parent must exists.
@@ -559,7 +560,7 @@ RedBlackTree<KeyType, DataType>& RedBlackTree<KeyType, DataType>::removeKey(
             currentFather->rightChild = nullptr;
         }
         
-        allocator->free(currentNode, sizeof(Node));
+        allocator->free(currentNode);
 
 
         // Next, let's consider different scenarios.
@@ -824,7 +825,7 @@ void RedBlackTree<KeyType, DataType>::cleanup(Node* node)
     if (node->rightChild != nullptr) {
         cleanup(node->rightChild);
     }
-    allocator->free(node, sizeof(Node));
+    allocator->free(node);
 }
 
 

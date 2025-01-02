@@ -16,6 +16,15 @@
 #include "./sys/types.h"
 #include <base/allocator.h>
 
+namespace adl { struct Allocator; };
+
+
+// DO NOT call this outside adl::Allocator!
+inline void* operator new(adl::size_t, adl::Allocator* addr) {
+    return addr;
+}
+
+
 namespace adl {
 
 
@@ -29,9 +38,71 @@ protected:
     AllocFunc _alloc = nullptr;
     FreeFunc _free = nullptr;
 
+    struct Header {
+        size_t size;
+        size_t count;
+    };
+
+
+    template<typename T>
+    inline T* allocNoConstruct(size_t count = 1) {
+        if (count == 0)
+            return nullptr;
+
+        uintptr_t addr = (uintptr_t) this->_alloc(sizeof(T) * count + sizeof(Header), data);
+
+        if (!addr)
+            return nullptr;
+
+        auto header = (Header*) addr;
+        header->size = sizeof(T);
+        header->count = count;
+
+        auto objs = (T*) (addr + sizeof(Header));
+
+        return objs;
+    }
+
 public:
-    inline void* alloc(size_t size) { return this->_alloc(size, data); }
-    inline void free(void* addr, size_t size) { this->_free(addr, size, data); }
+    
+    template<typename T>
+    inline T* alloc(size_t count = 1, bool construct = true) {
+
+        auto objs = allocNoConstruct<T>(count);
+        if (!objs)
+            return nullptr;
+
+        if (construct) {
+            for (size_t i = 0; i < count; i++)
+                // redirect to fake allocation that doesn't give any extra memory.
+                new ((Allocator*) (objs + i)) T;  
+        }
+
+        return objs;
+    }
+
+
+    inline void free(void* addr) {
+        auto header = (Header*) (uintptr_t(addr) - sizeof(Header));
+        this->_free(header, header->count * header->size + sizeof(Header), data); 
+    }
+
+    
+    template<typename T>
+    inline void free(T* addr, bool destruct = true) {
+        auto header = (Header*) (uintptr_t(addr) - sizeof(Header));
+
+        if (destruct) {
+            size_t i = header->count - 1;
+            do {
+                uintptr_t objAddr = uintptr_t(addr) + i * header->size;
+                ((T*) objAddr)->~T();
+            } while (i--);
+        }
+
+        this->_free(header, header->count * header->size + sizeof(Header), data); 
+    }
+
 
     inline bool ready() { return !!_alloc && !!_free; }
     inline bool notReady() { return !ready(); }
@@ -63,21 +134,4 @@ public:
 
 
 }  // namespace adl
-
-
-inline void* operator new (adl::size_t size, adl::Allocator* allocator) {
-    return allocator->alloc(size);
-}
-
-inline void* operator new [] (adl::size_t size, adl::Allocator* allocator) {
-    return allocator->alloc(size);
-}
-
-inline void* operator new (adl::size_t size, adl::Allocator& allocator) {
-    return allocator.alloc(size);
-}
-
-inline void* operator new [] (adl::size_t size, adl::Allocator& allocator) {
-    return allocator.alloc(size);
-}
 
