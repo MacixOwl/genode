@@ -38,30 +38,3 @@ typedef uint64_t uintptr_t;
 }
 
 
-#ifndef uint32_t
-using uint32_t = adl::uint32_t;
-#endif
-
-
-#ifndef uint8_t
-using uint8_t = adl::uint8_t;
-#endif
-
-#ifndef int8_t
-using int8_t = adl::int8_t;
-#endif
-
-#ifndef int16_t
-using int16_t = adl::int16_t;
-#endif
-
-
-#ifndef uint16_t
-using uint16_t = adl::uint16_t;
-#endif
-
-
-#ifndef uint64_t
-using uint64_t = adl::uint64_t;
-#endif
-

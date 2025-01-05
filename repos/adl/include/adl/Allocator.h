@@ -45,17 +45,17 @@ protected:
 
 
     template<typename T>
-    inline T* allocNoConstruct(size_t count = 1) {
+    inline T* allocNoConstruct(size_t count = 1, size_t objSize = sizeof(T)) {
         if (count == 0)
             return nullptr;
 
-        uintptr_t addr = (uintptr_t) this->_alloc(sizeof(T) * count + sizeof(Header), data);
+        uintptr_t addr = (uintptr_t) this->_alloc(objSize * count + sizeof(Header), data);
 
         if (!addr)
             return nullptr;
 
         auto header = (Header*) addr;
-        header->size = sizeof(T);
+        header->size = objSize;
         header->count = count;
 
         auto objs = (T*) (addr + sizeof(Header));
@@ -66,9 +66,9 @@ protected:
 public:
     
     template<typename T>
-    inline T* alloc(size_t count = 1, bool construct = true) {
+    inline T* alloc(size_t count = 1, bool construct = true, size_t objSize = sizeof(T)) {
 
-        auto objs = allocNoConstruct<T>(count);
+        auto objs = allocNoConstruct<T>(count, objSize);
         if (!objs)
             return nullptr;
 
