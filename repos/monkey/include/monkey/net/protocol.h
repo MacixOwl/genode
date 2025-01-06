@@ -28,7 +28,7 @@ extern const char* MAGIC;
 const adl::size_t MAGIC_LEN = 4;
 
 enum class MsgType : adl::uint32_t {
-    RESPONSE = 0 // todo
+    RESPONSE = 0xA001
 };
 
 

@@ -9,10 +9,11 @@
 
 #pragma once
 
+#include <adl/stdint.h>
 
 namespace monkey {
 
-enum class Status {
+enum class Status : adl::int32_t {
     SUCCESS,
     OUT_OF_RESOURCE,
     NETWORK_ERROR,

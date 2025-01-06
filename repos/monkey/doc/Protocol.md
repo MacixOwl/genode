@@ -57,3 +57,13 @@ Like the Response in Vesper Control Protocol.
 * msg (byte array): Data returned.
 
 Response can be used to transfer data. When `code` is not 0, `msg` should be treated as error log. When `code` is 0, `msg`'s meaning differs to their type.
+
+### 0x1001: Auth
+
+### 0x2001: Memory Node Clock In
+
+### 0x2002: Memory Node Clock Out
+
+### 0x2003: Memory Node Handover
+
+### 0x2004: Locate Memory Nodes
