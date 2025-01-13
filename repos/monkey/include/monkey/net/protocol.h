@@ -109,14 +109,14 @@ Status recvHeader(TcpIo&, Header*);
 
 /**
  * The caller is responsible for freeing `msg`
- * when LibResult is SUCCESS.
+ * when monkey::Status is SUCCESS.
  */
 Status recv(TcpIo& tcpio, Msg** msg);
 
 
 /**
  * The caller is responsible for freeing `response`  
- * when LibResult is SUCCESS.
+ * when monkey::Status is SUCCESS.
  */
 Status recvResponse(TcpIo& tcpio, Response** response);
 

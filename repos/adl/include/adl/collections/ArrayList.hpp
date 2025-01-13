@@ -81,7 +81,11 @@ protected:
     Allocator* allocator;
 
 public:
-    ArrayList(Allocator& allocator = defaultAllocator) {
+    ArrayList() {
+        this->allocator = &defaultAllocator;
+    }
+
+    ArrayList(Allocator& allocator) {
         this->allocator = &allocator;
         if (&allocator == nullptr) {
             Genode::error("[CRITICAL] ArrayList's allocator is null!");
@@ -91,6 +95,21 @@ public:
             return;
         }
     }
+
+
+    ArrayList(const ArrayList& other) {
+        Genode::log("ArrayList Copy Cons");
+        this->allocator = other.allocator;
+        this->reserve(other._size);
+        if (this->_capacity < other._size) {
+            Genode::error("failed to copy arraylist!");
+            return;
+        }
+
+        this->_size = other._size;
+        adl::memcpy(this->_data, other._data, other._size);
+    }
+
 
     void clear() {
         _size = 0;
@@ -194,7 +213,9 @@ public:
         return _data[idx];
     }
 
+    
     // ------ iteration related ------
+
     ArrayListIterator<DataType> begin() const {
         return ArrayListIterator<DataType>(_data, _size, 0);
     }
@@ -204,6 +225,44 @@ public:
     }
 
 };
+
+
+class ByteArray : public ArrayList<adl::uint8_t> {
+protected:
+    int construct(const char* data, adl::size_t dataLen, adl::Allocator& alloc) {
+        this->allocator = &alloc;
+        reserve(dataLen);
+        if (_capacity < dataLen) {
+            // failed to reserve.
+            Genode::error("Failed to initialize ByteArray! No memory.");
+            return -1;
+        }
+        adl::memcpy(this->_data, data, dataLen);
+        this->_size = dataLen;
+        return 0;
+    }
+
+public:
+    ByteArray() : adl::ArrayList<adl::uint8_t>() {}
+
+    ByteArray(adl::Allocator& alloc) : adl::ArrayList<adl::uint8_t>(alloc) {}
+
+
+    ByteArray(const char* data, adl::size_t dataLen, adl::Allocator& alloc = defaultAllocator)
+    : adl::ArrayList<adl::uint8_t>(alloc)
+    {
+        construct(data, dataLen, alloc);
+    }
+
+
+    ByteArray(const char* data, adl::Allocator& alloc = defaultAllocator)
+    : adl::ArrayList<adl::uint8_t>(alloc) 
+    {
+        construct(data, strlen(data), alloc);
+    }
+
+};
+
 
 
 }  // namespace adl

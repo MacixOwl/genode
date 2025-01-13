@@ -16,9 +16,9 @@
 
 #include <adl/sys/types.h>
 
-namespace adl { class TString; }
+namespace adl { class ByteArray; }
 
 namespace monkey::crypto {
-    void rc4(unsigned char* data, adl::size_t dataLen, const adl::TString& key);
+    void rc4(unsigned char* data, adl::size_t dataLen, const adl::ByteArray& key);
 }
 

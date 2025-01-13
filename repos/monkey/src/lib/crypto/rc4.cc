@@ -14,16 +14,16 @@
     
 */
 
-#include <adl/TString.h>
+#include <adl/collections/ArrayList.hpp>
 
 
-static void rc4Init(unsigned char* s, const adl::TString& key) {
+static void rc4Init(unsigned char* s, const adl::ByteArray& key) {
     int j = 0;
     char k[256] = { 0 };
     unsigned char tmp = 0;
     for (unsigned int i = 0; i < 256; i++) {
         s[i] = (unsigned char) i;
-        k[i] = key[i % key.length()];
+        k[i] = (char) key[i % key.size()];
     }
     for (unsigned int i = 0; i < 256; i++) {
         j = (j + s[i] + k[i]) % 256;
@@ -36,7 +36,7 @@ static void rc4Init(unsigned char* s, const adl::TString& key) {
 
 namespace monkey::crypto {
 
-void rc4(unsigned char* data, adl::size_t dataLen, const adl::TString& key) {
+void rc4(unsigned char* data, adl::size_t dataLen, const adl::ByteArray& key) {
     unsigned char s[256];
     rc4Init(s, key);
     int i = 0, j = 0, t = 0;
