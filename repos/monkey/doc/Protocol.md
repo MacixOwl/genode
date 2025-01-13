@@ -40,9 +40,9 @@ Like the Response in Vesper Control Protocol.
 ```
   8 Bytes
 +-------------------+
-|       header      |
-+-------------------+
-|       header      |
+|                   |
++       header      +
+|                   |
 +---------+---------+
 |  code   | msg len |
 +---------+---------+
@@ -59,6 +59,25 @@ Like the Response in Vesper Control Protocol.
 Response can be used to transfer data. When `code` is not 0, `msg` should be treated as error log. When `code` is 0, `msg`'s meaning differs to their type.
 
 ### 0x1001: Auth
+
+`Auth`
+
+```
+  8 Bytes
++-------------------+
+|                   |
++       header      +
+|                   |
++---------+---------+
+|      challenge    |
+|        ...        |
+```
+
+`challenge` is a byte array (might be a text string but not promised). 
+
+Receiver should encrypt it using its RC4 key and send it back using a `Response` message, putting it inside the `msg` field.
+
+The value of `msg len` should equal to challenge's length (also `Auth`'s `length` in header) accroding to RC4 algorithm.
 
 ### 0x2001: Memory Node Clock In
 
