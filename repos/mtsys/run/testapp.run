@@ -14,6 +14,8 @@ create_boot_directory
 install_config {
 <config>
 
+	<affinity-space width="8" height="1"/>
+
 	<default-route>
 		<any-service> <parent/> <any-child/> </any-service>
 	</default-route>
@@ -30,35 +32,42 @@ install_config {
 	<default caps="200"/>
 
 	<start name="timer">
+		<affinity xpos="0" width="8"/>
 		<resource name="RAM" quantum="1M"/>
 		<provides> <service name="Timer"/> </provides>
 	</start>
 
 	<start name="memory_server" caps="40000">
+		<affinity xpos="2" width="2"/>
 		<resource name="RAM" quantum="4096M"/>
 		<provides> <service name="MtsysMemory"/> </provides>
 	</start>
 
 	<start name="kv_server">
+		<affinity xpos="4" width="2"/>
 		<resource name="RAM" quantum="64M"/>
 		<provides> <service name="MtsysKv"/> </provides>
 	</start>
 
 	<start name="mfs_server">
+		<affinity xpos="6" width="2"/>
 		<resource name="RAM" quantum="1024M"/>
 		<provides> <service name="MtsysFs"/> </provides>
 	</start>
 
 	<start name="mtsys_pivot">
+		<affinity xpos="0" width="2"/>
 		<resource name="RAM" quantum="16M"/>
 		<provides> <service name="MtsysPivot"/> </provides>
 	</start>
 
     <start name="testapp1">
+		<affinity xpos="0" width="8"/>
         <resource name="RAM" quantum="16M"/>
 	</start>
 
 	<start name="testapp2">
+		<affinity xpos="0" width="8"/>
         <resource name="RAM" quantum="16M"/>
 	</start>
 	

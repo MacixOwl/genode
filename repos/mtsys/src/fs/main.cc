@@ -112,7 +112,7 @@ struct MtsysFs::Session_component : Genode::Rpc_object<Session>
 
     int close(int fd) override {
         state.ipc_count[client_id]++;
-        Genode::log("Closing file ", fd, " for client ", client_id);
+        // Genode::log("Closing file ", fd, " for client ", client_id);
         fd = fd_user2server(fd);
         if (fd < 0 || fd >= MAX_FDNUM || state.fd_array[fd] == nullptr) {
             Genode::log("[[ERROR]]Bad file descriptor: ", fd);

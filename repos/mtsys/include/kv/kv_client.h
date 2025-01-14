@@ -6,10 +6,14 @@
 #include <base/log.h>
 #include <base/stdint.h>
 #include <base/heap.h>
+#include <cpu/atomic.h>
 
 #include <adl/collections/RedBlackTree.hpp>
 
-namespace MtsysKv { struct Session_client; }
+namespace MtsysKv { 
+	struct Session_client;
+ }
+
 
 
 #define MTSYS_KV_CLIENT_ENSURE_DATA_VERSION() \
@@ -38,12 +42,13 @@ protected:
 
 	adl::RedBlackTree<KvRpcString, KvRpcString> cacheDB;
 
-	static const Genode::addr_t remoteDataVersionLocalAddr = 0xf1000000; // TODO: really this address?
+	static const Genode::addr_t remoteDataVersionLocalAddr = 0xa2000000; // TODO: really this address?
 
 public:
 
 	Session_client(Genode::Capability<Session> cap, Genode::Env& env)
-	: Genode::Rpc_client<Session>(cap), env(env) 
+	: Genode::Rpc_client<Session>(cap), 
+		env(env)
 	{
 		if (adl::defaultAllocator.notReady()) {
 			adl::defaultAllocator.init({

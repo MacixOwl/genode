@@ -6,19 +6,8 @@
 
 #include <pivot/pivot_connection.h>
 
-void Component::construct(Genode::Env &env)
-{	
 
-	MtsysPivot::ServiceHub hub(env);
-
-	hub.Pivot_hello();
-	Genode::log("Pivot App ID: ", hub.Pivot_App_getid());
-
-	hub.Kv_hello();
-
-	hub.Memory_hello();
-	Genode::log("free space: ", hub.query_free_space());
-
+static int runMemoryTest(MtsysPivot::ServiceHub& hub) {
 	// test allocation here
 	void* p1 = hub.Memory_alloc(4096);
 	Genode::log("Allocated memory at: ", p1);
@@ -48,14 +37,14 @@ void Component::construct(Genode::Env &env)
 	hub.Memory_free(p5);
 	hub.Memory_free(p6);
 
-	// test IPC hotness 
-	for (int i = 0; i < 100000; i++) {
-		hub.null_function();
-	}
+	return 0;
+}
 
+
+static int runFsTest(MtsysPivot::ServiceHub& hub) {
 	// test ramfs here
 	hub.Fs_hello();
-	int fd1 = hub.Fs_open("testfile", 
+	int fd1 = hub.Fs_open("/testfile", 
 		MtfOpenMode::OPEN_MODE_CREATE | MtfOpenMode::OPEN_MODE_RDWR, 666);
 	Genode::log("Opened file: ", fd1);
 	hub.Fs_close(fd1);
@@ -94,6 +83,84 @@ void Component::construct(Genode::Env &env)
 	hub.Fs_read(fd1, buf, 3);
 	Genode::log("Read content: ", (const char*)buf);
 	hub.Fs_close(fd1);
+
+	return 0;
+}
+
+
+static int runFsBench(MtsysPivot::ServiceHub& hub, int n) {
+	// record start time
+	Genode::log("\n\n =================== \n\n");
+	Genode::log("FS bench: ", n, " ops");
+	Genode::log("\n\n =================== \n\n");
+	auto start = hub.Time_now_us().value;
+
+	int fd1 = hub.Fs_open("/testfile", 
+			MtfOpenMode::OPEN_MODE_CREATE | MtfOpenMode::OPEN_MODE_RDWR, 666);
+	hub.Fs_close(fd1);
+	for (int i = 0; i < n; i++) {
+		fd1 = hub.Fs_open("/testfile", MtfOpenMode::OPEN_MODE_RDWR, 666);
+		hub.Fs_close(fd1);
+	}
+	fd1 = hub.Fs_open("/testfile", MtfOpenMode::OPEN_MODE_RDWR, 666);
+	hub.Fs_write(fd1, "Hello, world!", 14);
+	char* buf = (char*)(hub.Memory_alloc(16));
+	hub.Fs_read(fd1, buf, 14);
+	Genode::log("Read content: ", (const char*)buf);
+	hub.Fs_close(fd1);
+	hub.Fs_unlink("/testfile");
+
+	// record end time
+	auto end = hub.Time_now_us().value;
+	Genode::log("\n\n =================== \n\n");
+	Genode::log("FS bench: ", n, " ops, time: ", end - start, " us");
+	Genode::log("FS bench throughput: ", (float)n * 1000000 / (end - start), " ops/s");
+	Genode::log("\n\n =================== \n\n");
+	return 0;
+}
+
+
+static int runNullBench(MtsysPivot::ServiceHub& hub, int n) {
+	// record start time
+	Genode::log("\n\n =================== \n\n");
+	Genode::log("Null bench: ", n, " ops");
+	Genode::log("\n\n =================== \n\n");
+	auto start = hub.Time_now_us().value;
+
+	for (int i = 0; i < n; i++) {
+		hub.null_function();
+	}
+	// record end time
+	auto end = hub.Time_now_us().value;
+	Genode::log("\n\n =================== \n\n");
+	Genode::log("Null bench: ", n, " ops, time: ", end - start, " us");
+	Genode::log("Null bench throughput: ", (float)n * 1000000 / (end - start), " ops/s");
+	Genode::log("\n\n =================== \n\n");
+	return 0;
+}
+
+
+
+void Component::construct(Genode::Env &env)
+{	
+
+	MtsysPivot::ServiceHub hub(env);
+
+	hub.Pivot_hello();
+	Genode::log("Pivot App ID: ", hub.Pivot_App_getid());
+
+	hub.Kv_hello();
+
+	hub.Memory_hello();
+	Genode::log("free space: ", hub.query_free_space());
+
+	runMemoryTest(hub);
+
+	// runNullBench(hub, 100000);
+
+	runFsTest(hub);
+
+	runFsBench(hub, 10000);
 
 
 	Genode::log("testapp completed");

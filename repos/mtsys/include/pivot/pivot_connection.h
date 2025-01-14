@@ -9,6 +9,8 @@
 #include <memory/memory_connection.h>
 #include <memory/local_allocator.h>
 #include <fs/fs_connection.h>
+#include <cpu/atomic.h>
+
 
 #include <base/heap.h>
 
@@ -16,6 +18,7 @@
 namespace MtsysPivot { 
 	struct Connection; 
 	struct ServiceHub;
+	struct Pivot_Thread;
 }
 
 
@@ -30,6 +33,7 @@ struct MtsysPivot::Connection : Genode::Connection<Session>, Session_client
 		Session_client(cap())
 	{ }
 };
+
 
 
 struct MtsysPivot::ServiceHub {
@@ -47,11 +51,11 @@ struct MtsysPivot::ServiceHub {
 
 	MtsysKv::Connection kv_obj;
 	int kvrpc_dataspace_prepared = 0;
-	static const Genode::addr_t Kvrpc_Addr = 0xf0000000; // TODO: really this address?
+	static const Genode::addr_t Kvrpc_Addr = 0xa0000000; // TODO: really this address?
 
 	MtsysFs::Connection fs_obj;
 	int fsIO_dataspace_prepared = 0;
-	Genode::addr_t fsIO_Addr = 0xe0000000;
+	Genode::addr_t fsIO_Addr = 0xa4000000;
 
 	ServiceHub(Genode::Env &env)
 	: env(env), 
@@ -158,19 +162,35 @@ struct MtsysPivot::ServiceHub {
 
 
 	int Kv_insert(const MtsysKv::KvRpcString key, const MtsysKv::KvRpcString value) {
-		return kv_obj.insert(key, value);
+#ifdef MTSYS_KV_UNCYNC
+			return kv_obj.queued_insert(key, value);
+#else
+			return kv_obj.insert(key, value);
+#endif
 	}
 
 	int Kv_del(const MtsysKv::KvRpcString key) {
-		return kv_obj.del(key);
+#ifdef MTSYS_KV_UNCYNC
+			return kv_obj.queued_del(key);
+#else
+			return kv_obj.del(key);
+#endif
 	}
 
 	const MtsysKv::KvRpcString Kv_read(const MtsysKv::KvRpcString key) {
-		return kv_obj.read(key);
+#ifdef MTSYS_KV_UNCYNC
+			return kv_obj.queued_read(key);
+#else
+			return kv_obj.read(key);
+#endif
 	}
 
 	int Kv_update(const MtsysKv::KvRpcString key, const MtsysKv::KvRpcString value) {
-		return kv_obj.update(key, value);
+#ifdef MTSYS_KV_UNCYNC
+			return kv_obj.queued_update(key, value);
+#else
+		 	return kv_obj.update(key, value);
+#endif
 	}
 
 
@@ -188,7 +208,9 @@ struct MtsysPivot::ServiceHub {
 			env.rm().attach_at(ds, Kvrpc_Addr);
 			kvrpc_dataspace_prepared = 1;
 		}
-
+#ifdef MTSYS_KV_UNCYNC
+		kv_obj.wait_queue_empty();
+#endif
 		kv_obj.range_scan(leftBound, rightBound);
 
 		auto pTmpData = (MtsysKv::RPCDataPack*)Kvrpc_Addr;

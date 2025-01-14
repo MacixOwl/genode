@@ -15,7 +15,7 @@ namespace MtsysKv {
 
 
 // now we define a fixed size for the range scan buffer
-static int RANGE_SCAN_BUFFER = (1 << 11);
+static int RANGE_SCAN_BUFFER = (1 << 12);
 
 
 struct MtsysKv::RPCDataPack {

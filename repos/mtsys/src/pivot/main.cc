@@ -75,7 +75,7 @@ struct MtsysPivot::Component_state
 	}
 
 	void update_ipc_stats(Genode::Duration) {
-		Genode::log("Updating IPC stats");
+		// Genode::log("Updating IPC stats");
 		// first transform the service main id
 		int comp_ids[4] = {SID_MEMORY_SERVICE, SID_KV_SERVICE, SID_BLOCK_SERVICE, 
 			SID_FS_SERVICE};

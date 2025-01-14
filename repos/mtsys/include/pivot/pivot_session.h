@@ -23,6 +23,20 @@ enum SERVICE_VIRTUAL_ID {
 	SID_FS_SERVICE = 3
 };
 
+// Remember to update the service name array when adding new service
+// And also update the run script to match the cpu mapping
+enum SERVICE_CPUMAP {
+	CPUMAP_MEMORY_SERVICE = 2,
+	CPUMAP_KV_SERVICE = 4,
+	CPUMAP_BLOCK_SERVICE = 6,
+	CPUMAP_FS_SERVICE = 6
+};
+
+const int SERVICE_CPUWIDTH = 2;
+
+const int SERVICE_IPC_QUEUE_SIZE = 128;
+
+
 struct MtsysPivot::Service_Main_Id
 {
 	int id_array[MAX_SERVICE] = { 0 };

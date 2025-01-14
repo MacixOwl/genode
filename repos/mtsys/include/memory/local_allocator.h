@@ -27,6 +27,7 @@ namespace MtsysMemory {
 
 
 #define MTSYS_MEMORY_ONLYLOCAL 0
+const unsigned long REMOTE_MEMADDR = 0x1000000000;
 
 const int DS_MIN_SIZE = 4096 << 2;
 const int DS_MAX_SIZE = 4096 << 13;
@@ -376,7 +377,7 @@ namespace MtsysMemory {
                 capaddr->cap = &cap;
                 capaddr->size = ds_size;
                 // attach the dataspace
-                env.rm().attach_at(*(capaddr->cap), capaddr->addr, ds_size);
+                env.rm().attach_at(*(capaddr->cap), capaddr->addr + REMOTE_MEMADDR, ds_size);
             }
             else{
                 Genode::log("allocating single dataspace size: ", size);
@@ -384,8 +385,9 @@ namespace MtsysMemory {
                 capaddr->cap = &cap;
                 capaddr->size = size;
                 // attach the dataspace
-                env.rm().attach_at(*(capaddr->cap), capaddr->addr, size);
+                env.rm().attach_at(*(capaddr->cap), capaddr->addr + REMOTE_MEMADDR, size);
             }
+            capaddr->addr += REMOTE_MEMADDR;
         }
         return capaddr;
         // return mem_obj.alloc_ds(ds_size);
@@ -419,7 +421,8 @@ namespace MtsysMemory {
         }
         else{
             // free the remote dataspace
-            mem_obj.Memory_free((Genode::addr_t)addr);
+            mem_obj.Memory_free((Genode::addr_t)addr - REMOTE_MEMADDR);
+            // env.rm().detach(addr + REMOTE_MEMADDR);
         }
         return 0;
     }
