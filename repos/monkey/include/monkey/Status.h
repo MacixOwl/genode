@@ -17,7 +17,8 @@ enum class Status : adl::int32_t {
     SUCCESS,
     OUT_OF_RESOURCE,
     NETWORK_ERROR,
-    PROTOCOL_ERROR
+    PROTOCOL_ERROR,
+    INVALID_PARAMETERS
 };
 
 }

@@ -73,7 +73,7 @@ Response can be used to transfer data. When `code` is not 0, `msg` should be tre
 |        ...        |
 ```
 
-`challenge` is a byte array (might be a text string but not promised). 
+`challenge` is a byte array (might be a text string but not promised).
 
 Receiver should encrypt it using its RC4 key and send it back using a `Response` message, putting it inside the `msg` field.
 
@@ -85,4 +85,14 @@ The value of `msg len` should equal to challenge's length (also `Auth`'s `length
 
 ### 0x2003: Memory Node Handover
 
+Not supported yet.
+
 ### 0x2004: Locate Memory Nodes
+
+### 0x3001: Try Alloc
+
+### 0x3002: Read Block
+
+### 0x3003: Write Block
+
+### 0x4001: Ping Pong

@@ -87,13 +87,6 @@ public:
 
     ArrayList(Allocator& allocator) {
         this->allocator = &allocator;
-        if (&allocator == nullptr) {
-            Genode::error("[CRITICAL] ArrayList's allocator is null!");
-            if (&allocator == &defaultAllocator) {
-                Genode::error("> Using default allocator, but it is null.");
-            }
-            return;
-        }
     }
 
 
@@ -212,6 +205,14 @@ public:
     const DataType& operator [] (size_t idx) const {
         return _data[idx];
     }
+
+
+    DataType& back() { return _data[_size - 1]; }
+    DataType& front() { return _data[0]; }
+
+
+    bool isEmpty() { return _size == 0; }
+    bool isNotEmpty() { return _size > 0; }
 
     
     // ------ iteration related ------

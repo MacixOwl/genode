@@ -36,11 +36,13 @@
 #include <adl/Allocator.h>
 #include <adl/arpa/inet.h>
 #include <adl/config.h>
+#include <adl/collections/ArrayList.hpp>
 
 #include <monkey/net/TcpIo.h>
 #include <monkey/Status.h>
 #include <monkey/net/protocol.h>
-
+#include <monkey/crypto/rc4.h>
+#include <monkey/memory/map.h>
 
 using namespace Genode;
 
@@ -232,10 +234,21 @@ struct Main {
 
     Main(Genode::Env& env) : env(env)
     {
+        Genode::log("monkey lab main");
         initAdlAlloc();
 
+        adl::ArrayList<monkey::memory::MemoryMapEntry> list;
+        Genode::log("monkey lab main cp2");
+        monkey::memory::getMemoryMap(env, list);
+        Genode::log("monkey lab main cp3");
 
-        Genode::log("Check Point 1");
+        for (auto& it : list) {
+            auto type = it.type == decltype(it.type)::FREE ? "FREE" : (it.type == decltype(it.type)::OCCUPIED ? "OCCU" : "UNKNOWN");
+            Genode::log("addr: ", Genode::Hex(it.addr), ", size: ", Genode::Hex(it.size), ", type: ", type);
+        }
+
+        return;
+
 
 
 #if 1
