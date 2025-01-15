@@ -64,12 +64,20 @@ inline uint64_t be64toh(uint64_t x) {
 }
 
 
+inline int64_t be64toh(int64_t x) {
+    return (int64_t) be64toh((uint64_t) x);
+}
+
+
 
 inline uint16_t htobe16(uint16_t x) {
     return be16toh(x);
 }
 inline uint32_t htobe32(uint32_t x) {
     return be32toh(x);
+}
+inline int64_t htobe64(int64_t x) {
+    return be64toh(x);
 }
 inline uint64_t htobe64(uint64_t x) {
     return be64toh(x);

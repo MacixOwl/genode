@@ -26,13 +26,15 @@ namespace monkey::net::protocol {
 const char* MAGIC = "mkOS";
 
 
-Status send(TcpIo& tcpio, MsgType type, const adl::uint8_t* data, adl::uint64_t dataLen) {
+Status send(TcpIo& tcpio, MsgType type, const void* data, adl::uint64_t dataLen) {
     Header header = makeHeader(adl::uint32_t(type), dataLen);
 
     const adl::uint32_t headerSize = sizeof(header);
     adl::uint64_t msgSize = headerSize + dataLen;
 
-    adl::int64_t dataWrote = tcpio.send(&header, headerSize) + tcpio.send(data, dataLen);
+    adl::int64_t dataWrote = tcpio.send(&header, headerSize);
+    if (data && dataLen)
+        dataWrote += tcpio.send(data, dataLen);
 
     // Returns whether all msg sent.
     return dataWrote >= 0 && adl::uint64_t(dataWrote) == msgSize ? Status::SUCCESS : Status::NETWORK_ERROR;
@@ -41,6 +43,37 @@ Status send(TcpIo& tcpio, MsgType type, const adl::uint8_t* data, adl::uint64_t 
 
 Status send(TcpIo& tcpio, MsgType type, const adl::ByteArray& data) {
     return send(tcpio, type, data.data(), data.size());
+}
+
+
+
+Status sendHello(TcpIo& tcpio, const adl::ArrayList<adl::int64_t>& protocolVersions) {
+    auto data = protocolVersions;
+    for (auto& it : protocolVersions)
+        it = adl::htonq(it);
+
+    return send(tcpio, MsgType::Hello, data.data(), data.size() * sizeof(adl::int64_t));
+}
+
+
+
+Status recvHello(TcpIo& tcpio, adl::ArrayList<adl::int64_t>& out) {
+    Msg* msg;
+    Status status = recv(tcpio, &msg, MsgType::Hello);
+    if (status != Status::SUCCESS)
+        return status;
+
+    out.clear();
+
+    for (size_t i = 0; i < msg->header.length / sizeof(int64_t); i++) {
+        void* p = msg->data + i * sizeof(int64_t);
+        auto value = * (int64_t *) p;
+        out.append( ntohq(value) );
+    }
+
+    adl::defaultAllocator.free(msg);
+
+    return status;
 }
 
 
@@ -69,7 +102,7 @@ Status sendResponse(TcpIo& tcpio, const adl::uint32_t code, const adl::TString& 
 
 
 Status sendResponse(TcpIo& tcpio, const adl::uint32_t code, const char* msg) {
-    sendResponse(tcpio, code, adl::ByteArray {msg});
+    return sendResponse(tcpio, code, adl::ByteArray {msg});
 }
 
 
@@ -165,5 +198,15 @@ Status recvResponse(TcpIo& tcpio, Response** response) {
     return Status::SUCCESS;
 }
 
+
+Status sendCheckAvailMem(TcpIo& tcpio) {
+    return send(tcpio, MsgType::CheckAvailMem);
+}
+
+
+Status sendFreeBlock(TcpIo& tcpio, adl::uint64_t blockId) {
+    auto bId_netOrder = htonq(blockId);
+    return send(tcpio, MsgType::FreeBlock, &bId_netOrder, sizeof(bId_netOrder));
+}
 
 }  // namespace monkey::net::protocol

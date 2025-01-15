@@ -11,4 +11,4 @@ vpath %.cpp $(REP_DIR)/src/lib/net
 
 SRC_CC += protocol/protocol.cc 
 
-LIBS = base adl monkey_crypto
+LIBS = base adl monkey_crypto libc vfs

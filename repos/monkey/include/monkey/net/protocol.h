@@ -121,8 +121,8 @@ inline Header makeHeader(adl::uint32_t type, adl::uint64_t length, bool netOrder
 Status send(
     TcpIo&,
     MsgType type, 
-    const adl::uint8_t* data, 
-    adl::uint64_t dataLen
+    const void* data = nullptr,
+    adl::uint64_t dataLen = 0
 );
 
 
@@ -132,6 +132,11 @@ Status send(
     const adl::ByteArray& data
 );
 
+
+Status sendHello(TcpIo&, const adl::ArrayList<adl::int64_t>& protocolVersions);
+
+
+Status recvHello(TcpIo&, adl::ArrayList<adl::int64_t>& out);
 
 Status sendAuth(TcpIo&, const adl::ByteArray& challenge);
 
@@ -158,7 +163,11 @@ Status recv(TcpIo& tcpio, Msg** msg, MsgType type = MsgType::None);
  */
 Status recvResponse(TcpIo& tcpio, Response** response);
 
-    
+
+Status sendCheckAvailMem(TcpIo&);
+
+
+Status sendFreeBlock(TcpIo&, adl::uint64_t blockId);
 
 
 
