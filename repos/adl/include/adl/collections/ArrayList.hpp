@@ -24,6 +24,7 @@
 #include "../string.h"
 #include "../config.h"
 #include "../stdint.h"
+#include <adl/TString.h>
 
 namespace adl {
 
@@ -207,6 +208,17 @@ public:
     }
 
 
+    bool operator == (const ArrayList& other) const {
+        if (_size != other._size)
+            return false;
+        for (adl::size_t i = 0; i < _size; i++) {
+            if (_data[i] != other[i])
+                return false;
+        }
+        return true;
+    }
+
+
     DataType& back() { return _data[_size - 1]; }
     DataType& front() { return _data[0]; }
 
@@ -256,10 +268,27 @@ public:
     }
 
 
-    ByteArray(const char* data, adl::Allocator& alloc = defaultAllocator)
+    ByteArray(const char* str, adl::Allocator& alloc = defaultAllocator)
     : adl::ArrayList<adl::uint8_t>(alloc) 
     {
-        construct(data, strlen(data), alloc);
+        construct(str, (str ? strlen(str) : 0), alloc);
+    }
+
+
+    ByteArray(const TString& str, adl::Allocator& alloc = defaultAllocator) 
+    : adl::ArrayList<adl::uint8_t>(alloc)
+    {
+        construct(str.data(), str.length(), alloc);
+    }
+
+
+    TString toString() {
+        TString str;
+        for (auto& ch : *this) {
+            str += char(ch);
+        }
+
+        return str;
     }
 
 };

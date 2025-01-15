@@ -126,6 +126,33 @@ install_config {
             </vfs>
             <libc stdout="/dev/log" socket="/socket" pipe="/pipe"/>
             
+
+            <monkey-concierge>
+            
+                <server>
+                    <ip>192.168.1.1</ip>
+                    <port>60000</port>
+                </server>
+
+                <memory-node>
+                    <key>41f413a9-2c21-4721-9f0d-d8ee9b4961f1</key>
+                    <key>a9f4fb48-0ee5-4196-891d-48a9f0b0b687</key>
+                </memory-node>
+                
+
+                <app>
+                    <id>1</id>
+                    <key>f578bd06-6f8e-42b3-8be9-860c7c645549</key>
+                </app>
+
+                <app>
+                    <id>2</id>
+                    <key>8370c1fe-d422-42d9-a261-05aed72313c3</key>
+                </app>
+
+            </monkey-concierge>
+
+
         </config>
 
         <route>

@@ -11,9 +11,9 @@
 
 
 #include <base/env.h>
-#include <monkey/memory/map.h>
+#include <monkey/genodeutils/memory.h>
 
-namespace monkey::memory {
+namespace monkey::genodeutils {
 
 Status getMemoryMap(
     Genode::Env& env, 

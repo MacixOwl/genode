@@ -33,7 +33,7 @@ public:
      * 
      * @param len Size of data.
      */
-    virtual adl::int64_t send(void* buf, adl::size_t len) = 0;
+    virtual adl::int64_t send(const void* buf, adl::size_t len) = 0;
 
 };
 

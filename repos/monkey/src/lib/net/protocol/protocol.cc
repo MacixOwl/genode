@@ -15,6 +15,10 @@
 #include <monkey/net/protocol.h>
 #include <adl/config.h>
 #include <adl/Allocator.h>
+#include <adl/TString.h>
+
+
+using namespace adl;
 
 
 namespace monkey::net::protocol {
@@ -22,20 +26,54 @@ namespace monkey::net::protocol {
 const char* MAGIC = "mkOS";
 
 
-Status send(TcpIo& tcpio, adl::uint32_t type, adl::uint8_t* data, adl::uint64_t dataLen) {
-    Header header = makeHeader(type, dataLen);
+Status send(TcpIo& tcpio, MsgType type, const adl::uint8_t* data, adl::uint64_t dataLen) {
+    Header header = makeHeader(adl::uint32_t(type), dataLen);
 
     const adl::uint32_t headerSize = sizeof(header);
     adl::uint64_t msgSize = headerSize + dataLen;
 
     adl::int64_t dataWrote = tcpio.send(&header, headerSize) + tcpio.send(data, dataLen);
 
-    return dataWrote >= 0 && adl::uint64_t(dataWrote) == msgSize ? Status::SUCCESS : Status::NETWORK_ERROR;  // Whether all msg sent.
+    // Returns whether all msg sent.
+    return dataWrote >= 0 && adl::uint64_t(dataWrote) == msgSize ? Status::SUCCESS : Status::NETWORK_ERROR;
+}
+
+
+Status send(TcpIo& tcpio, MsgType type, const adl::ByteArray& data) {
+    return send(tcpio, type, data.data(), data.size());
+}
+
+
+
+Status sendAuth(TcpIo& tcpio, const adl::ByteArray& challenge) {
+    return send(tcpio, MsgType::Auth, challenge);
+}
+
+
+Status sendResponse(TcpIo& tcpio, const uint32_t code, const adl::ByteArray& msg) {
+    ByteArray data;
+    data.reserve(8 + msg.size());
+    
+    (* (uint32_t*) &data[0]) = htonl(code);
+    (* (uint32_t*) &data[4]) = htonl(uint32_t(msg.size()));
+    memcpy(data.data() + 8, msg.data(), msg.size());
+
+    Status status = send(tcpio, MsgType::Response, data);
+    return status;
+}
+
+
+Status sendResponse(TcpIo& tcpio, const adl::uint32_t code, const adl::TString& msg) {
+    return sendResponse(tcpio, code, adl::ByteArray {msg.c_str()});
+}
+
+
+Status sendResponse(TcpIo& tcpio, const adl::uint32_t code, const char* msg) {
+    sendResponse(tcpio, code, adl::ByteArray {msg});
 }
 
 
 Status recvHeader(TcpIo& tcpio, Header* header) {
-
     adl::uint64_t received = 0;
     while(received < sizeof(Header)){
         adl::int64_t num_bytes = tcpio.recv( ((char*) header) + received, sizeof(Header) - received);
@@ -65,7 +103,7 @@ Status recvHeader(TcpIo& tcpio, Header* header) {
 
 
 
-Status recv(TcpIo& tcpio, Msg** msg) {
+Status recv(TcpIo& tcpio, Msg** msg, MsgType type) {
     Status libResult;
 
     Header header;
@@ -92,7 +130,14 @@ Status recv(TcpIo& tcpio, Msg** msg) {
             adl::defaultAllocator.free(protocolMsg);
             return Status::NETWORK_ERROR;
         }
-        received += num_bytes;
+        received += adl::uint64_t(num_bytes);
+    }
+
+
+
+    if (type != MsgType::None && protocolMsg->header.type != adl::uint32_t(type)) {
+        adl::defaultAllocator.free(protocolMsg);
+        return Status::PROTOCOL_ERROR;
     }
 
 
@@ -104,16 +149,12 @@ Status recv(TcpIo& tcpio, Msg** msg) {
 
 Status recvResponse(TcpIo& tcpio, Response** response) {
     Msg* rawMsg = nullptr;
-    Status libResult = recv(tcpio, &rawMsg);
+    Status libResult = recv(tcpio, &rawMsg, MsgType::Response);
 
     if (libResult != Status::SUCCESS) {
         return libResult;
     }
 
-    if (rawMsg->header.type != (adl::uint32_t) MsgType::RESPONSE) {
-        adl::defaultAllocator.free(rawMsg);
-        return Status::PROTOCOL_ERROR;
-    }
 
     *response = (Response*) rawMsg;
 

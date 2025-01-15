@@ -14,11 +14,30 @@
 
 #pragma once
 
+#include <adl/collections/ArrayList.hpp>
 #include <adl/sys/types.h>
 
-namespace adl { class ByteArray; }
+
 
 namespace monkey::crypto {
-    void rc4(unsigned char* data, adl::size_t dataLen, const adl::ByteArray& key);
+
+
+adl::ByteArray rc4(const adl::ByteArray& dataIn, const adl::ByteArray& key);
+
+
+void rc4Inplace(adl::ByteArray& data, const adl::ByteArray& key);
+
+
+bool rc4Verify(const adl::ByteArray& key, const adl::ByteArray& msg, const adl::ByteArray& cipher);
+
+
+adl::int64_t rc4Verify(
+    const adl::ArrayList<adl::ByteArray>& keyring, 
+    const adl::ByteArray& msg, 
+    const adl::ByteArray& cipher
+);
+
+
+
 }
 

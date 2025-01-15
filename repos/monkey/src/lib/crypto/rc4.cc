@@ -15,9 +15,13 @@
 */
 
 #include <adl/collections/ArrayList.hpp>
+#include <monkey/crypto/rc4.h>
 
 
-static void rc4Init(unsigned char* s, const adl::ByteArray& key) {
+using namespace adl;
+
+
+static void rc4Init(unsigned char* s, const ByteArray& key) {
     int j = 0;
     char k[256] = { 0 };
     unsigned char tmp = 0;
@@ -36,13 +40,20 @@ static void rc4Init(unsigned char* s, const adl::ByteArray& key) {
 
 namespace monkey::crypto {
 
-void rc4(unsigned char* data, adl::size_t dataLen, const adl::ByteArray& key) {
+ByteArray rc4(const ByteArray& dataIn, const ByteArray& key) {
+    ByteArray data = dataIn;
+    rc4Inplace(data, key);
+    return data;
+}
+
+
+void rc4Inplace(ByteArray& data, const ByteArray& key) {
     unsigned char s[256];
     rc4Init(s, key);
     int i = 0, j = 0, t = 0;
     unsigned long k = 0;
     unsigned char tmp;
-    for (k = 0; k < dataLen; k++) {
+    for (k = 0; k < data.size(); k++) {
         i = (i + 1) % 256;
         j = (j + s[i]) % 256;
         tmp = s[i];
@@ -51,8 +62,25 @@ void rc4(unsigned char* data, adl::size_t dataLen, const adl::ByteArray& key) {
         t = (s[i] + s[j]) % 256;
         data[k] = data[k] ^ s[t];
     }
+
 }
 
+
+bool rc4Verify(const ByteArray& key, const ByteArray& msg, const ByteArray& cipher) {
+    ByteArray data = rc4(msg, key);
+    return data == cipher;
+}
+
+
+
+int64_t rc4Verify(const ArrayList<ByteArray>& keyring, const ByteArray& msg, const ByteArray& cipher) {
+    for (size_t i = 0; i < keyring.size(); i++) {
+        if (rc4Verify(keyring[i], msg, cipher))
+            return int64_t(i);
+    }
+
+    return -1;
+}
 
 
 }

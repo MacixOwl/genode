@@ -1,5 +1,5 @@
 /*
-    Memory Map
+    Memory 
 
     Created on 2025.1.14
 
@@ -18,7 +18,7 @@
 
 namespace Genode { class Env; }
 
-namespace monkey::memory {
+namespace monkey::genodeutils {
 
 struct MemoryMapEntry {
     enum class Type : adl::int32_t {
