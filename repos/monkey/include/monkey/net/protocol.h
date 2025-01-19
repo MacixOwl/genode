@@ -64,7 +64,7 @@ struct Header {
         adl::uint8_t magic[4];
 
         // You can treat it as 32-bit integer.
-        adl::uint32_t magicI32 = [] () constexpr {return * (adl::uint32_t*) MAGIC;} ();  
+        adl::uint32_t magicI32 = [] () {return * (adl::uint32_t*) MAGIC;} ();  
     } __packed;
 
     adl::uint32_t type;

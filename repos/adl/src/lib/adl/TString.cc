@@ -732,4 +732,16 @@ bool operator!=(const char* strA, const TString& strB)
 }
 
 
+TString TString::to_string(const uint32_t x) {
+    TString res;
+    uint32_t value = x;
+    while (value) {
+        res = ((value % 10) + '0') + res;
+        value /= 10;
+    }
+
+    return res.length() ? res : "0";
+}
+
+
 }  // namespace adl
