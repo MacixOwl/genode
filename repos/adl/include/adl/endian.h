@@ -52,6 +52,9 @@ inline uint32_t be32toh(uint32_t x) {
 #endif
 
 }
+inline int32_t be32toh(int32_t x) {
+    return (int32_t) be32toh((uint32_t) x);
+}
 
 
 inline uint64_t be64toh(uint64_t x) {
@@ -72,6 +75,9 @@ inline int64_t be64toh(int64_t x) {
 
 inline uint16_t htobe16(uint16_t x) {
     return be16toh(x);
+}
+inline int32_t htobe32(int32_t x) {
+    return be32toh(x);
 }
 inline uint32_t htobe32(uint32_t x) {
     return be32toh(x);

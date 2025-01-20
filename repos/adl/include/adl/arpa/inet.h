@@ -13,6 +13,10 @@
 namespace adl {
 
 
+inline int32_t htonl(int32_t x) {
+    return htobe32(x);
+}
+
 inline uint32_t htonl(uint32_t x) {
     return htobe32(x);
 }

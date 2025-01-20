@@ -91,8 +91,7 @@ public:
     }
 
 
-    ArrayList(const ArrayList& other) {
-        Genode::log("ArrayList Copy Cons");
+    ArrayList(const ArrayList<DataType>& other) {
         this->allocator = other.allocator;
         this->reserve(other._size);
         if (this->_capacity < other._size) {
@@ -102,6 +101,23 @@ public:
 
         this->_size = other._size;
         adl::memcpy(this->_data, other._data, other._size);
+    }
+
+
+    const ArrayList<DataType>& operator = (const ArrayList<DataType>& other) {
+        if (_capacity)
+            allocator->free(_data);
+
+        this->allocator = other.allocator;
+        this->reserve(other._size);
+        if (this->_capacity < other._size) {
+            Genode::error("failed to copy arraylist!");
+            return *this;
+        }
+
+        this->_size = other._size;
+        adl::memcpy(this->_data, other._data, other._size);
+        return *this;
     }
 
 
@@ -141,7 +157,6 @@ public:
         }
         // Allocate new memory
         auto newAddr = allocator->alloc<DataType>(new_capacity);
-        Genode::log("After allocate");
         if (!newAddr) {
             Genode::error("[CRITICAL] ArrayList reserve failed: insufficient memory.");
             return;
@@ -155,6 +170,19 @@ public:
         // Update ptr and capacity
         _data = newAddr;
         _capacity = new_capacity;
+    }
+
+
+    bool resize(size_t newSize) {
+        if (newSize > _size) {
+            reserve(newSize);
+            _size = _capacity;
+            return _size == newSize;
+        }
+        else {
+            _size = newSize;
+            return true;
+        }
     }
 
     int append(const DataType& data) {
@@ -244,14 +272,12 @@ class ByteArray : public ArrayList<adl::uint8_t> {
 protected:
     int construct(const char* data, adl::size_t dataLen, adl::Allocator& alloc) {
         this->allocator = &alloc;
-        reserve(dataLen);
-        if (_capacity < dataLen) {
+        if (!resize(dataLen)) {
             // failed to reserve.
             Genode::error("Failed to initialize ByteArray! No memory.");
             return -1;
         }
         adl::memcpy(this->_data, data, dataLen);
-        this->_size = dataLen;
         return 0;
     }
 

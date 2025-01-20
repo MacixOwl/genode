@@ -17,11 +17,13 @@
 #include <base/component.h>
 #include <libc/component.h>
 #include <base/heap.h>
+#include <base/attached_rom_dataspace.h>
 
 #include <monkey/Status.h>
 
 #include <monkey/net/TcpIo.h>
 #include <monkey/net/protocol.h>
+#include <monkey/net/IP4Addr.h>
 #include <unistd.h>
 #include <sys/socket.h>
 #include <sys/types.h>
@@ -177,6 +179,15 @@ BIND_OR_LISTEN_ERROR:
 };
 
 
+/**
+ * Used on runtime.
+ */
+struct MemoryNodeInfo {
+    int64_t id;
+    net::IP4Addr ip;
+    adl::uint32_t port;
+};
+
 
 
 struct Main {
@@ -186,6 +197,14 @@ struct Main {
     adl::HashMap<int, SocketClient*> clients;  // client's socketFd -> struct
 
     SocketServer server;
+    adl::uint16_t port = 0;
+
+    adl::ArrayList<MemoryNodeInfo> memoryNodes;
+
+    struct {
+        adl::ArrayList<adl::ByteArray> memoryNodes;
+        adl::ArrayList<adl::ByteArray> apps;
+    } keyrings;
 
     void initAdlAlloc() {
         adl::defaultAllocator.init({
@@ -202,26 +221,105 @@ struct Main {
     }
 
 
-    Status init() {
-        initAdlAlloc();
+    Status loadConfig() {
+        Genode::Attached_rom_dataspace configDs { env, "config" };
+        auto config = configDs.xml();
+        auto conciergeNode = config.sub_node("monkey-concierge");
+        auto serverNode = conciergeNode.sub_node("server");
+        auto portNode = serverNode.sub_node("port");
+        {
+            adl::ByteArray portByteArr;
+
+            if (!portByteArr.resize(portNode.content_size())) {
+                return Status::OUT_OF_RESOURCE;
+            }
+            
+            portNode.decoded_content((char*) portByteArr.data(), portByteArr.size());
+            port = 0;
+            
+            for (auto ch : portByteArr) {
+                
+                if (ch >= '0' && ch <= '9') {
+                    port *= 10;
+                    port += uint16_t(ch - '0');
+                }
+                else {
+                    
+                    return Status::INVALID_PARAMETERS;
+                }
+            }
+        }
         
 
+        conciergeNode.for_each_sub_node("memory-node", [&] (const Genode::Xml_node& node) {
+            auto keyNode = node.sub_node("key");
+            adl::ByteArray arr;
+
+            keyNode.with_raw_content([&] (const char* content, size_t contentSize) {
+                if (!arr.resize(contentSize)) {
+                    throw Status::OUT_OF_RESOURCE;  // bad way.. but.. anyway..
+                }
+
+                adl::memcpy(arr.data(), content, contentSize);
+            });
+            
+            this->keyrings.memoryNodes.append(arr);
+        });
+        
+
+        conciergeNode.for_each_sub_node("app", [&] (const Genode::Xml_node& node) {
+            auto keyNode = node.sub_node("key");
+            adl::ByteArray arr;
+            
+            keyNode.with_raw_content([&] (const char* content, size_t contentSize) {
+                if (!arr.resize(contentSize)) {
+                    throw Status::OUT_OF_RESOURCE;  // bad way.. but.. anyway..
+                }
+
+                adl::memcpy(arr.data(), content, contentSize);
+            });
+
+            this->keyrings.apps.append(arr);
+        });
+
         return Status::SUCCESS;
+    }
+
+
+    Status init() {
+        initAdlAlloc();
+        Status status = Status::SUCCESS;
+        
+        try {
+            status = loadConfig();
+            if (status == Status::SUCCESS) {
+                Genode::log("Config loaded.");
+                Genode::log("> port: ", port);
+                for (auto& it : keyrings.memoryNodes) {
+                    Genode::log("> memory node key: ", (const char*)it.data());
+                }
+
+                for (auto& it : keyrings.apps)
+                    Genode::log("> client  app key: ", it.toString().c_str());
+            }
+        }
+        catch (...) {
+            Genode::error("Failed on loading config. Check your .run file.");
+            status = Status::INVALID_PARAMETERS;
+        }
+
+        return status;
     }
 
 
     void serveClient(SocketClient& client) {
         Genode::log("Client connected: ", client.ip().c_str(), " [", client.port(), "]");
 
-
-
     }
 
 
     Status run() {
-        
-        adl::uint16_t port = 10000;  // todo
-        Status status = server.start(port);
+        Status status = server.start(this->port);
         if (status != Status::SUCCESS) {
             server.stop();
             return status;
@@ -263,6 +361,7 @@ struct Main {
             Status status = init();
             if (status != monkey::Status::SUCCESS) {
                 Genode::log("Something went wrong on init.. (", adl::int32_t(status), ")");
+                goto END;
             }
 
             status = run();
@@ -270,8 +369,9 @@ struct Main {
                 Genode::log("Something went wrong when running.. (", adl::int32_t(status), ")");
             }
             
-            cleanup();
-            
+
+END:
+            cleanup();        
             Genode::log("Bye :D");
         });
     }

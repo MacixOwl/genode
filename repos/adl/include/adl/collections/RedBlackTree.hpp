@@ -281,6 +281,9 @@ public:
     RedBlackTreeIterator(RedBlackTree<K, V>::Node* root) {
         this->root = this->curr = root;
 
+        if (this->root == nullptr)
+            return;
+
         while (this->curr->leftChild)
             this->curr = this->curr->leftChild;
     }
