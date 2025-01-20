@@ -296,7 +296,7 @@ struct Main {
                 Genode::log("Config loaded.");
                 Genode::log("> port: ", port);
                 for (auto& it : keyrings.memoryNodes) {
-                    Genode::log("> memory node key: ", (const char*)it.data());
+                    Genode::log("> memory node key: ", it.toString().c_str());
                 }
 
                 for (auto& it : keyrings.apps)
