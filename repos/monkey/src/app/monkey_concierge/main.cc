@@ -36,73 +36,52 @@
 using namespace monkey;
 
 
-class PromisedIo : public net::TcpIo {
-public:
-    int socketFd = -1;
 
-    virtual bool valid() { return socketFd > 1; }
+Status checkWhetherCanUseProtocolV1(net::ProtocolConnection& client) {
+    adl::ArrayList<adl::int64_t> versions;
+    Status status;
+    if ((status = client.recvHello(versions)) != Status::SUCCESS) {
+        return status;
+    }
 
-    virtual adl::int64_t recv(void* buf, adl::size_t len) override {
-        adl::size_t sum = 0;
-        while (sum < len) {
-            adl::int64_t curr = read(socketFd, ((char*) buf) + sum, len - sum);
-
-            if (curr == -1) {
-                return -1;
-            }
-
-            sum += size_t(curr);
+    bool versionMatched = false;
+    for (auto& it : versions) {
+        if (it == net::Protocol1Connection::VERSION) {
+            versionMatched = true;
+            break;
         }
-        
-        return adl::int64_t(sum);
     }
 
-    virtual adl::int64_t send(const void* buf, adl::size_t len) override {
-        return ::write(socketFd, buf, len);
+    if (!versionMatched)
+        return status = Status::PROTOCOL_ERROR;
+
+    versions.clear();
+    versions.append(net::Protocol1Connection::VERSION);
+    if ((status = client.sendHello(versions)) != Status::SUCCESS)
+        return status;
+    
+
+    if ((status = client.recvHello(versions)) != Status::SUCCESS)
+        return status;
+
+    if (versions.size() == 1 && versions[0] == net::Protocol1Connection::VERSION) {
+        return Status::SUCCESS;
     }
+    
+    return Status::PROTOCOL_ERROR;
+}
 
-};
 
-
-
-/**
- * You should close this connection manually by calling `disconnect()`.
- */
-class SocketClient : public PromisedIo {
-
-public:
+struct ClientConnection {
+    int socketFd;
     struct sockaddr_in inaddr;
-    int addrlen = sizeof(inaddr);
-
-    enum class Type {
-        Unknown,
-        MemoryNode,
-        App
-    } type = Type::Unknown;
-
-
-    void disconnect() {
-        if (valid()) {
-            close(socketFd);
-            socketFd = -1;
-        }
-    }
+    socklen_t addrlen;
 
 
     adl::TString ip() {
-        auto ipUint32 = inaddr.sin_addr.s_addr;
-        adl::TString ipStr;
-        
-        ipStr += adl::TString::to_string(ipUint32 & 0xffu);
-        ipStr += '.';
-        ipStr += adl::TString::to_string((ipUint32 >> 8u) & 0xffu);
-        ipStr += '.';
-        ipStr += adl::TString::to_string((ipUint32 >> 16u) & 0xffu);
-        ipStr += '.';
-        ipStr += adl::TString::to_string((ipUint32 >> 24u) & 0xffu);
-        return ipStr;
+        net::IP4Addr ipAddr {inaddr.sin_addr.s_addr};
+        return ipAddr.toString();   
     }
-
 
     adl::uint16_t port() {
         return adl::ntohs(inaddr.sin_port);
@@ -110,21 +89,9 @@ public:
 };
 
 
-class SocketServer : public PromisedIo {
+class SocketServer : public net::PromisedSocketIo {
 
 public:
-    void stop() {
-        if (valid()) {
-            close(socketFd);
-            socketFd = -1;
-        }
-    }
-
-
-    ~SocketServer() {
-        stop();
-    }
-
 
     Status start(adl::uint16_t port) {
         struct sockaddr_in addr;
@@ -153,15 +120,15 @@ public:
 
 BIND_OR_LISTEN_ERROR:
 
-        close(socketFd);
+        close();
         socketFd = -1;
         return Status::NETWORK_ERROR;
 
     }
 
 
-    SocketClient accept(bool ignoreError = true) {
-        SocketClient client;
+    ClientConnection accept(bool ignoreError = true) {
+        ClientConnection client;
         while (true) {
             client.socketFd = ::accept(
                 socketFd, 
@@ -186,6 +153,7 @@ struct MemoryNodeInfo {
     int64_t id;
     net::IP4Addr ip;
     adl::uint32_t port;
+
 };
 
 
@@ -194,7 +162,7 @@ struct Main {
 
     Genode::Env& env;
     Genode::Heap heap { env.ram(), env.rm() };
-    adl::HashMap<int, SocketClient*> clients;  // client's socketFd -> struct
+    adl::HashMap<int, net::ProtocolConnection*> clients;  // client's socketFd -> struct
 
     SocketServer server;
     adl::uint16_t port = 0;
@@ -312,25 +280,71 @@ struct Main {
     }
 
 
-    void serveClient(SocketClient& client) {
-        Genode::log("Client connected: ", client.ip().c_str(), " [", client.port(), "]");
+    void serveApp(net::ProtocolConnection& conn) {
+        // TODO
+    }
 
+
+    void serveMemoryNode(net::ProtocolConnection& conn) {
+        // TODO
+    }
+
+
+    void serveClient(ClientConnection& conn) {
+        Genode::log("Client connected: ", conn.ip().c_str(), " [", conn.port(), "]");
+
+        net::ProtocolConnection protocolConn;
+        protocolConn.socketFd = conn.socketFd;
+
+        // Determine protocol version
+        if (checkWhetherCanUseProtocolV1(protocolConn) != Status::SUCCESS)
+            return;
+        Genode::log("> Protocol Version: ", 1);
+        protocolConn.unmanageSocketFd();
+
+        net::Protocol1Connection client;
+        client.socketFd = conn.socketFd;
+
+        // Auth
+        if (client.auth(keyrings.apps, keyrings.memoryNodes) != Status::SUCCESS)
+            return;
+        adl::TString nodeTypeStr;
+        switch (client.nodeType) {
+            case net::Protocol1Connection::NodeType::MemoryNode:
+                nodeTypeStr = "MemoryNode";
+                break;
+            case net::Protocol1Connection::NodeType::Other:
+                nodeTypeStr = "Other";
+                break;
+            case net::Protocol1Connection::NodeType::App:
+                nodeTypeStr = "App";
+                break;
+            default:
+                nodeTypeStr = "Unknown";
+                break;
+        }
+        Genode::log("> Client Type: ", nodeTypeStr.c_str());
+        
+        if (client.nodeType == net::Protocol1Connection::NodeType::App) {
+            serveApp(client);
+        }
+        else if (client.nodeType == net::Protocol1Connection::NodeType::MemoryNode) {
+            serveMemoryNode(client);
+        }
     }
 
 
     Status run() {
         Status status = server.start(this->port);
         if (status != Status::SUCCESS) {
-            server.stop();
             return status;
         }
 
         Genode::log("Server started on port: ", port);
 
         while (true) {
-            SocketClient client = server.accept();
+            ClientConnection client = server.accept();
             serveClient(client);
-            client.disconnect();
             Genode::log("Closed: ", client.ip().c_str(), " [", client.port(), "]");
         }
 
