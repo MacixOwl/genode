@@ -35,6 +35,13 @@ public:
 
     adl::TString toString() const;
 
+    bool operator == (const IP4Addr& other) const { return ui32 == other.ui32; }
+    bool operator != (const IP4Addr& other) const { return ui32 != other.ui32; }
+    bool operator <= (const IP4Addr& other) const { return ui32 <= other.ui32; }
+    bool operator >= (const IP4Addr& other) const { return ui32 >= other.ui32; }
+    bool operator < (const IP4Addr& other) const { return ui32 < other.ui32; }
+    bool operator > (const IP4Addr& other) const { return ui32 > other.ui32; }
+
 };
 
 

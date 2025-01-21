@@ -270,7 +270,7 @@ public:
 
 class ByteArray : public ArrayList<adl::uint8_t> {
 protected:
-    int construct(const char* data, adl::size_t dataLen, adl::Allocator& alloc) {
+    int construct(const void* data, adl::size_t dataLen, adl::Allocator& alloc) {
         this->allocator = &alloc;
         if (!resize(dataLen)) {
             // failed to reserve.
@@ -287,7 +287,7 @@ public:
     ByteArray(adl::Allocator& alloc) : adl::ArrayList<adl::uint8_t>(alloc) {}
 
 
-    ByteArray(const char* data, adl::size_t dataLen, adl::Allocator& alloc = defaultAllocator)
+    ByteArray(const void* data, adl::size_t dataLen, adl::Allocator& alloc = defaultAllocator)
     : adl::ArrayList<adl::uint8_t>(alloc)
     {
         construct(data, dataLen, alloc);

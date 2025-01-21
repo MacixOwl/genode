@@ -60,7 +60,7 @@ Response can be used to transfer data. When `code` is not 0, `msg` should be tre
 
 ### 0x1000: Hello
 
-From: Protocol Version 1
+Supported by any protocol version.
 
 For:
 
@@ -88,7 +88,7 @@ If server rejects this client, send a `Hello` with no protocol version.
 
 If server accepts this client, send a `Hello` message with its protocol versions.
 
-Then, client should response another `Hello` with protocol version chosen for this connection.
+Then, client should response another `Hello` with only one protocol version chosen for this connection.
 
 Any toxic behaviours could lead to server closing the connection.
 
@@ -165,6 +165,26 @@ Server                Client
 
  Response with accept or deny
          ---------->
+
+```
+
+### 0x2000: Memory Node Show ID
+
+From: Protocol Version 1
+
+For:
+
+* Memory Node to Concierge
+
+```
+  8 Bytes
++-------------------+
+|                   |
++       header      +
+|                   |
++---------+---------+
+|         ID        |
++---------+---------+
 
 ```
 

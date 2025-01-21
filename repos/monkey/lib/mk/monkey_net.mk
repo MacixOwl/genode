@@ -9,6 +9,9 @@ vpath %.c $(REP_DIR)/src/lib/net
 vpath %.cc $(REP_DIR)/src/lib/net
 vpath %.cpp $(REP_DIR)/src/lib/net
 
-SRC_CC += protocol/protocol.cc IP4Addr.cc
+SRC_CC += protocol/defines.cc IP4Addr.cc TcpIo.cc
+
+SRC_CC += protocol/ProtocolConnection.cc 
+SRC_CC += protocol/Protocol1Connection.cc 
 
 LIBS = base adl monkey_crypto libc vfs

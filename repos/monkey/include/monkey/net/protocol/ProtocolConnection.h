@@ -1,0 +1,99 @@
+/*
+ * Protocol Connection Base
+ *
+ * Created on 2025.1.21 at Xiangzhou, Zhuhai, Guangdong
+ * 
+ * 
+ * gongty  [at] tongji [dot] edu [dot] cn
+ * 
+ */
+
+#pragma once
+
+#include <monkey/net/TcpIo.h>
+#include <monkey/net/protocol/defines.h>
+
+namespace monkey::net {
+
+
+class ProtocolConnection : public PromisedSocketIo {
+public:
+
+    // Static methods
+
+    inline static const char* magic() { return protocol::MAGIC; }
+    inline static adl::size_t magicLen() { return protocol::MAGIC_LEN; }
+
+    inline static bool magicMatch(const adl::uint8_t magic[]) {
+        return * (const adl::uint32_t*) ProtocolConnection::magic() == * (const adl::uint32_t*) magic;
+    }
+
+
+    // Basic info methods
+
+    virtual adl::int64_t version() { 
+        return 0;  // Override this for each version. 
+    }
+
+
+    // Connection operations
+
+
+    inline virtual void makeHeader(
+        protocol::Header* header, 
+        adl::uint32_t type, 
+        adl::uint64_t length, 
+        bool netOrder = true,
+        bool copyMagic = true
+    ) {
+        if (copyMagic) {
+            adl::memcpy(header->magic, magic(), magicLen());
+        }
+
+        header->type = netOrder ? adl::htonl(type) : type;
+        header->length = netOrder ? adl::htonq(length) : length;
+    }
+
+
+    inline virtual protocol::Header makeHeader(adl::uint32_t type, adl::uint64_t length, bool netOrder = true) {
+        protocol::Header header;
+        makeHeader(&header, type, length, netOrder, false);
+        return header;  // We believe NRV would optimize this.
+    }
+
+
+    virtual Status sendMsg(
+        protocol::MsgType type, 
+        const void* data = nullptr,
+        adl::uint64_t dataLen = 0
+    );
+
+
+    virtual Status sendMsg(
+        protocol::MsgType type, 
+        const adl::ByteArray& data
+    );
+
+
+
+    virtual Status recvHeader(protocol::Header*);
+
+
+    /**
+    * The caller is responsible for freeing `msg`
+    * when monkey::Status is SUCCESS.
+    *
+    * @param type Ensure type. Set to MsgType::None to disable this check.
+    */
+    virtual Status recvMsg(protocol::Msg** msg, protocol::MsgType type = protocol::MsgType::None);
+
+
+
+    virtual Status sendHello(const adl::ArrayList<adl::int64_t>& protocolVersions) final;
+    virtual Status recvHello(adl::ArrayList<adl::int64_t>& out) final;
+
+
+};
+
+
+}
