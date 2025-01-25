@@ -37,6 +37,10 @@ inline uint64_t htonq(uint64_t x) {
 }
 
 
+inline int32_t ntohl(int32_t x) {
+    return htonl(x);
+}
+
 inline uint32_t ntohl(uint32_t x) {
     return htonl(x);
 }
