@@ -12,12 +12,26 @@
 
 #include <monkey/net/TcpIo.h>
 #include <monkey/net/protocol/defines.h>
+#include <monkey/net/IP4Addr.h>
+
+#include <netinet/in.h>
 
 namespace monkey::net {
 
-
+/**
+ * Agent for a Vesper Protocol based socket connection.
+ *
+ * Method types:
+ * - send   [TYPE] : Send a [TYPE] msg to other.
+ * - decode [TYPE] : Decode a [TYPE] msg received. [TYPE] should be checked.
+ * - reply  [TYPE] : Send a response msg to reply a received [TYPE] msg.
+ * - (do)   [TYPE] : Do the entire [TYPE] procedure as client (or server if specific method called).
+ */
 class ProtocolConnection : public PromisedSocketIo {
 public:
+
+    net::IP4Addr ip4Addr;
+    adl::uint16_t port;
 
     // Static methods
 
@@ -31,6 +45,15 @@ public:
 
     // Basic info methods
 
+    /**
+     * This marks current protocol version supported by this object, 
+     * not the one protocol is using.
+     * 
+     * Each connection should starts with a version 0 connection, then upgrade to 
+     * certain version after "Hello".
+     *
+     * See `Protocol.md` for details.
+     */
     virtual adl::int64_t version() { 
         return 0;  // Override this for each version. 
     }

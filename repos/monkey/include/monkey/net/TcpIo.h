@@ -44,12 +44,22 @@ class PromisedSocketIo : public TcpIo {
 public:
     int socketFd = -1;
 
+    /**
+     * If socket is detached, TcpIo won't manage socket's life cycle.
+     * 
+     * For example, when destructing a TcpIo, 
+     * only attached socket would be closed automatically.
+     */
+    bool socketDetached = false;
+
     virtual void close();
 
-    virtual ~PromisedSocketIo() override { close(); }
+    virtual ~PromisedSocketIo() override { 
+        if (!socketDetached)
+            close(); 
+    }
 
     virtual bool valid() { return socketFd > 1; }
-    virtual void unmanageSocketFd() { socketFd = -1; }
 
     virtual adl::int64_t recv(void* buf, adl::size_t len) override;
 

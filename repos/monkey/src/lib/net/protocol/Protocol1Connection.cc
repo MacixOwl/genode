@@ -19,28 +19,6 @@ using protocol::MsgType;
 using protocol::Response;
 
 
-Status Protocol1Connection::sendAuth(const adl::ByteArray& challenge) {
-    return sendMsg(MsgType::Auth, challenge);
-}
-
-
-Status Protocol1Connection::recvAuth(adl::ByteArray& challenge) {
-    protocol::Msg* msg = nullptr;
-    Status status = recvMsg(&msg, MsgType::Auth);
-    if (status != Status::SUCCESS)
-        return status;
-
-    if (!challenge.resize(msg->header.length)) {
-        adl::defaultAllocator.free(msg);
-        return Status::OUT_OF_RESOURCE;
-    }
-
-    adl::memcpy(challenge.data(), msg->data, challenge.size());
-    adl::defaultAllocator.free(msg);
-    return Status::SUCCESS;
-}
-
-
 Status Protocol1Connection::sendResponse(const uint32_t code, const adl::ByteArray& msg) {
     adl::ByteArray data;
     data.reserve(8 + msg.size());
@@ -84,17 +62,6 @@ Status Protocol1Connection::recvResponse(Response** response) {
 }
 
 
-Status Protocol1Connection::sendCheckAvailMem() {
-    return sendMsg(MsgType::CheckAvailMem);
-}
-
-
-Status Protocol1Connection::sendFreeBlock(adl::uint64_t blockId) {
-    auto bId_netOrder = adl::htonq(blockId);
-    return sendMsg(MsgType::FreeBlock, &bId_netOrder, sizeof(bId_netOrder));
-}
-
-
 Status Protocol1Connection::auth(const adl::ByteArray& key) {
     adl::ByteArray challenge;
     Status status = recvAuth(challenge);
@@ -118,6 +85,7 @@ Status Protocol1Connection::auth(const adl::ByteArray& key) {
     return status;
 }
 
+// ------ 0x1001 : Auth ------
 
 Status Protocol1Connection::auth(
     const adl::ArrayList<adl::ByteArray>& appsKeyring, 
@@ -149,6 +117,88 @@ Status Protocol1Connection::auth(
     adl::defaultAllocator.free(response);
     response = nullptr;
     return Status::SUCCESS;
+}
+
+
+
+Status Protocol1Connection::sendAuth(const adl::ByteArray& challenge) {
+    return sendMsg(MsgType::Auth, challenge);
+}
+
+
+Status Protocol1Connection::recvAuth(adl::ByteArray& challenge) {
+    protocol::Msg* msg = nullptr;
+    Status status = recvMsg(&msg, MsgType::Auth);
+    if (status != Status::SUCCESS)
+        return status;
+
+    if (!challenge.resize(msg->header.length)) {
+        adl::defaultAllocator.free(msg);
+        return Status::OUT_OF_RESOURCE;
+    }
+
+    adl::memcpy(challenge.data(), msg->data, challenge.size());
+    adl::defaultAllocator.free(msg);
+    return Status::SUCCESS;
+}
+
+
+// ------ 0x2000 : Memory Node Show ID ------
+
+
+Status Protocol1Connection::sendMemoryNodeShowId(adl::int64_t id) {
+    adl::int64_t netOrderId = adl::htonq(id);
+    return sendMsg(
+        protocol::MsgType::MemoryNodeShowId,
+        &netOrderId,
+        8
+    );
+}
+
+
+void Protocol1Connection::decodeMemoryNodeShowId(protocol::Msg* msg, adl::int64_t* id) {
+    *id = adl::ntohq( *(adl::int64_t*) msg->data);
+}
+
+
+// ------ 0x2001 : Memory Node Clock In ------
+
+Status Protocol1Connection::sendMemoryNodeClockIn(adl::uint32_t tcp4Ip, adl::uint16_t port) {
+    adl::uint8_t data[12];
+    *(adl::int32_t*) data = adl::htonl(4);  // TCP Protocol Version 4.
+    *(adl::uint32_t*) (data + 4) = adl::htonl((adl::uint32_t) port);
+    *(adl::uint32_t*) (data + 8) = tcp4Ip;
+    return sendMsg(MsgType::MemoryNodeClockIn, data, sizeof(data));
+}
+
+
+void Protocol1Connection::decodeMemoryNodeClockIn(
+    protocol::Msg* msg, 
+    adl::int32_t* tcpVer, 
+    adl::uint16_t* port, 
+    adl::uint8_t ip[]
+) {
+    *tcpVer = adl::ntohl( *(adl::int32_t*) (msg->data + 0) );
+    *port = (adl::uint16_t) adl::ntohl( *(adl::uint32_t*) (msg->data + 4) );
+    
+    // We assumes authenticated Memory Nodes can be trusted.
+    
+    adl::memcpy(ip, msg->data + 8, (*tcpVer == 4 ? 4 : 16));
+}
+
+
+// ------ 0x3004 : Check Avail Mem ------
+
+Status Protocol1Connection::sendCheckAvailMem() {
+    return sendMsg(MsgType::CheckAvailMem);
+}
+
+
+// ------ 0x3005 : Free Block ------
+
+Status Protocol1Connection::sendFreeBlock(adl::uint64_t blockId) {
+    auto bId_netOrder = adl::htonq(blockId);
+    return sendMsg(MsgType::FreeBlock, &bId_netOrder, sizeof(bId_netOrder));
 }
 
 

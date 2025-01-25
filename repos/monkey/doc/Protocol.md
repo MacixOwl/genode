@@ -166,6 +166,8 @@ Server                Client
  Response with accept or deny
          ---------->
 
+==      Ready to Serve    ==
+
 ```
 
 ### 0x2000: Memory Node Show ID
@@ -279,10 +281,10 @@ struct {
         struct {
             int8_t inet4Addr[4];
             int8_t padding[12];
-        } __packed;
+        } __packed inet4Addr;
 
         int8_t inet6Addr[16];
-    }
+    };
 
 } __packed
 ```

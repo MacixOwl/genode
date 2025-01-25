@@ -17,6 +17,13 @@ namespace monkey::net {
 
 class Protocol1Connection : public ProtocolConnection {
 public:
+    struct MemoryNodeInfo {
+        adl::int64_t id;
+        adl::int32_t tcpVersion;
+        adl::uint16_t port;
+
+        adl::uint8_t ipAddr[16];
+    };
 
     enum class NodeType {
         MemoryNode,
@@ -37,8 +44,6 @@ public:
 
     // Connection operations
 
-    Status sendAuth(const adl::ByteArray& challenge);
-    Status recvAuth(adl::ByteArray& challenge);
 
     Status sendResponse(const adl::uint32_t code, const adl::ByteArray& msg);
     Status sendResponse(const adl::uint32_t code, const adl::TString& msg);
@@ -53,10 +58,11 @@ public:
     Status recvResponse(protocol::Response** response);
 
 
-    Status sendCheckAvailMem();
 
+    // ------ 0x1001 : Auth ------
 
-    Status sendFreeBlock(adl::uint64_t blockId);
+    Status sendAuth(const adl::ByteArray& challenge);
+    Status recvAuth(adl::ByteArray& challenge);
 
     /**
      * Client-mode auth: Show identity to server. 
@@ -70,6 +76,67 @@ public:
         const adl::ArrayList<adl::ByteArray>& appsKeyring, 
         const adl::ArrayList<adl::ByteArray>& memoryNodesKeyring
     );
+
+
+    // ------ 0x2000 : Memory Node Show ID ------
+
+    Status sendMemoryNodeShowId(adl::int64_t id);
+    void decodeMemoryNodeShowId(protocol::Msg* msg, adl::int64_t* id);
+
+
+    // ------ 0x2001 : Memory Node Clock In ------
+
+    /**
+     * For TCP4. 
+     */
+    Status sendMemoryNodeClockIn(adl::uint32_t tcp4Ip, adl::uint16_t port);
+
+    /**
+     * 
+     * 
+     * @param ip Should be at least 16 bytes (array length at least 16).
+     *           For TCP4, ip[0] to ip[3] is filled.
+     *           For TCP6, ip[0] to ip[15] is filled.
+     * 
+     */
+    void decodeMemoryNodeClockIn(
+        protocol::Msg* msg, 
+        adl::int32_t* tcpVer, 
+        adl::uint16_t* port, 
+        adl::uint8_t ip[]
+    );
+
+
+    // ------ 0x2004 : Locate Memory Nodes ------
+
+    Status sendLocateMemoryNodes(); // todo
+    Status replyLocateMemoryNodes(const adl::ArrayList<MemoryNodeInfo>&);  // todo
+    Status locateMemoryNodes(adl::ArrayList<MemoryNodeInfo>&);  // todo
+
+
+    // ------ 0x3001 : Try Alloc ------
+
+    // todo
+
+    // ------ 0x3002 : Read Block ------
+
+    // todo
+
+
+    // ------ 0x3003 : Write Block ------
+
+    // todo
+
+    // ------ 0x3004 : Check Avail Mem ------
+    
+    Status sendCheckAvailMem();
+    Status replyCheckAvailMem(adl::size_t availMem);  // todo
+    Status checkAvailMem(adl::size_t* availMem);  // todo
+
+
+    // ------ 0x3005 : Free Block ------
+
+    Status sendFreeBlock(adl::uint64_t blockId);
 
 };
 

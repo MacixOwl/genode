@@ -28,6 +28,7 @@ protected:
     };
 
 public:
+    IP4Addr() { i32 = 0; }
     IP4Addr(adl::uint8_t ip[4]) { ui32 = * (adl::uint32_t*) ip; }
     IP4Addr(adl::int8_t ip[4]) { ui32 = * (adl::uint32_t*) ip; }
     IP4Addr(adl::uint32_t ip, bool netOrder = true) { ui32 = netOrder ? ip : adl::htonl(ip); }
