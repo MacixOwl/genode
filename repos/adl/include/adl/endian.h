@@ -32,6 +32,15 @@
     #error "Strange system. Our system won't work on your device."
 #endif
 
+
+#if defined(_BYTEORDER_FUNC_DEFINED)
+#error "Byteorder functions defined elsewhere. " \
+    "You should include this header before any other."
+#endif
+
+#define _BYTEORDER_FUNC_DEFINED
+
+
 namespace adl {
 
 
