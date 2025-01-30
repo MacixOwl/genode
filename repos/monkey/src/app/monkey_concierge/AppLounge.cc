@@ -13,7 +13,37 @@ using namespace monkey;
 using net::protocol::Msg;
 using net::protocol::MsgType;
 
-monkey::Status AppLounge::serve() {
+
+Status AppLounge::processLocateMemoryNodes() {
+    Status status = Status::SUCCESS;
+
+    struct MemoryNodeInfoPacked {
+        adl::int64_t id;
+        adl::int32_t tcpVersion;  // must be 4 (in net order)
+        adl::uint32_t port;
+
+        adl::uint32_t inet4addr;
+        adl::int8_t padding[12];
+    } __packed;
+
+    adl::ArrayList<MemoryNodeInfoPacked> payload;
+    for (const auto& it : context.memoryNodes) {
+        MemoryNodeInfoPacked info;
+        info.id = adl::htonq(it.second.id);
+        info.tcpVersion = adl::htonl(4);
+        info.port = adl::htonl(it.second.port);
+        info.inet4addr = it.second.ip.ui32;
+        payload.append(info);
+    }
+
+
+    status = conn.sendResponse(0, payload.size() * sizeof(MemoryNodeInfoPacked), payload.data());
+
+    return status;
+}
+
+
+Status AppLounge::serve() {
     Status status = Status::SUCCESS;
 
 
@@ -23,9 +53,21 @@ monkey::Status AppLounge::serve() {
         if (status != Status::SUCCESS)
             return status;
 
-        // todo
+
+        switch ((MsgType) msg->header.type) {
+            case MsgType::LocateMemoryNodes: {
+                status = processLocateMemoryNodes();
+                break;
+            }
+            default:
+                status = Status::PROTOCOL_ERROR;
+                break;
+        }
+
 
         adl::defaultAllocator.free(msg);
+        if (status != Status::SUCCESS)
+            break;
     }
 
     return status;

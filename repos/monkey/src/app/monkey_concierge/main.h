@@ -20,7 +20,7 @@
 * Used on runtime.
 */
 struct MemoryNodeInfo {
-    int64_t id;
+    adl::int64_t id;
     monkey::net::IP4Addr ip;
     adl::uint32_t port;
 };
@@ -59,7 +59,6 @@ struct ConciergeMain {
     adl::uint16_t port = 0;
 
     adl::HashMap<adl::int64_t, MemoryNodeInfo> memoryNodes;  // id -> info
-    adl::int64_t memoryNodeCount = 0;
 
     struct {
         adl::ArrayList<adl::ByteArray> memoryNodes;

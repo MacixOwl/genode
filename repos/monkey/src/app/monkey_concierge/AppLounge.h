@@ -19,5 +19,7 @@ struct AppLounge : public SunflowerLounge {
     : SunflowerLounge(context, conn)
     {}
 
+    monkey::Status processLocateMemoryNodes();
+
     virtual monkey::Status serve() override;
 };

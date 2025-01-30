@@ -125,7 +125,7 @@ public:
         _size = 0;
     }
 
-    ~ArrayList() {
+    virtual ~ArrayList() {
         if (_capacity)
             allocator->free(_data);
     }

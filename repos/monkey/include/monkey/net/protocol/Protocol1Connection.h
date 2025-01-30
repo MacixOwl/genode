@@ -45,6 +45,14 @@ public:
     // Connection operations
 
 
+    Status sendResponse(
+        const adl::uint32_t code,
+        const adl::size_t msgLen,
+        const void* msg,
+        const adl::size_t paimonLen = 0,
+        const void* paimon = nullptr
+    );
+
     Status sendResponse(const adl::uint32_t code, const adl::ByteArray& msg);
     Status sendResponse(const adl::uint32_t code, const adl::TString& msg);
     Status sendResponse(const adl::uint32_t code, const char* msg);
@@ -52,9 +60,9 @@ public:
 
 
     /**
-    * The caller is responsible for freeing `response`  
-    * when monkey::Status is SUCCESS.
-    */
+     * The caller is responsible for freeing `response`  
+     * when monkey::Status is SUCCESS.
+     */
     Status recvResponse(protocol::Response** response);
 
 

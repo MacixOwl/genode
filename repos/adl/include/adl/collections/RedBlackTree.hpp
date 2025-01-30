@@ -78,6 +78,8 @@ public:
      */
     RedBlackTree<KeyType, DataType>& removeKey(const KeyType&);
 
+    adl::size_t size();
+
     /**
      * Range scan. This method will search for keys inside [lhs, rhs],
      * and calls collector with data for each node discovered.
@@ -931,6 +933,20 @@ RedBlackTree<KeyType, DataType>& RedBlackTree<KeyType, DataType>::removeKey(
     }
 
     return *this;
+}
+
+
+
+template<typename KeyType, typename DataType>
+adl::size_t RedBlackTree<KeyType, DataType>::size() {
+    ReadGuard _g {this};
+
+    adl::size_t count = 0;
+    for (auto& it : *this) {
+        count++;
+    }
+    
+    return count;
 }
 
 

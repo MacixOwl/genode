@@ -256,13 +256,13 @@ Response like:
 +---------+---------+
 | code: 0 | msg len |
 +-------------------+
-| Memory node 1 info|
+| Memory node 1 info|  // 32 bytes
 +-------------------+
-| Memory node 2 info|
+| Memory node 2 info|  // 32 bytes
 +-------------------+
 |       ......      |
 +-------------------+
-| Memory node n info|
+| Memory node n info|  // 32 bytes
 +-------------------+
 
 ```

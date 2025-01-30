@@ -19,7 +19,7 @@ namespace adl { class TString; }
 namespace monkey::net {
 
 class IP4Addr {
-protected:
+public:
     union {
         adl::uint32_t ui32;  // in net order
         adl::int32_t i32;  // in net order

@@ -19,9 +19,26 @@ using protocol::MsgType;
 using protocol::Response;
 
 
+Status Protocol1Connection::sendResponse(
+    const adl::uint32_t code,
+    const adl::size_t msgLen,
+    const void* msg,
+    const adl::size_t paimonLen,
+    const void* paimon
+) {
+    adl::ByteArray data;
+    data.resize(8 + msgLen + paimonLen);
+    (* (uint32_t*) &data[0]) = adl::htonl(code);
+    (* (uint32_t*) &data[4]) = adl::htonl(uint32_t(msgLen));
+    adl::memcpy(data.data() + 8, msg, msgLen);
+    adl::memcpy(data.data() + 8 + msgLen, paimon, paimonLen);
+    return sendMsg(MsgType::Response, data);
+}
+
+
 Status Protocol1Connection::sendResponse(const uint32_t code, const adl::ByteArray& msg) {
     adl::ByteArray data;
-    data.reserve(8 + msg.size());
+    data.resize(8 + msg.size());
     
     (* (uint32_t*) &data[0]) = adl::htonl(code);
     (* (uint32_t*) &data[4]) = adl::htonl(uint32_t(msg.size()));
