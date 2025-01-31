@@ -69,6 +69,9 @@ struct ConciergeMain {
     ConciergeMain(Genode::Env&);
 
 
+    adl::int64_t nextMemoryNodeId = 0;
+    inline adl::int64_t genMemoryNodeId() { return ++nextMemoryNodeId; }
+
     void initAdlAlloc();
     monkey::Status loadConfig();
     monkey::Status init();

@@ -9,6 +9,7 @@
 #pragma once
 
 #include "./SunflowerLounge.h"
+#include <monkey/net/IP4Addr.h>
 
 struct MemoryLounge : public SunflowerLounge {
 
@@ -18,6 +19,10 @@ struct MemoryLounge : public SunflowerLounge {
     )
     : SunflowerLounge(context, conn)
     {}
+
+
+    monkey::Status processMemoryNodeClockIn(const monkey::net::IP4Addr& ip4Addr, adl::uint16_t port);
+
 
     virtual monkey::Status serve() override;
 };

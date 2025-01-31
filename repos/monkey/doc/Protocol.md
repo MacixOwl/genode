@@ -172,7 +172,7 @@ Server                Client
 
 ### 0x2000: Memory Node Show ID
 
-From: Protocol Version 1
+From: Protocol Version ? (Not supported yet)
 
 For:
 
@@ -212,7 +212,7 @@ For:
 
 ```
 
-TCP Version should be 4 or 6. 6 is not supported yet.
+TCP Version should be 4 or 6.
 
 Port is set in a 32-bit field, but should be in \[0, 65536\).
 
@@ -226,6 +226,8 @@ TCP4 IP is encoded in 4 bytes like:
 ```
 
 Concierge should reply a Response, whose message is an 8-bit integer, as memory node's unique ID.
+
+**Only TCP Version 4 is supported in this protocol version.**
 
 ### 0x2002: Memory Node Clock Out
 

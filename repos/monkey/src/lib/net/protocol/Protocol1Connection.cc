@@ -173,8 +173,13 @@ Status Protocol1Connection::sendMemoryNodeShowId(adl::int64_t id) {
 }
 
 
-void Protocol1Connection::decodeMemoryNodeShowId(protocol::Msg* msg, adl::int64_t* id) {
+Status Protocol1Connection::decodeMemoryNodeShowId(protocol::Msg* msg, adl::int64_t* id) {
+    
+    if (msg->header.length < sizeof(adl::int64_t))
+        return Status::PROTOCOL_ERROR;
+
     *id = adl::ntohq( *(adl::int64_t*) msg->data);
+    return Status::SUCCESS;
 }
 
 
@@ -189,18 +194,24 @@ Status Protocol1Connection::sendMemoryNodeClockIn(adl::uint32_t tcp4Ip, adl::uin
 }
 
 
-void Protocol1Connection::decodeMemoryNodeClockIn(
+Status Protocol1Connection::decodeMemoryNodeClockIn(
     protocol::Msg* msg, 
     adl::int32_t* tcpVer, 
     adl::uint16_t* port, 
     adl::uint8_t ip[]
 ) {
+    if (msg->header.length < 12) {
+        return Status::PROTOCOL_ERROR;
+    }
+    
     *tcpVer = adl::ntohl( *(adl::int32_t*) (msg->data + 0) );
     *port = (adl::uint16_t) adl::ntohl( *(adl::uint32_t*) (msg->data + 4) );
-    
-    // We assumes authenticated Memory Nodes can be trusted.
+
+    if (*tcpVer != 4)
+        return Status::PROTOCOL_ERROR;
     
     adl::memcpy(ip, msg->data + 8, (*tcpVer == 4 ? 4 : 16));
+    return Status::SUCCESS;
 }
 
 

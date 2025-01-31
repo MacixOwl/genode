@@ -61,6 +61,7 @@ Status AppLounge::serve() {
             }
             default:
                 status = Status::PROTOCOL_ERROR;
+                conn.sendResponse(1, "Msg Type not supported.");
                 break;
         }
 

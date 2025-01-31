@@ -89,7 +89,7 @@ public:
     // ------ 0x2000 : Memory Node Show ID ------
 
     Status sendMemoryNodeShowId(adl::int64_t id);
-    void decodeMemoryNodeShowId(protocol::Msg* msg, adl::int64_t* id);
+    Status decodeMemoryNodeShowId(protocol::Msg* msg, adl::int64_t* id);
 
 
     // ------ 0x2001 : Memory Node Clock In ------
@@ -107,7 +107,7 @@ public:
      *           For TCP6, ip[0] to ip[15] is filled.
      * 
      */
-    void decodeMemoryNodeClockIn(
+    Status decodeMemoryNodeClockIn(
         protocol::Msg* msg, 
         adl::int32_t* tcpVer, 
         adl::uint16_t* port, 
