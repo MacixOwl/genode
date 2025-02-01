@@ -53,7 +53,7 @@ Like the Response in Vesper Control Protocol.
 
 * type (uint32): `0xA001`
 * code (uint32): Status code. 0 for OK.
-* msg len (uint32): Size of `msg` in Bytes.
+* msg len (uint32): Size of `msg` in Bytes. **If `code` is 0, this value should be ignored.**
 * msg (byte array): Data returned.
 
 Response can be used to transfer data. When `code` is not 0, `msg` should be treated as error log. When `code` is 0, `msg`'s meaning differs to their type.
@@ -169,6 +169,66 @@ Server                Client
 ==      Ready to Serve    ==
 
 ```
+
+### 0x1100: Get Identity Keys
+
+From: Protocol Version 1
+
+For:
+
+* Memory Node to Concierge
+* Memory Node to Memory Node (Not supported yet)
+
+No payload required for request.
+
+Response like:
+
+```
+  8 Bytes
++-------------------+
+|                   |
++       header      +
+|                   |
++---------+---------+
+|  code   | msg len |
++---------+---------+
+|     key head 1    |
++-------------------+
+|     key head 2    |
++-------------------+
+|         ...       |
++-------------------+
+|     key head n    |
++-------------------+
+|     key      1    |
++-------------------+
+|     key      2    |
++-------------------+
+|         ...       |
++-------------------+
+|     key      n    |
++-------------------+
+
+
+```
+
+Key header like:
+
+```c
+struct {
+    int8_t nodeType;  // 0 for App, 1 for Memory
+    int8_t keyType;  // 0 for RC4, 1 for RSA
+    int8_t reserved[2];  // should set to 0
+
+    int64_t offset;  // position in response message field.
+    int32_t len;  // in bytes.
+
+    int64_t appId;
+    int8_t reserved[16];  // should be set to 0
+} __packed;
+```
+
+Note: Only RC4 supported yet.
 
 ### 0x2000: Memory Node Show ID
 

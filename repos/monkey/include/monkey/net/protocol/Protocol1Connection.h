@@ -86,6 +86,30 @@ public:
     );
 
 
+    // ------ 0x1100 : Get Identity Keys ------
+
+    struct ReplyGetIdentityKeysParams {
+        adl::ByteArray keyHeaders;
+        adl::ByteArray keys;
+        monkey::Status addKey(adl::int8_t nodeType, adl::int8_t keyType, const adl::ByteArray& key); 
+    };
+
+
+    Status sendGetIdentityKeys();
+    Status replyGetIdentityKeys(const ReplyGetIdentityKeysParams&);
+    Status appreciateGetIdentityKeys(
+        protocol::Response& response,
+        void* data,
+
+        /**
+         * Called for each key.
+         *
+         * @param data Same as `data` passed to `appreciate`.
+         */
+        void (*record) (adl::int8_t nodeType, adl::int8_t keyType, const adl::ByteArray& key, void* data)
+    );
+
+
     // ------ 0x2000 : Memory Node Show ID ------
 
     Status sendMemoryNodeShowId(adl::int64_t id);

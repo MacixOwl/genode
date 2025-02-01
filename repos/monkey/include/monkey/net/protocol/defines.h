@@ -38,6 +38,8 @@ enum class MsgType : adl::uint32_t {
     Hello = 0x1000,
     Auth = 0x1001,
 
+    GetIdentityKeys = 0x1100,
+
     MemoryNodeShowId = 0x2000,
     MemoryNodeClockIn = 0x2001,
     MemoryNodeClockOut = 0x2002,

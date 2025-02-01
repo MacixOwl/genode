@@ -22,10 +22,30 @@ namespace monkey::net {
  * Agent for a Vesper Protocol based socket connection.
  *
  * Method types:
- * - send   [TYPE] : Send a [TYPE] msg to other.
- * - decode [TYPE] : Decode a [TYPE] msg received. [TYPE] should be checked.
- * - reply  [TYPE] : Send a response msg to reply a received [TYPE] msg.
- * - (do)   [TYPE] : Do the entire [TYPE] procedure as client (or server if specific method called).
+ * - send       [TYPE] : Send a [TYPE] msg to other.
+ * - decode     [TYPE] : Decode a [TYPE] msg received. [TYPE] should be checked.
+ * - reply      [TYPE] : Send a response msg to reply a received [TYPE] msg.
+ * - appreciate [TYPE] : Understand the reply of [TYPE] request. `appreciate` often appreciates `response`.
+ *                       You should ensure msg passed to method is really the response of [TYPE] request.
+ * - (do)       [TYPE] : Do the entire [TYPE] procedure as client (or server if specific method called).
+ * 
+ *
+ * 
+ *    Client                  Server
+ *    ==============================
+ *
+ *         (send)
+ *            ---------->       .
+ *                              .
+ *                           (decode)
+ *                              .
+ *                              .
+ *                   (reply)
+ *      .   <-----------
+ *      .
+ *      .
+ *  (appreciate) 
+ *
  */
 class ProtocolConnection : public PromisedSocketIo {
 public:

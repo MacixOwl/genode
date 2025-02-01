@@ -159,6 +159,48 @@ Status Protocol1Connection::recvAuth(adl::ByteArray& challenge) {
     return Status::SUCCESS;
 }
 
+// ------ 0x1100 : Get Identity Keys ------
+
+struct GetIdentityKeysKeyHeaderPacked {
+    adl::int8_t nodeType;  // 0 for App, 1 for Memory
+    adl::int8_t keyType;  // 0 for RC4, 1 for RSA
+    adl::int8_t reserved0[2] = {0};
+
+    adl::int64_t offset; 
+    adl::int32_t len; 
+
+    adl::int64_t appId;
+    adl::int8_t reserved1[16] = {0}; 
+} __packed;
+
+
+Status Protocol1Connection::ReplyGetIdentityKeysParams::addKey(
+    adl::int8_t nodeType,
+    adl::int8_t keyType,
+    const adl::ByteArray& key
+) {
+    // todo
+}
+
+
+Status Protocol1Connection::sendGetIdentityKeys() {
+    return sendMsg(MsgType::GetIdentityKeys);
+}
+
+
+Status Protocol1Connection::replyGetIdentityKeys(const ReplyGetIdentityKeysParams& params) {
+    // todo
+}
+
+
+Status Protocol1Connection::appreciateGetIdentityKeys(
+    protocol::Response& response,
+    void* data,
+    void (*record) (adl::int8_t nodeType, adl::int8_t keyType, const adl::ByteArray& key, void* data)
+) {
+    // todo
+}
+
 
 // ------ 0x2000 : Memory Node Show ID ------
 
