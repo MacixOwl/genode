@@ -108,7 +108,7 @@ Status Protocol1Connection::auth(
     const adl::ArrayList<adl::ByteArray>& appsKeyring, 
     const adl::ArrayList<adl::ByteArray>& memoryNodesKeyring
 ) {
-    adl::ByteArray challenge { "fyt's score is A+" };
+    adl::ByteArray challenge { "fyt's score is A+" };  // TODO
 
     Status status;
     if ( (status = sendAuth(challenge)) != Status::SUCCESS )
@@ -118,7 +118,7 @@ Status Protocol1Connection::auth(
     if ((status = recvResponse(&response)) != Status::SUCCESS)
         return status;
 
-    adl::ByteArray cipher { response->data, response->msgLen };
+    adl::ByteArray cipher { response->msg, response->msgLen };
     if (crypto::rc4Verify(appsKeyring, cipher, challenge) != -1) {
         nodeType = NodeType::App;
     }
@@ -169,7 +169,7 @@ struct GetIdentityKeysKeyHeaderPacked {
     adl::int64_t offset; 
     adl::int32_t len; 
 
-    adl::int64_t appId;
+    adl::int64_t id;
     adl::int8_t reserved1[16] = {0}; 
 } __packed;
 
@@ -177,9 +177,46 @@ struct GetIdentityKeysKeyHeaderPacked {
 Status Protocol1Connection::ReplyGetIdentityKeysParams::addKey(
     adl::int8_t nodeType,
     adl::int8_t keyType,
-    const adl::ByteArray& key
+    const adl::ByteArray& key,
+    adl::int64_t id
 ) {
-    // todo
+
+    // check params
+
+    if (nodeType != 0 && nodeType != 1)
+        return Status::INVALID_PARAMETERS;
+    
+    if (keyType != 0)  // only RC4 allowed.
+        return Status::INVALID_PARAMETERS;
+    
+    if (key.size() > INT32_MAX)
+        return Status::INVALID_PARAMETERS;
+    
+
+    // allocate header
+
+    adl::size_t headerSize = sizeof(GetIdentityKeysKeyHeaderPacked);
+
+    if ( ! keyHeaders.resize(keyHeaders.size() + headerSize) ) {
+        return Status::OUT_OF_RESOURCE;
+    }
+
+    auto head = (GetIdentityKeysKeyHeaderPacked*) (keyHeaders.data() + keyHeaders.size() - headerSize);
+
+    adl::memset(head, 0, headerSize);
+
+    head->nodeType = nodeType;
+    head->keyType = keyType;
+    head->offset = (adl::int64_t) keys.size();
+    head->len = (adl::int32_t) key.size();
+    head->id = id;
+
+    if (!keys.append(key.data(), key.size())) {
+        keyHeaders.resize(keyHeaders.size() - headerSize);
+        return Status::OUT_OF_RESOURCE;
+    }
+
+    return Status::SUCCESS;
 }
 
 
@@ -189,16 +226,81 @@ Status Protocol1Connection::sendGetIdentityKeys() {
 
 
 Status Protocol1Connection::replyGetIdentityKeys(const ReplyGetIdentityKeysParams& params) {
-    // todo
+
+    adl::ByteArray msg;
+    
+    if (!msg.resize(8 + params.keyHeaders.size() + params.keys.size()))
+        return Status::OUT_OF_RESOURCE;
+
+    adl::uint64_t nkeys = params.keyHeaders.size() / sizeof(GetIdentityKeysKeyHeaderPacked);
+    * (adl::uint64_t *) msg.data() = adl::htonq(nkeys);
+
+    adl::memcpy(msg.data() + 8, params.keyHeaders.data(), params.keyHeaders.size());
+    adl::memcpy(msg.data() + 8 + params.keyHeaders.size(), params.keys.data(), params.keys.size());
+
+    auto pHeader = (GetIdentityKeysKeyHeaderPacked*) msg.data();
+
+    while ((void*) pHeader < msg.data() + params.keyHeaders.size()) {
+        pHeader->len = adl::htonl(pHeader->len);
+
+        pHeader->offset = adl::htonq(
+            pHeader->offset + adl::int64_t(sizeof(nkeys)) + adl::int64_t(params.keyHeaders.size())
+        );
+
+        pHeader->id = adl::htonq(pHeader->id);
+
+        pHeader++;
+    }
+
+    return sendResponse(0, msg);
 }
 
 
 Status Protocol1Connection::appreciateGetIdentityKeys(
     protocol::Response& response,
     void* data,
-    void (*record) (adl::int8_t nodeType, adl::int8_t keyType, const adl::ByteArray& key, void* data)
+    void (*record) (
+        adl::int8_t nodeType, 
+        adl::int8_t keyType, 
+        const adl::ByteArray& key, 
+        adl::int64_t id, 
+        void* data
+    )
 ) {
-    // todo
+    if (response.code != 0)
+        return Status::PROTOCOL_ERROR;
+
+    
+    auto pMsg = (const char*) response.msg;
+    auto nkeys = adl::ntohq (* (adl::uint64_t *) pMsg);
+    
+    adl::size_t msgLen = response.header.length - 8;
+    if (msgLen < 8 + nkeys * sizeof(GetIdentityKeysKeyHeaderPacked))
+        return Status::PROTOCOL_ERROR;
+
+    
+    auto pHeader = (GetIdentityKeysKeyHeaderPacked*) (pMsg + 8);
+
+    for (adl::size_t i = 0; i < nkeys; i++) {
+        auto& header = pHeader[i];
+        
+        if (header.keyType != 0 || (header.nodeType != 0 && header.nodeType != 1))
+            return Status::PROTOCOL_ERROR;
+
+        auto offset = adl::ntohq(header.offset);
+        auto len = adl::ntohl(header.len);
+        auto id = adl::ntohq(header.id);
+        if (offset + len > adl::int64_t(msgLen))
+            return Status::PROTOCOL_ERROR;
+        
+        adl::ByteArray key;
+        if (!key.append(pMsg + offset, (adl::size_t) len))
+            return Status::OUT_OF_RESOURCE;
+        
+        record(header.nodeType, header.keyType, key, id, data);
+    }
+
+    return Status::SUCCESS;
 }
 
 

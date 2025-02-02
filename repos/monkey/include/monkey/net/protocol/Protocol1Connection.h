@@ -91,7 +91,13 @@ public:
     struct ReplyGetIdentityKeysParams {
         adl::ByteArray keyHeaders;
         adl::ByteArray keys;
-        monkey::Status addKey(adl::int8_t nodeType, adl::int8_t keyType, const adl::ByteArray& key); 
+
+        monkey::Status addKey(
+            adl::int8_t nodeType, 
+            adl::int8_t keyType, 
+            const adl::ByteArray& key,
+            adl::int64_t id = 0  // ignored for Memory Node
+        ); 
     };
 
 
@@ -106,7 +112,13 @@ public:
          *
          * @param data Same as `data` passed to `appreciate`.
          */
-        void (*record) (adl::int8_t nodeType, adl::int8_t keyType, const adl::ByteArray& key, void* data)
+        void (*record) (
+            adl::int8_t nodeType, 
+            adl::int8_t keyType, 
+            const adl::ByteArray& key, 
+            adl::int64_t id, 
+            void* data
+        )
     );
 
 

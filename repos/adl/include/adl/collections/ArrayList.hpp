@@ -317,6 +317,19 @@ public:
         return str;
     }
 
+
+    int append(const void* data, adl::size_t len) {
+        if (len == 0)
+            return 0;
+
+        if (!resize(_size + len))
+            return 1;  // out of resource.
+
+        adl::memcpy(_data + _size - len, data, len);
+
+        return 0;
+    }
+
 };
 
 

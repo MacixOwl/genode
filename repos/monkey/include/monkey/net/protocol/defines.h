@@ -84,12 +84,7 @@ struct Response {
     adl::uint32_t code;
     adl::uint32_t msgLen;
 
-    union {
-        const char msg[0];  // Not null-terminated.
-        adl::uint8_t data[0];
-    };
-
-    adl::uint8_t msgData[0];  // Optional.
+    const char msg[0];  // Not null-terminated for error.
 } __packed;
 
 

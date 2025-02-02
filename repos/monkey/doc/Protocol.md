@@ -58,6 +58,8 @@ Like the Response in Vesper Control Protocol.
 
 Response can be used to transfer data. When `code` is not 0, `msg` should be treated as error log. When `code` is 0, `msg`'s meaning differs to their type.
 
+**Error log is NOT null-terminated.**
+
 ### 0x1000: Hello
 
 Supported by any protocol version.
@@ -192,6 +194,8 @@ Response like:
 +---------+---------+
 |  code   | msg len |
 +---------+---------+
+|       n-keys      |
++-------------------+
 |     key head 1    |
 +-------------------+
 |     key head 2    |
@@ -223,7 +227,7 @@ struct {
     int64_t offset;  // position in response message field.
     int32_t len;  // in bytes.
 
-    int64_t appId;
+    int64_t id;
     int8_t reserved[16];  // should be set to 0
 } __packed;
 ```
