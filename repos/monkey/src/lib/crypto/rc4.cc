@@ -66,16 +66,16 @@ void rc4Inplace(ByteArray& data, const ByteArray& key) {
 }
 
 
-bool rc4Verify(const ByteArray& key, const ByteArray& msg, const ByteArray& cipher) {
-    ByteArray data = rc4(msg, key);
+bool rc4Verify(const ByteArray& key, const ByteArray& challenge, const ByteArray& cipher) {
+    ByteArray data = rc4(challenge, key);
     return data == cipher;
 }
 
 
 
-int64_t rc4Verify(const ArrayList<ByteArray>& keyring, const ByteArray& msg, const ByteArray& cipher) {
+int64_t rc4Verify(const ArrayList<ByteArray>& keyring, const ByteArray& challenge, const ByteArray& cipher) {
     for (size_t i = 0; i < keyring.size(); i++) {
-        if (rc4Verify(keyring[i], msg, cipher))
+        if (rc4Verify(keyring[i], challenge, cipher))
             return int64_t(i);
     }
 

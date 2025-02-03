@@ -28,7 +28,7 @@ adl::ByteArray rc4(const adl::ByteArray& dataIn, const adl::ByteArray& key);
 void rc4Inplace(adl::ByteArray& data, const adl::ByteArray& key);
 
 
-bool rc4Verify(const adl::ByteArray& key, const adl::ByteArray& msg, const adl::ByteArray& cipher);
+bool rc4Verify(const adl::ByteArray& key, const adl::ByteArray& challenge, const adl::ByteArray& cipher);
 
 
 /**
@@ -37,7 +37,7 @@ bool rc4Verify(const adl::ByteArray& key, const adl::ByteArray& msg, const adl::
  */
 adl::int64_t rc4Verify(
     const adl::ArrayList<adl::ByteArray>& keyring, 
-    const adl::ByteArray& msg, 
+    const adl::ByteArray& challenge, 
     const adl::ByteArray& cipher
 );
 
