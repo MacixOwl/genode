@@ -732,6 +732,34 @@ bool operator!=(const char* strA, const TString& strB)
 }
 
 
+int64_t TString::toInt64() const {
+    if (len == 0)
+        return 0;
+
+    bool negative = false;
+    int64_t res = 0;
+    size_t idx = 0;
+    if (content[0] == '-') {
+        negative = true;
+        idx++;
+    }
+
+    while (idx < len) {
+        char ch = content[idx];
+        
+        if (ch < '0' || ch > '9')
+            break;
+
+        res *= 10;
+        res += ch - '0';
+    
+        idx++;
+    }
+
+    return negative ? (-res) : res;
+}
+
+
 TString TString::to_string(const uint32_t x) {
     TString res;
     uint32_t value = x;

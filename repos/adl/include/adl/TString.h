@@ -95,6 +95,8 @@ public:
     friend bool operator >= (const char* strA, const TString& strB);
     friend bool operator <= (const char* strA, const TString& strB);
 
+    int64_t toInt64() const;
+
     static TString to_string(const uint32_t);
 };
 
