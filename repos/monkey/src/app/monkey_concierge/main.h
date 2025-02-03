@@ -62,7 +62,7 @@ struct ConciergeMain {
 
     struct {
         adl::ArrayList<adl::ByteArray> memoryNodes;
-        adl::ArrayList<adl::ByteArray> apps;
+        adl::HashMap<adl::int64_t, adl::ByteArray> apps;  // id -> key
     } keyrings;
 
 

@@ -105,7 +105,7 @@ Status Protocol1Connection::auth(const adl::ByteArray& key) {
 // ------ 0x1001 : Auth ------
 
 Status Protocol1Connection::auth(
-    const adl::ArrayList<adl::ByteArray>& appsKeyring, 
+    const adl::HashMap<adl::int64_t, adl::ByteArray>& appsKeyring, 
     const adl::ArrayList<adl::ByteArray>& memoryNodesKeyring
 ) {
     adl::ByteArray challenge { "fyt's score is A+" };  // TODO
@@ -119,14 +119,29 @@ Status Protocol1Connection::auth(
         return status;
 
     adl::ByteArray cipher { response->msg, response->msgLen };
-    if (crypto::rc4Verify(appsKeyring, cipher, challenge) != -1) {
-        nodeType = NodeType::App;
+
+    bool verified = false;
+
+    // check if app
+    
+    for (const auto& it : appsKeyring) {
+        verified = crypto::rc4Verify(it.second, challenge, cipher);
+        if (verified) {
+            nodeId = it.first;
+            break;
+        }
     }
-    else if (crypto::rc4Verify(memoryNodesKeyring, cipher, challenge) != -1) {
-        nodeType = NodeType::MemoryNode;
-    }
-    else {
-        nodeType = NodeType::Unknown;
+
+    // check if memory node
+    
+    if (!verified) {
+        if (crypto::rc4Verify(memoryNodesKeyring, cipher, challenge) != -1) {
+            nodeType = NodeType::MemoryNode;
+            verified = true;
+        }
+        else {
+            nodeType = NodeType::Unknown;
+        }
     }
 
     sendResponse(!!(nodeType == NodeType::Unknown), nullptr);
@@ -175,18 +190,18 @@ struct GetIdentityKeysKeyHeaderPacked {
 
 
 Status Protocol1Connection::ReplyGetIdentityKeysParams::addKey(
-    adl::int8_t nodeType,
-    adl::int8_t keyType,
+    NodeType nodeType,
+    KeyType keyType,
     const adl::ByteArray& key,
     adl::int64_t id
 ) {
 
     // check params
 
-    if (nodeType != 0 && nodeType != 1)
+    if (nodeType != NodeType::App && nodeType != NodeType::MemoryNode)
         return Status::INVALID_PARAMETERS;
     
-    if (keyType != 0)  // only RC4 allowed.
+    if (keyType != KeyType::RC4)  // only RC4 allowed.
         return Status::INVALID_PARAMETERS;
     
     if (key.size() > INT32_MAX)
@@ -205,8 +220,8 @@ Status Protocol1Connection::ReplyGetIdentityKeysParams::addKey(
 
     adl::memset(head, 0, headerSize);
 
-    head->nodeType = nodeType;
-    head->keyType = keyType;
+    head->nodeType = (adl::int8_t) nodeType;
+    head->keyType = (adl::int8_t) keyType;
     head->offset = (adl::int64_t) keys.size();
     head->len = (adl::int32_t) key.size();
     head->id = id;

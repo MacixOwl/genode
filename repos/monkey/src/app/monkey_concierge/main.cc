@@ -172,6 +172,8 @@ Status ConciergeMain::loadConfig() {
     }
     
 
+    // load memory nodes' keys
+
     conciergeNode.for_each_sub_node("memory-node", [&] (const Genode::Xml_node& node) {
         auto keyNode = node.sub_node("key");
         adl::ByteArray arr;
@@ -188,19 +190,29 @@ Status ConciergeMain::loadConfig() {
     });
     
 
+    // load apps' keys
+
     conciergeNode.for_each_sub_node("app", [&] (const Genode::Xml_node& node) {
         auto keyNode = node.sub_node("key");
-        adl::ByteArray arr;
+        auto idNode = node.sub_node("id");
+        adl::ByteArray key;
+        adl::TString idStr;
         
         keyNode.with_raw_content([&] (const char* content, size_t contentSize) {
-            if (!arr.resize(contentSize)) {
+            if (!key.resize(contentSize)) {
                 throw Status::OUT_OF_RESOURCE;  // bad way.. but.. anyway..
             }
 
-            adl::memcpy(arr.data(), content, contentSize);
+            adl::memcpy(key.data(), content, contentSize);
         });
 
-        this->keyrings.apps.append(arr);
+        idNode.with_raw_content([&] (const char* content, size_t contentSize) {
+            for (adl::size_t idx = 0; idx < contentSize; idx++) {
+                idStr += content[idx];
+            }
+        });
+
+        this->keyrings.apps[idStr.toInt64()] = key;
     });
 
     return Status::SUCCESS;
@@ -220,8 +232,8 @@ Status ConciergeMain::init() {
                 Genode::log("> memory node key: ", it.toString().c_str());
             }
 
-            for (auto& it : keyrings.apps)
-                Genode::log("> client  app key: ", it.toString().c_str());
+            for (const auto& it : keyrings.apps)
+                Genode::log("> client  app key: ", it.first, " -> ", it.second.toString().c_str());
         }
     }
     catch (...) {

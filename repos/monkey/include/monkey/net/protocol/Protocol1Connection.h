@@ -11,6 +11,7 @@
 #pragma once
 
 #include <monkey/net/protocol/ProtocolConnection.h>
+#include <adl/collections/HashMap.hpp>
 
 namespace monkey::net {
 
@@ -31,6 +32,8 @@ public:
         Unknown,
         Other
     } nodeType = NodeType::Other;
+
+    adl::int64_t nodeId = 0;
 
     union {
         adl::int64_t memoryNodeId = -1;
@@ -81,7 +84,8 @@ public:
      * Server-mode auth: Check client's identity. 
      */
     Status auth(
-        const adl::ArrayList<adl::ByteArray>& appsKeyring, 
+        // app id -> app key
+        const adl::HashMap<adl::int64_t, adl::ByteArray>& appsKeyring, 
         const adl::ArrayList<adl::ByteArray>& memoryNodesKeyring
     );
 
@@ -92,9 +96,18 @@ public:
         adl::ByteArray keyHeaders;
         adl::ByteArray keys;
 
+        enum class NodeType : adl::int8_t {
+            App = 0,
+            MemoryNode = 1
+        };
+
+        enum class KeyType : adl::int8_t {
+            RC4 = 0
+        };
+
         monkey::Status addKey(
-            adl::int8_t nodeType, 
-            adl::int8_t keyType, 
+            NodeType nodeType, 
+            KeyType keyType, 
             const adl::ByteArray& key,
             adl::int64_t id = 0  // ignored for Memory Node
         ); 

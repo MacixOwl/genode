@@ -9,6 +9,7 @@
 #include "./MemoryLounge.h"
 
 using namespace monkey;
+using namespace net;
 
 using net::protocol::Msg;
 using net::protocol::MsgType;
@@ -39,6 +40,45 @@ monkey::Status MemoryLounge::processMemoryNodeClockIn(const monkey::net::IP4Addr
     conn.sendResponse(0, sizeof(adl::int64_t), &nodeId);
 
     return status;
+}
+
+
+monkey::Status MemoryLounge::processGetIdentityKeys() {
+    net::Protocol1Connection::ReplyGetIdentityKeysParams params;
+
+    auto appType = Protocol1Connection::ReplyGetIdentityKeysParams::NodeType::App;
+    auto memoryType = Protocol1Connection::ReplyGetIdentityKeysParams::NodeType::MemoryNode;
+    auto rc4Type = Protocol1Connection::ReplyGetIdentityKeysParams::KeyType::RC4;
+
+    Status status = Status::SUCCESS;
+
+    // memory node keys
+
+    for (auto& key : context.keyrings.memoryNodes) {
+        if (status != Status::SUCCESS)
+            break;
+    
+        status = params.addKey(memoryType, rc4Type, key);
+    }
+
+    // app keys
+
+    for (const auto& it : context.keyrings.apps) {
+        if (status != Status::SUCCESS)
+            break;
+
+        status = params.addKey(appType, rc4Type, it.second, it.first);
+    }
+
+
+    // reply
+
+    if (status != Status::SUCCESS) {
+        conn.sendResponse(1, "Something went wrong on our side.");
+        return status;
+    }
+    
+    return conn.replyGetIdentityKeys(params);
 }
 
 
@@ -75,6 +115,11 @@ monkey::Status MemoryLounge::serve() {
 
                 ip.i32 = * (adl::int32_t *) ipBuf;
                 status = processMemoryNodeClockIn(ip, port);
+                break;
+            }
+
+            case MsgType::GetIdentityKeys: {
+                status = processGetIdentityKeys();
                 break;
             }
 

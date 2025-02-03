@@ -22,6 +22,7 @@ struct MemoryLounge : public SunflowerLounge {
 
 
     monkey::Status processMemoryNodeClockIn(const monkey::net::IP4Addr& ip4Addr, adl::uint16_t port);
+    monkey::Status processGetIdentityKeys();
 
 
     virtual monkey::Status serve() override;
