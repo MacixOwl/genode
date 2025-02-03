@@ -113,6 +113,10 @@ BIND_OR_LISTEN_ERROR:
 ClientConnection SocketServer::accept(bool ignoreError) {
     ClientConnection client;
     while (true) {
+
+        Genode::log("Waiting for connection...");
+
+        client.addrlen = sizeof(client.inaddr);
         client.socketFd = ::accept(
             socketFd, 
             (struct sockaddr*) &client.inaddr, 
@@ -252,8 +256,10 @@ void ConciergeMain::serveClient(ClientConnection& conn) {
     protocolConn.socketFd = conn.socketFd;
 
     // Determine protocol version
-    if (checkCanUseProtocolV1(protocolConn) != Status::SUCCESS)
+    if (checkCanUseProtocolV1(protocolConn) != Status::SUCCESS) {
+        protocolConn.send("hello from monkey concierge!!! ------------------", 20);
         return;
+    }
     Genode::log("> Protocol Version: ", 1);
     protocolConn.socketDetached = true;
 

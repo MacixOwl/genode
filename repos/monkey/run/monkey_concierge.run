@@ -130,7 +130,7 @@ install_config {
             <monkey-concierge>
             
                 <server>
-                    <port>60000</port>
+                    <port>10000</port>
                 </server>
 
                 <memory-node>
