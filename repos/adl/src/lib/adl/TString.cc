@@ -9,6 +9,9 @@
 #include <adl/TString.h>
 #include <adl/string.h>
 #include <adl/config.h>
+
+#include <adl/collections/ArrayList.hpp>
+
 using namespace std;
 
 
@@ -85,7 +88,7 @@ TString::~TString()
     freeUp();
 }
 
-inline void TString::freeUp()
+void TString::freeUp()
 {
     if (content != nullptr) {
         freeUpContent();
@@ -93,7 +96,13 @@ inline void TString::freeUp()
     }
 }
 
-inline void TString::freeUpContent()
+
+void TString::clear() {
+    freeUp();
+}
+
+
+void TString::freeUpContent()
 {
     if (content != nullptr) {
         tstring_alloc->free(content);
@@ -278,11 +287,11 @@ const TString TString::operator-(const TString& str) const
             ret.len = len - str.length();
             ret.content = p;
 
-            adl::memcpy(p, content, (occurenceLocation - content) * sizeof(char));
+            adl::memcpy(p, content, adl::uint64_t(occurenceLocation - content) * sizeof(char));
             adl::memcpy(
                 p + (occurenceLocation - content),
                 occurenceLocation + str.length(),
-                (len - (occurenceLocation - content) - str.length()) * sizeof(char)
+                (len - adl::uint64_t(occurenceLocation - content) - str.length()) * sizeof(char)
             );
             p[ret.len] = '\0';
 
@@ -315,11 +324,11 @@ const TString TString::operator-(const char* str) const
             ret.len = len - lengthOfStr;
             ret.content = p;
 
-            adl::memcpy(p, content, (occurenceLocation - content) * sizeof(char));
+            adl::memcpy(p, content, adl::uint64_t(occurenceLocation - content) * sizeof(char));
             adl::memcpy(
                 p + (occurenceLocation - content),
                 occurenceLocation + lengthOfStr,
-                (len - (occurenceLocation - content) - lengthOfStr) * sizeof(char)
+                (len - adl::uint64_t(occurenceLocation - content) - lengthOfStr) * sizeof(char)
             );
             p[ret.len] = '\0';
 
@@ -472,17 +481,17 @@ const TString TString::operator*(int x) const
     }
     else {
         // x >= 1
-        char* p = tstring_alloc->alloc<char>(len * x + 1, false);
+        char* p = tstring_alloc->alloc<char>(len * adl::size_t(x) + 1, false);
         if (p == nullptr) {
             throw Genode::Exception{};
         }
 
-        for (int i = 0; i < x; i++) {
+        for (adl::size_t i = 0; i < adl::size_t(x); i++) {
             adl::memcpy(p + i * len, content, len * sizeof(char));
         }
 
         ret.content = p;
-        ret.len = this->len * x;
+        ret.len = this->len * adl::size_t(x);
         ret.content[ret.len] = '\0';
 
         return ret;
@@ -703,6 +712,36 @@ TString TString::substr(const size_t pos, const size_t len) const {
 }
 
 
+
+void TString::split(const TString& key, ArrayList<TString>& out) const {
+    out.clear();
+    if (key.length() == 0) {
+        out.append(key);
+        return;
+    }
+
+    adl::TString tmp;
+    adl::size_t i = 0;
+    while (i < length()) {
+        if (adl::strncmp(key.c_str(), content + i, key.length()) == 0) {
+            if (tmp.length()) {
+                out.append(tmp);
+                tmp.clear();
+            }
+
+            i += key.length();
+            continue;
+        }
+
+        tmp += content[i++];
+    }
+
+    if (tmp.length()) {
+        out.append(tmp);   
+    }
+}
+
+
 bool operator>(const char* strA, const TString& strB)
 {
     return strB < strA;
@@ -760,16 +799,25 @@ int64_t TString::toInt64() const {
 }
 
 
-TString TString::to_string(const uint32_t x) {
-    TString res;
-    uint32_t value = x;
-    while (value) {
-        res = ((value % 10) + '0') + res;
-        value /= 10;
+#define TSTRING_IMPL_TO_STRING(Type) \
+    TString TString::to_string(const Type x) { \
+        TString res; \
+        Type value = x; \
+        while (value) { \
+            res = ((value % 10) + '0') + res; \
+            value /= 10; \
+        } \
+\
+        return res.length() ? res : "0"; \
     }
 
-    return res.length() ? res : "0";
-}
+
+TSTRING_IMPL_TO_STRING(adl::uint32_t)
+TSTRING_IMPL_TO_STRING(adl::uint64_t)
+TSTRING_IMPL_TO_STRING(adl::size_t)
+
+
+#undef TSTRING_IMPL_TO_STRING
 
 
 }  // namespace adl

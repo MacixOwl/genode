@@ -12,6 +12,7 @@
 
 #include <adl/sys/types.h>
 #include <adl/arpa/inet.h>
+#include <monkey/Status.h>
 
 namespace adl { class TString; }
 
@@ -35,6 +36,7 @@ public:
     IP4Addr(adl::int32_t ip, bool netOrder = true) { i32 = netOrder ? ip : adl::htonl(ip); }
 
     adl::TString toString() const;
+    monkey::Status set(const adl::TString&);  // like "192.168.1.1"
 
     bool operator == (const IP4Addr& other) const { return ui32 == other.ui32; }
     bool operator != (const IP4Addr& other) const { return ui32 != other.ui32; }

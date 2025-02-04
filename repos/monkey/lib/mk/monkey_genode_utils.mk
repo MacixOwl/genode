@@ -11,7 +11,7 @@ vpath %.c $(REP_DIR)/src/lib/genodeutils
 vpath %.cc $(REP_DIR)/src/lib/genodeutils
 vpath %.cpp $(REP_DIR)/src/lib/genodeutils
 
-SRC_CC += memory.cc
+SRC_CC += memory.cc config.cc
 
 LIBS = base adl 
 
