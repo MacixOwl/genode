@@ -84,6 +84,7 @@ monkey::Status MemoryLounge::processGetIdentityKeys() {
 
 
 monkey::Status MemoryLounge::serve() {
+    Genode::log("====== Welcome client (Memory) to Sunflower Lounge ======");
     Status status = Status::SUCCESS;
 
     while (true) {
@@ -96,6 +97,7 @@ monkey::Status MemoryLounge::serve() {
         switch ((MsgType) msg->header.type) {
 
             case MsgType::MemoryNodeClockIn: {
+                Genode::log("> Message: Memory Node Clock In");
                 net::IP4Addr ip;
                 adl::uint8_t ipBuf[16];
                 adl::int32_t tcpVer;
@@ -114,19 +116,23 @@ monkey::Status MemoryLounge::serve() {
                 }
 
                 ip.i32 = * (adl::int32_t *) ipBuf;
+                Genode::log("  TCP ", tcpVer, ", port ", port, ", ip ", ip.toString());
                 status = processMemoryNodeClockIn(ip, port);
                 break;
             }
 
             case MsgType::GetIdentityKeys: {
+                Genode::log("> Message: Get Identity Keys");
                 status = processGetIdentityKeys();
                 break;
             }
 
-            default:
+            default: {
+                Genode::warning("> Message Type NOT SUPPORTED");
                 status = Status::PROTOCOL_ERROR;
                 conn.sendResponse(1, "Msg Type not supported.");
                 break;
+            }
         }
 
 

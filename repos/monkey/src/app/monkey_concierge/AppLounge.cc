@@ -44,6 +44,9 @@ Status AppLounge::processLocateMemoryNodes() {
 
 
 Status AppLounge::serve() {
+
+    Genode::log("====== Welcome client (APP) to Sunflower Lounge ======");
+
     Status status = Status::SUCCESS;
 
 
@@ -56,13 +59,16 @@ Status AppLounge::serve() {
 
         switch ((MsgType) msg->header.type) {
             case MsgType::LocateMemoryNodes: {
+                Genode::log("> Message: Locate Memory Nodes");
                 status = processLocateMemoryNodes();
                 break;
             }
-            default:
+            default: {
+                Genode::warning("> Message Type NOT SUPPORTED");
                 status = Status::PROTOCOL_ERROR;
                 conn.sendResponse(1, "Msg Type not supported.");
                 break;
+            }
         }
 
 
