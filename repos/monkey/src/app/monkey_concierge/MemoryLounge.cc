@@ -19,13 +19,8 @@ monkey::Status MemoryLounge::processMemoryNodeClockIn(const monkey::net::IP4Addr
     Status status = Status::SUCCESS;
 
     if (ip4Addr != conn.ip4Addr) {
-        conn.sendResponse(1, "IP address conflict.");
-        return Status::PROTOCOL_ERROR;
-    }
-
-    if (port != conn.port) {
-        conn.sendResponse(1, "Port conflict.");
-        return Status::PROTOCOL_ERROR;
+        Genode::warning("memory node's ip doesn't match.");
+        Genode::warning("> from protocol: ", ip4Addr.toString(), "; from socket: ", conn.ip4Addr.toString());
     }
 
     adl::int64_t nodeId = context.genMemoryNodeId();
