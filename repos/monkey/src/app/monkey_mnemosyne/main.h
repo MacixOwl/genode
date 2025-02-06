@@ -43,6 +43,10 @@ struct MnemosyneMain {
 
     monkey::Status loadConfig();
     monkey::Status init();
+
+    monkey::Status clockIn();
+    monkey::Status runServer();
+
     monkey::Status run();
     void cleanup();
 

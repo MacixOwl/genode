@@ -92,6 +92,14 @@ Status MnemosyneMain::loadConfig() {
 
 #undef IF_STATUS_NOT_SUCCESS_THEN_RETURN
 
+    Genode::log("--- mnemosyne config begin ---");
+    Genode::log("> mnemosyne ip    : ", config.mnemosyne.ip.toString().c_str());
+    Genode::log("> mnemosyne port  : ", config.mnemosyne.port);
+    Genode::log("> mnemosyne listen: ", config.mnemosyne.listenPort);
+    Genode::log("> concierge ip    : ", config.concierge.ip.toString().c_str());
+    Genode::log("> concierge port  : ", config.concierge.port);
+    Genode::log("---  mnemosyne config end  ---");
+    
     return status;
 }
 
@@ -115,10 +123,47 @@ Status MnemosyneMain::init() {
 }
 
 
-Status MnemosyneMain::run() {
-    Status status = Status::SUCCESS;
+Status MnemosyneMain::clockIn() {
+    Genode::log("Trying to clock in.");
 
     // todo
+    
+}
+
+
+Status MnemosyneMain::runServer() {
+    Genode::log("Starting server..");
+
+    net::Socket4 server;
+    server.port = config.mnemosyne.listenPort;
+    server.ip = INADDR_ANY;
+
+    Status status = server.start();
+    if (status != Status::SUCCESS) {
+        return status;
+    }
+
+
+    while (true) {
+        auto client = server.accept(true);
+        serveClient(client);
+        client.close();
+        Genode::log("Closed: ", client.ip.toString().c_str(), " [", client.port, "]");
+    }
+
+    server.close();
+    return Status::SUCCESS;
+} 
+
+
+
+Status MnemosyneMain::run() {
+    Status status = clockIn();
+    if (status != Status::SUCCESS) {
+        return status;
+    }
+
+    status = runServer();
 
     return status;
 }
