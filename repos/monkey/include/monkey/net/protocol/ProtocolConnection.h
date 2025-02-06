@@ -12,7 +12,7 @@
 
 #include <monkey/net/TcpIo.h>
 #include <monkey/net/protocol/defines.h>
-#include <monkey/net/IP4Addr.h>
+#include <monkey/net/Socket4.h>
 
 #include <netinet/in.h>
 
@@ -47,11 +47,8 @@ namespace monkey::net {
  *  (appreciate) 
  *
  */
-class ProtocolConnection : public PromisedSocketIo {
+class ProtocolConnection : public Socket4 {
 public:
-
-    net::IP4Addr ip4Addr;
-    adl::uint16_t port;
 
     // Static methods
 

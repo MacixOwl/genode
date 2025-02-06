@@ -76,61 +76,6 @@ Status checkCanUseProtocolV1(net::ProtocolConnection& client) {
 
 
 
-Status SocketServer::start(adl::uint16_t port) {
-    struct sockaddr_in addr;
-    socketFd = socket(AF_INET, SOCK_STREAM, 0);
-
-    if (socketFd == 0) {
-        return Status::NETWORK_ERROR;
-    }
-
-    addr.sin_family = AF_INET;
-    addr.sin_addr.s_addr = INADDR_ANY;
-    addr.sin_port = adl::htons(port);
-
-    if (bind(socketFd, (struct sockaddr*)&addr, sizeof(addr)) < 0) { 
-        goto BIND_OR_LISTEN_ERROR;
-    }
-
-    if (listen(socketFd, 20) < 0) {
-        goto BIND_OR_LISTEN_ERROR;
-    }
-
-    Genode::log("Server ready.");
-
-    return Status::SUCCESS;
-
-
-BIND_OR_LISTEN_ERROR:
-
-    close();
-    socketFd = -1;
-    return Status::NETWORK_ERROR;
-
-}
-
-
-ClientConnection SocketServer::accept(bool ignoreError) {
-    ClientConnection client;
-    while (true) {
-
-        Genode::log("Waiting for connection...");
-
-        client.addrlen = sizeof(client.inaddr);
-        client.socketFd = ::accept(
-            socketFd, 
-            (struct sockaddr*) &client.inaddr, 
-            (socklen_t*) &client.addrlen
-        );
-
-        if (client.socketFd != -1 || !ignoreError) {
-            return client;
-        }
-    }
-}
-
-
-
 void ConciergeMain::initAdlAlloc() {
     adl::defaultAllocator.init({
         .alloc = [] (adl::size_t size, void* data) {
@@ -249,28 +194,27 @@ Status ConciergeMain::init() {
 }
 
 
-void ConciergeMain::serveClient(ClientConnection& conn) {
-    Genode::log("Client connected: ", conn.ip().c_str(), " [", conn.port(), "]");
+void ConciergeMain::serveClient(net::Socket4& conn) {
+    Genode::log("Client connected: ", conn.ip.toString().c_str(), " [", conn.port, "]");
 
     net::ProtocolConnection protocolConn;
     protocolConn.socketFd = conn.socketFd;
 
     // Determine protocol version
     if (checkCanUseProtocolV1(protocolConn) != Status::SUCCESS) {
-        protocolConn.send("hello from monkey concierge!!! ------------------", 20);
         return;
     }
     Genode::log("> Protocol Version: ", 1);
-    protocolConn.socketDetached = true;
 
     net::Protocol1Connection client;
     client.socketFd = conn.socketFd;
-    client.port = conn.port();
-    client.ip4Addr = conn.inaddr.sin_addr.s_addr;
+    client.port = conn.port;
+    client.ip = conn.ip;
 
     // Auth
-    if (client.auth(keyrings.apps, keyrings.memoryNodes) != Status::SUCCESS)
+    if (client.auth(keyrings.apps, keyrings.memoryNodes) != Status::SUCCESS) {
         return;
+    }
     adl::TString nodeTypeStr;
     switch (client.nodeType) {
         case net::Protocol1Connection::NodeType::MemoryNode:
@@ -298,12 +242,12 @@ void ConciergeMain::serveClient(ClientConnection& conn) {
         Status status = lounge.serve();
         Genode::log("Memory left with status: ", adl::int32_t(status));
     }
-    
 }
 
 
 Status ConciergeMain::run() {
-    Status status = server.start(this->port);
+    server.port = this->port;
+    Status status = server.start();
     if (status != Status::SUCCESS) {
         return status;
     }
@@ -311,11 +255,13 @@ Status ConciergeMain::run() {
     Genode::log("Server started on port: ", port);
 
     while (true) {
-        ClientConnection client = server.accept();
+        auto client = server.accept(true);
         serveClient(client);
-        Genode::log("Closed: ", client.ip().c_str(), " [", client.port(), "]");
+        client.close();
+        Genode::log("Closed: ", client.ip.toString().c_str(), " [", client.port, "]");
     }
 
+    server.close();
     return status;
 }
 

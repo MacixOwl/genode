@@ -18,9 +18,14 @@ using net::protocol::MsgType;
 monkey::Status MemoryLounge::processMemoryNodeClockIn(const monkey::net::IP4Addr& ip4Addr, adl::uint16_t port) {
     Status status = Status::SUCCESS;
 
-    if (ip4Addr != conn.ip4Addr) {
+    if (ip4Addr != conn.ip) {
         Genode::warning("memory node's ip doesn't match.");
-        Genode::warning("> from protocol: ", ip4Addr.toString(), "; from socket: ", conn.ip4Addr.toString());
+        Genode::warning(
+            "> from protocol: ", 
+            ip4Addr.toString().c_str(), 
+            "; from socket: ", 
+            conn.ip.toString().c_str()
+        );
     }
 
     adl::int64_t nodeId = context.genMemoryNodeId();
@@ -111,7 +116,7 @@ monkey::Status MemoryLounge::serve() {
                 }
 
                 ip.i32 = * (adl::int32_t *) ipBuf;
-                Genode::log("  TCP ", tcpVer, ", port ", port, ", ip ", ip.toString());
+                Genode::log("  TCP ", tcpVer, ", port ", port, ", ip ", ip.toString().c_str());
                 status = processMemoryNodeClockIn(ip, port);
                 break;
             }

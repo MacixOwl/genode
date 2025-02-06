@@ -13,8 +13,7 @@
 #include <adl/sys/types.h>
 #include <adl/arpa/inet.h>
 #include <monkey/Status.h>
-
-namespace adl { class TString; }
+#include <adl/TString.h>
 
 
 namespace monkey::net {

@@ -11,6 +11,7 @@
 
 #include <adl/collections/HashMap.hpp>
 #include <monkey/net/protocol.h>
+#include <monkey/net/Socket4.h>
 
 #include <libc/component.h>
 #include <base/heap.h>
@@ -26,36 +27,12 @@ struct MemoryNodeInfo {
 };
 
 
-struct ClientConnection {
-    int socketFd;
-    struct sockaddr_in inaddr;
-    socklen_t addrlen;
-
-
-    inline adl::TString ip() {
-        monkey::net::IP4Addr ipAddr {inaddr.sin_addr.s_addr};
-        return ipAddr.toString();   
-    }
-
-    inline adl::uint16_t port() {
-        return adl::ntohs(inaddr.sin_port);
-    }
-};
-
-
-
-struct SocketServer : public monkey::net::PromisedSocketIo {
-    monkey::Status start(adl::uint16_t port);
-    ClientConnection accept(bool ignoreError = true);
-};
-
-
 struct ConciergeMain {
 
     Genode::Env& env;
     Genode::Heap heap { env.ram(), env.rm() };
 
-    SocketServer server;
+    monkey::net::Socket4 server;
     adl::uint16_t port = 0;
 
     adl::HashMap<adl::int64_t, MemoryNodeInfo> memoryNodes;  // id -> info
@@ -75,7 +52,12 @@ struct ConciergeMain {
     void initAdlAlloc();
     monkey::Status loadConfig();
     monkey::Status init();
-    void serveClient(ClientConnection&);
+
+    /**
+     * This method is NOT responsible for closing socket passed to it.
+     * Caller must manage life cycle of the Socket4 in the argument list.
+     */
+    void serveClient(monkey::net::Socket4&);
     monkey::Status run();
     void cleanup();
 
