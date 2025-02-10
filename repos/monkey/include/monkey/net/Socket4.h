@@ -18,6 +18,8 @@ namespace monkey::net {
 
 
 /**
+ * TCP/IPv4 Socket.
+ *
  * Set `ip` and `port` accrodingly, then call `connect` to `start` open connection(s). 
  */
 struct Socket4 : public monkey::net::PromisedSocketIo {

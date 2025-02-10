@@ -93,30 +93,30 @@ public:
 
     ArrayList(const ArrayList<DataType>& other) {
         this->allocator = other.allocator;
-        this->reserve(other._size);
-        if (this->_capacity < other._size) {
+        if (!this->resize(other.size())) {
             Genode::error("failed to copy arraylist!");
             return;
         }
 
-        this->_size = other._size;
-        adl::memcpy(this->_data, other._data, other._size);
+        adl::memcpy(this->_data, other._data, other._size * sizeof(DataType));
     }
 
 
     const ArrayList<DataType>& operator = (const ArrayList<DataType>& other) {
+        if (this == &other) {
+            return *this;
+        }
+
         if (_capacity)
             allocator->free(_data);
 
         this->allocator = other.allocator;
-        this->reserve(other._size);
-        if (this->_capacity < other._size) {
+        if (!this->resize(other.size())) {
             Genode::error("failed to copy arraylist!");
             return *this;
         }
 
-        this->_size = other._size;
-        adl::memcpy(this->_data, other._data, other._size);
+        adl::memcpy(this->_data, other._data, other._size * sizeof(DataType));
         return *this;
     }
 
@@ -227,6 +227,23 @@ public:
         return * ( DataType* ) 0;
     }
 
+    
+    adl::size_t count(const DataType& data) const {
+        adl::size_t res = 0;
+        for (const auto& it : *this) {
+            if (it == data) {
+                res++;
+            }
+        }
+        return res;
+    }
+
+
+    bool contains(const DataType& data) const {
+        return count(data);
+    }
+
+
     DataType& operator [] (size_t idx) {
         return _data[idx];
     }
@@ -251,8 +268,8 @@ public:
     DataType& front() { return _data[0]; }
 
 
-    bool isEmpty() { return _size == 0; }
-    bool isNotEmpty() { return _size > 0; }
+    bool isEmpty() const { return _size == 0; }
+    bool isNotEmpty() const { return _size > 0; }
 
     
     // ------ iteration related ------
@@ -308,7 +325,7 @@ public:
     }
 
 
-    TString toString() {
+    TString toString() const {
         TString str;
         for (auto& ch : *this) {
             str += char(ch);

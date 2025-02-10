@@ -13,7 +13,7 @@
 
 #include <adl/sys/types.h>
 #include <libc/component.h>
-
+#include <base/mutex.h>
 #include <base/attached_rom_dataspace.h>
 
 #include <monkey/Status.h>
@@ -41,16 +41,28 @@ static const adl::TString memSizeToHumanReadable(adl::size_t size) {
 
 
 static void initAdlAlloc(Genode::Heap& heap) {
+
+    static struct {
+        Genode::Heap* heap;
+        Genode::Mutex lock;
+    } adlAllocData;
+
+    adlAllocData.heap = &heap;
+
     adl::defaultAllocator.init({
         .alloc = [] (adl::size_t size, void* data) {
-            return reinterpret_cast<Genode::Heap*>(data)->alloc(size);
+            auto* allocData = (decltype(adlAllocData)*) data;
+            Genode::Mutex::Guard _g {allocData->lock};
+            return allocData->heap->alloc(size);
         },
         
         .free = [] (void* addr, adl::size_t size, void* data) {
-            reinterpret_cast<Genode::Heap*>(data)->free(addr, size);
+            auto* allocData = (decltype(adlAllocData)*) data;
+            Genode::Mutex::Guard _g {allocData->lock};
+            allocData->heap->free(addr, size);
         },
         
-        .data = &heap
+        .data = &adlAllocData
     });
 }
 
@@ -87,6 +99,9 @@ Status MnemosyneMain::loadConfig() {
         
         auto listenPortNode = mnemosyneNode.sub_node("listen-port");
         config.mnemosyne.listenPort = (adl::uint16_t) genodeutils::config::getText(listenPortNode).toInt64();
+
+        auto keyNode = mnemosyneNode.sub_node("key");
+        config.mnemosyne.key = genodeutils::config::getText(keyNode);
     }
 
 
@@ -126,6 +141,134 @@ Status MnemosyneMain::init() {
 Status MnemosyneMain::clockIn() {
     Genode::log("Trying to clock in.");
 
+    net::protocol::Response* response = nullptr;
+
+    net::Protocol1Connection client;
+    client.ip = config.concierge.ip;
+    client.port = config.concierge.port;
+    Status status = client.connect();
+    if (status != Status::SUCCESS) {
+        Genode::error("Failed to connect with server.");
+        goto END;
+    }
+
+
+    // Open protocol v1 connection.
+
+    if ((status = client.hello(1, false)) != Status::SUCCESS) {
+        Genode::error("(Clock In) Failed on [Hello].");
+        goto END;
+    }
+    
+    if ((status = client.auth(config.mnemosyne.key)) != Status::SUCCESS) {
+        Genode::error("(Clock In) Failed on auth.");
+        goto END;
+    }
+    
+
+    // Clock in.
+    
+    adl::int64_t id;
+    if ((status = client.memoryNodeClockIn(&id)) != Status::SUCCESS) {
+        Genode::error("(Clock In) Failed on doing Memory Node Clock In.");
+        goto END;
+    }
+    Genode::log("(Clock In) Node ID is: ", id);
+    this->nodeId = id;
+
+    // Get identity keys.
+
+    if ((status = client.sendGetIdentityKeys()) != Status::SUCCESS) 
+        goto END;
+
+    if ((status = client.recvResponse(&response)) != Status::SUCCESS) 
+        goto END;
+
+    if (response->code != 0) {
+        adl::ByteArray bMsg {response->msg, response->msgLen};
+        Genode::error(bMsg.toString().c_str());
+        goto END;
+    }
+
+    
+    // Appreciate identity keys.
+
+    {
+        struct {
+            MnemosyneMain* main;
+        } data;
+
+        data.main = this;
+
+        status = client.appreciateGetIdentityKeys(
+            *response, 
+            &data,
+            [] (
+                net::Protocol1Connection::ReplyGetIdentityKeysParams::NodeType nodeType, 
+                net::Protocol1Connection::ReplyGetIdentityKeysParams::KeyType keyType, 
+                const adl::ByteArray& key, 
+                adl::int64_t id, 
+                void* rawData
+            ) {
+
+                const auto AppType = net::Protocol1Connection::ReplyGetIdentityKeysParams::NodeType::App;
+                const auto RC4Type = net::Protocol1Connection::ReplyGetIdentityKeysParams::KeyType::RC4;
+                
+                auto typedData = (decltype(data) *) rawData;
+                
+                // We don't care about memory nodes' keys. We can't deal algorithms other than RC4.
+
+                if (nodeType != AppType || keyType != RC4Type) {
+                    Genode::log(
+                        "Key ignored: (", 
+                        adl::int8_t(nodeType), 
+                        ", ", 
+                        adl::int8_t(keyType), 
+                        ") ", 
+                        key.toString().c_str()
+                    );
+                    return;
+                }
+                
+                typedData->main->appKeys[id] = key;
+                Genode::log("From Concierge: App key: [", id, "] [", key.toString().c_str(), "]");
+            }
+            
+        );
+
+        if (status != Status::SUCCESS) {
+            Genode::error("Error on loading identity keys from Concierge.");
+            goto END;
+        }
+    }
+
+
+    // Cleanup.
+
+END:
+    client.close();
+    if (response) {
+        adl::defaultAllocator.free(response);
+        response = nullptr;
+    }
+    return status;
+}
+
+
+void MnemosyneMain::serveClient(net::Socket4& conn) {
+    Genode::log("Client connected: ", conn.ip.toString().c_str(), " [", conn.port, "]");
+
+    net::Protocol1Connection client;
+    client.socketFd = conn.socketFd;
+    client.ip = conn.ip;
+    client.port = conn.port;
+
+    // Force use protocol v1.
+    if (client.hello(1, true) != Status::SUCCESS)
+        return;
+    Genode::log("> Using protocol version 1.");
+
+    // Auth
     // todo
     
 }
@@ -160,6 +303,7 @@ Status MnemosyneMain::runServer() {
 Status MnemosyneMain::run() {
     Status status = clockIn();
     if (status != Status::SUCCESS) {
+        Genode::error("Something went wrong during clock-in. Status: ", adl::int32_t(status));
         return status;
     }
 

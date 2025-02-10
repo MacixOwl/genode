@@ -21,7 +21,25 @@ namespace monkey::net {
 
 
 Status Socket4::connect() {
+    close();
 
+    Genode::log("[Socket4] Connecting to ", ip.toString().c_str(), " : ", port);
+
+    socketFd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    if (socketFd == -1) {
+        return Status::NETWORK_ERROR;
+    }
+
+    sockaddr_in addr;
+    addr.sin_family = AF_INET;
+    addr.sin_port = adl::htons(port);
+    addr.sin_addr.s_addr = ip.ui32;
+
+    if (::connect(socketFd, (struct sockaddr*)&addr, sizeof(addr))) {
+        return Status::NETWORK_ERROR;
+    }
+
+    return Status::SUCCESS;
 }
 
 

@@ -11,6 +11,10 @@
 #include <monkey/net/protocol/ProtocolConnection.h>
 
 
+#if VESPER_PROTOCOL_DEBUG
+#include <monkey/net/hexview.h>
+#endif
+
 namespace monkey::net {
 
 using protocol::MsgType;
@@ -21,6 +25,36 @@ using protocol::Header;
 
 Status ProtocolConnection::sendMsg(MsgType type, const void* data, adl::uint64_t dataLen) {
     Header header = makeHeader(adl::uint32_t(type), dataLen);
+
+
+#if VESPER_PROTOCOL_DEBUG
+    {
+        adl::TString hex;
+        adl::size_t pos = 0;
+        debug::hexView(
+            1, 
+            [&] () {
+                if (pos < sizeof(Header)) {
+                    return (int) ((char*) &header)[pos++];
+                }
+                else if (pos - sizeof(Header) < dataLen) {
+                    return (int) ((char*) data)[pos++ - sizeof(Header)];
+                }
+                else {
+                    return EOF;
+                }
+            }, 
+            [&] (int ch) {
+                hex += char(ch);
+            }
+        );
+
+        Genode::log("VESPER_PROTOCOL_DEBUG : Send Msg");
+        Genode::log("> header.type  : ", Genode::Hex(adl::ntohl(header.type)));
+        Genode::log("> header.length: ", adl::size_t(adl::ntohq(header.length)));
+        Genode::log(hex.c_str());
+    }
+#endif
 
     const adl::uint32_t headerSize = sizeof(header);
     adl::uint64_t msgSize = headerSize + dataLen;
@@ -109,13 +143,153 @@ Status ProtocolConnection::recvMsg(Msg** msg, MsgType type) {
 
 
     *msg = protocolMsg;
+
+
+#if VESPER_PROTOCOL_DEBUG
+    {
+        adl::TString hex;
+        adl::size_t pos = 0;
+        debug::hexView(
+            1, 
+            [&] () {
+                if (pos < sizeof(Header) + header.length) {
+                    return (int) ((char*) protocolMsg)[pos++];
+                }
+                else {
+                    return EOF;
+                }
+            }, 
+            [&] (int ch) {
+                hex += char(ch);
+            }
+        );
+
+        Genode::log("VESPER_PROTOCOL_DEBUG : Recv Msg");
+        Genode::log("> header.type  : ", Genode::Hex(header.type));
+        Genode::log("> header.length: ", adl::size_t(header.length));
+        Genode::log(hex.c_str());
+        Genode::log("Note: Header field is adjusted to host's byte order.");
+    }
+#endif
+
+
     return Status::SUCCESS;
+}
+
+
+// ------ 0x1000 : Hello ------
+
+static Status serverModeHello(
+    ProtocolConnection& client,
+    const adl::ArrayList<adl::int64_t>& protocolVersions,
+    adl::int64_t* finalVersion
+) {
+    Genode::log("Vesper Protocol [Hello]: Running server-mode Hello.");
+    adl::ArrayList<adl::int64_t> clientVers;
+    Status status;
+    if ((status = client.recvHello(clientVers)) != Status::SUCCESS) {
+        Genode::error("Vesper Protocol [Hello]: Failed on phase 1.");
+        return status;
+    }
+
+    adl::ArrayList<adl::int64_t> versionsSupported;
+
+    for (auto& it : clientVers) {
+        if (protocolVersions.contains(it)) {    
+            versionsSupported.append(it);
+        }
+    }
+
+    if (versionsSupported.isEmpty()) {
+        Genode::warning("Vesper Protocol [Hello]: Versions supported by client is empty.");
+        client.sendHello(adl::ArrayList<adl::int64_t>{});
+        return status = Status::PROTOCOL_ERROR;
+    }
+
+
+    if ((status = client.sendHello(versionsSupported)) != Status::SUCCESS) {
+        Genode::error("Vesper Protocol [Hello]: Failed on phase 2.");
+        return status;
+    }
+    
+
+    if ((status = client.recvHello(clientVers)) != Status::SUCCESS) {
+        Genode::error("Vesper Protocol [Hello]: Failed on phase 3.");
+        return status;
+    }
+
+    if (clientVers.size() == 1 && versionsSupported.contains(clientVers[0])) {
+        *finalVersion = clientVers[0];
+        return Status::SUCCESS;
+    }
+    
+    Genode::error("Vesper Protocol [Hello]: No agreement reached with client.");
+    return Status::PROTOCOL_ERROR;
+}
+
+
+static Status clientModeHello(
+    ProtocolConnection& client,
+    const adl::ArrayList<adl::int64_t>& protocolVersions,
+    adl::int64_t* finalVersion
+) {
+    if (protocolVersions.isEmpty()) {
+        Genode::error("Vesper Protocol [Hello]: Protocol version list is empty.");
+        return Status::INVALID_PARAMETERS;
+    }
+
+    Genode::log("Vesper Protocol [Hello]: Running client-mode Hello.");
+    
+    Status status;
+    if ((status = client.sendHello(protocolVersions)) != Status::SUCCESS)
+        return status;
+    
+    adl::ArrayList<adl::int64_t> vers;
+    if ((status = client.recvHello(vers)) != Status::SUCCESS) {
+        Genode::error("Vesper Protocol [Hello]: Failed on phase 2.");
+        return status;
+    }
+
+    adl::int64_t maxVer = -1;
+    for (auto& it : vers) {
+        if (it > maxVer && protocolVersions.contains(it)) {
+            maxVer = it;
+        }
+    }
+
+    if (maxVer == -1)
+        return Status::PROTOCOL_ERROR;
+
+    vers.clear();
+    vers.append(maxVer);
+    if ((status = client.sendHello(vers)) != Status::SUCCESS)
+        return status;
+
+    *finalVersion = maxVer;
+    return Status::SUCCESS;
+}
+
+
+Status ProtocolConnection::hello(
+    const adl::ArrayList<adl::int64_t>& protocolVersions,
+    bool serverMode,
+    adl::int64_t* finalVersion
+) {
+    return (serverMode ? serverModeHello : clientModeHello) (*this, protocolVersions, finalVersion);
+}
+
+
+Status ProtocolConnection::hello(adl::int64_t version, bool serverMode) {
+    adl::ArrayList<adl::int64_t> arr;
+    arr.append(version);
+    adl::int64_t finalVer;
+    return hello(arr, serverMode, &finalVer);
 }
 
 
 Status ProtocolConnection::sendHello(const adl::ArrayList<adl::int64_t>& protocolVersions) {
     auto data = protocolVersions;
-    for (auto& it : protocolVersions)
+    for (auto& it : data)
         it = adl::htonq(it);
 
     return sendMsg(MsgType::Hello, data.data(), data.size() * sizeof(adl::int64_t));

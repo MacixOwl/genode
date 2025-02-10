@@ -16,6 +16,10 @@
 
 #include <netinet/in.h>
 
+
+#define VESPER_PROTOCOL_DEBUG 0
+
+
 namespace monkey::net {
 
 /**
@@ -128,6 +132,24 @@ public:
     virtual Status recvMsg(protocol::Msg** msg, protocol::MsgType type = protocol::MsgType::None);
 
 
+
+    // ------ 0x1000 : Hello ------
+
+    virtual Status hello(
+        const adl::ArrayList<adl::int64_t>& protocolVersions,
+        bool serverMode,
+        adl::int64_t* finalVersion
+    ) final;
+
+    /**
+     * Use a specified version of protocol. If failed, no more negotiation needed.
+     *
+     * @param version The version you want to use.
+     * @param serverMode Whether works in server mode.
+     *
+     * @return Status If SUCCESS, negotiation success.
+     */
+    virtual Status hello(adl::int64_t version, bool serverMode) final;
 
     virtual Status sendHello(const adl::ArrayList<adl::int64_t>& protocolVersions) final;
     virtual Status recvHello(adl::ArrayList<adl::int64_t>& out) final;

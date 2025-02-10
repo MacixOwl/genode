@@ -128,7 +128,7 @@ install_config {
 
             <monkey-mnemosyne>
                 <concierge>
-                    <ip>10.0.3.2</ip>
+                    <ip>10.0.2.2</ip>
                     <port>5555</port>
                 </concierge>
 
@@ -140,6 +140,8 @@ install_config {
                     
                     <!-- mnemosyne server should listen to this port so it receives requests from `port` above. -->
                     <listen-port>10000</listen-port>
+
+                    <key>41f413a9-2c21-4721-9f0d-d8ee9b4961f1</key>
                 </mnemosyne>
 
             </monkey-mnemosyne>

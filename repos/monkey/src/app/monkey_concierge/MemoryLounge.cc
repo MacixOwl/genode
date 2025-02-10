@@ -75,6 +75,7 @@ monkey::Status MemoryLounge::processGetIdentityKeys() {
 
     if (status != Status::SUCCESS) {
         conn.sendResponse(1, "Something went wrong on our side.");
+        Genode::error("Error replying to GetIdentityKeys. Status: ", adl::int32_t(status));
         return status;
     }
     
@@ -88,10 +89,13 @@ monkey::Status MemoryLounge::serve() {
     Status status = Status::SUCCESS;
 
     while (true) {
+        Genode::log("Sunflower - Memory: Waiting for message...");
         Msg* msg = nullptr;
         status = conn.recvMsg(&msg);
-        if (status != Status::SUCCESS)
+        if (status != Status::SUCCESS) {
+            Genode::warning("Failed to get message. Leaving lounge..");
             return status;
+        }
 
         
         switch ((MsgType) msg->header.type) {

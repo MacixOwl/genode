@@ -114,6 +114,8 @@ Server                Client
          <----------
 ```
 
+Note that the `versions supported by the server` should be a subset of the `versions supported by the client`.
+
 ### 0x1001: Auth
 
 From: Protocol Version 1

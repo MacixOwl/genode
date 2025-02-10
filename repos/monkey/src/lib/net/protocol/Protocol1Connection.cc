@@ -79,6 +79,8 @@ Status Protocol1Connection::recvResponse(Response** response) {
 }
 
 
+// ------ 0x1001 : Auth ------
+
 Status Protocol1Connection::auth(const adl::ByteArray& key) {
     adl::ByteArray challenge;
     Status status = recvAuth(challenge);
@@ -102,11 +104,18 @@ Status Protocol1Connection::auth(const adl::ByteArray& key) {
     return status;
 }
 
-// ------ 0x1001 : Auth ------
 
 Status Protocol1Connection::auth(
     const adl::HashMap<adl::int64_t, adl::ByteArray>& appsKeyring, 
     const adl::ArrayList<adl::ByteArray>& memoryNodesKeyring
+) {
+    return auth(&appsKeyring, &memoryNodesKeyring);
+}
+
+
+Status Protocol1Connection::auth(
+    const adl::HashMap<adl::int64_t, adl::ByteArray>* appsKeyring, 
+    const adl::ArrayList<adl::ByteArray>* memoryNodesKeyring
 ) {
     adl::ByteArray challenge { "fyt's score is A+" };  // TODO
 
@@ -124,18 +133,21 @@ Status Protocol1Connection::auth(
 
     // check if app
     
-    for (const auto& it : appsKeyring) {
-        verified = crypto::rc4Verify(it.second, challenge, cipher);
-        if (verified) {
-            nodeId = it.first;
-            break;
+    if (appsKeyring) {
+        for (const auto& it : *appsKeyring) {
+            verified = crypto::rc4Verify(it.second, challenge, cipher);
+            if (verified) {
+                appId = it.first;
+                nodeType = NodeType::App;
+                break;
+            }
         }
     }
 
     // check if memory node
     
-    if (!verified) {
-        if (crypto::rc4Verify(memoryNodesKeyring, cipher, challenge) != -1) {
+    if (!verified && memoryNodesKeyring) {
+        if (crypto::rc4Verify(*memoryNodesKeyring, cipher, challenge) != -1) {
             nodeType = NodeType::MemoryNode;
             verified = true;
         }
@@ -177,8 +189,8 @@ Status Protocol1Connection::recvAuth(adl::ByteArray& challenge) {
 // ------ 0x1100 : Get Identity Keys ------
 
 struct GetIdentityKeysKeyHeaderPacked {
-    adl::int8_t nodeType;  // 0 for App, 1 for Memory
-    adl::int8_t keyType;  // 0 for RC4, 1 for RSA
+    Protocol1Connection::ReplyGetIdentityKeysParams::NodeType nodeType;
+    Protocol1Connection::ReplyGetIdentityKeysParams::KeyType keyType;
     adl::int8_t reserved0[2] = {0};
 
     adl::int64_t offset; 
@@ -210,9 +222,11 @@ Status Protocol1Connection::ReplyGetIdentityKeysParams::addKey(
 
     // allocate header
 
-    adl::size_t headerSize = sizeof(GetIdentityKeysKeyHeaderPacked);
+    const adl::size_t headerSize = sizeof(GetIdentityKeysKeyHeaderPacked);
 
     if ( ! keyHeaders.resize(keyHeaders.size() + headerSize) ) {
+        Genode::error("Vesper Protocol ReplyGetIdentityKeys: Failed to add key. Out of resource.");
+        Genode::error("> Resize failed. Target size: ", keyHeaders.size() + headerSize);
         return Status::OUT_OF_RESOURCE;
     }
 
@@ -220,17 +234,22 @@ Status Protocol1Connection::ReplyGetIdentityKeysParams::addKey(
 
     adl::memset(head, 0, headerSize);
 
-    head->nodeType = (adl::int8_t) nodeType;
-    head->keyType = (adl::int8_t) keyType;
+    head->nodeType = nodeType;
+    head->keyType = keyType;
     head->offset = (adl::int64_t) keys.size();
     head->len = (adl::int32_t) key.size();
     head->id = id;
 
-    if (!keys.append(key.data(), key.size())) {
+    if (keys.append(key.data(), key.size()) != 0 /* Indicates error. */) {
         keyHeaders.resize(keyHeaders.size() - headerSize);
+        Genode::error("Vesper Protocol ReplyGetIdentityKeys: Failed to add key. Out of resource.");
         return Status::OUT_OF_RESOURCE;
     }
 
+#if VESPER_PROTOCOL_DEBUG
+    Genode::log("Key added to reply get identity keys params. ", key.toString().c_str());
+    Genode::log("> keyHeaders.size() = ", keyHeaders.size());
+#endif
     return Status::SUCCESS;
 }
 
@@ -247,15 +266,21 @@ Status Protocol1Connection::replyGetIdentityKeys(const ReplyGetIdentityKeysParam
     if (!msg.resize(8 + params.keyHeaders.size() + params.keys.size()))
         return Status::OUT_OF_RESOURCE;
 
+#if VESPER_PROTOCOL_DEBUG
+    Genode::log("replyGetIdentityKeys");
+    Genode::log("> params.keyHeaders.size() = ", params.keyHeaders.size());
+    Genode::log("> params.keys.size()       = ", params.keys.size());
+#endif
+
     adl::uint64_t nkeys = params.keyHeaders.size() / sizeof(GetIdentityKeysKeyHeaderPacked);
     * (adl::uint64_t *) msg.data() = adl::htonq(nkeys);
 
     adl::memcpy(msg.data() + 8, params.keyHeaders.data(), params.keyHeaders.size());
     adl::memcpy(msg.data() + 8 + params.keyHeaders.size(), params.keys.data(), params.keys.size());
 
-    auto pHeader = (GetIdentityKeysKeyHeaderPacked*) msg.data();
+    auto pHeader = (GetIdentityKeysKeyHeaderPacked*) (msg.data() + 8);
 
-    while ((void*) pHeader < msg.data() + params.keyHeaders.size()) {
+    while ((void*) pHeader < msg.data() + 8 + params.keyHeaders.size()) {
         pHeader->len = adl::htonl(pHeader->len);
 
         pHeader->offset = adl::htonq(
@@ -275,42 +300,62 @@ Status Protocol1Connection::appreciateGetIdentityKeys(
     protocol::Response& response,
     void* data,
     void (*record) (
-        adl::int8_t nodeType, 
-        adl::int8_t keyType, 
+        ReplyGetIdentityKeysParams::NodeType nodeType, 
+        ReplyGetIdentityKeysParams::KeyType keyType, 
         const adl::ByteArray& key, 
         adl::int64_t id, 
         void* data
     )
 ) {
-    if (response.code != 0)
+    if (response.code != 0) {
+        Genode::error("Vesper Protocol [appreciate GetIdentityKeys]: response.code is not 0.");
         return Status::PROTOCOL_ERROR;
-
+    }
     
     auto pMsg = (const char*) response.msg;
     auto nkeys = adl::ntohq (* (adl::uint64_t *) pMsg);
     
-    adl::size_t msgLen = response.header.length - 8;
-    if (msgLen < 8 + nkeys * sizeof(GetIdentityKeysKeyHeaderPacked))
+    adl::size_t msgLen = response.header.length - 8;  // Response body minus error-code and msg-len.
+    if (msgLen < 8 /* nkeys tooks 8 bytes */ + nkeys * sizeof(GetIdentityKeysKeyHeaderPacked)) {
+        Genode::error("Vesper Protocol [appreciate GetIdentityKeys]: msg too short.");
         return Status::PROTOCOL_ERROR;
+    }
 
     
     auto pHeader = (GetIdentityKeysKeyHeaderPacked*) (pMsg + 8);
 
     for (adl::size_t i = 0; i < nkeys; i++) {
         auto& header = pHeader[i];
-        
-        if (header.keyType != 0 || (header.nodeType != 0 && header.nodeType != 1))
+
+        const auto RC4Type = ReplyGetIdentityKeysParams::KeyType::RC4;
+        const auto AppType = ReplyGetIdentityKeysParams::NodeType::App;
+        const auto MemoryNodeType = ReplyGetIdentityKeysParams::NodeType::MemoryNode;
+
+        if (header.keyType != RC4Type || (header.nodeType != MemoryNodeType && header.nodeType != AppType)) {
+            Genode::error("Vesper Protocol [appreciate GetIdentityKeys]: Bad Type.");
+            Genode::error(
+                "> key type: ", 
+                adl::uint32_t(header.keyType), 
+                ", node type: ", 
+                adl::uint32_t(header.nodeType)
+            );
             return Status::PROTOCOL_ERROR;
+        }
 
         auto offset = adl::ntohq(header.offset);
         auto len = adl::ntohl(header.len);
         auto id = adl::ntohq(header.id);
-        if (offset + len > adl::int64_t(msgLen))
+        if (offset + len > adl::int64_t(msgLen)) {
+            Genode::error("Vesper Protocol [appreciate GetIdentityKeys]: Out of bound.");
+            Genode::error("> ", offset, " + ", len, " IS NOT LARGER THAN ", msgLen);
             return Status::PROTOCOL_ERROR;
+        }
         
         adl::ByteArray key;
-        if (!key.append(pMsg + offset, (adl::size_t) len))
+        if (key.append(pMsg + offset, (adl::size_t) len) != 0) {
+            Genode::error("Vesper Protocol [appreciate GetIdentityKeys]: Out of resource.");
             return Status::OUT_OF_RESOURCE;
+        }
         
         record(header.nodeType, header.keyType, key, id, data);
     }
@@ -343,6 +388,37 @@ Status Protocol1Connection::decodeMemoryNodeShowId(protocol::Msg* msg, adl::int6
 
 
 // ------ 0x2001 : Memory Node Clock In ------
+
+
+Status Protocol1Connection::memoryNodeClockIn(adl::int64_t* id) {
+    Status status = sendMemoryNodeClockIn(ip.ui32, port);
+    if (status != Status::SUCCESS)
+        return Status::PROTOCOL_ERROR;
+
+    Response* res = nullptr;
+    if ((status = recvResponse(&res)) != Status::SUCCESS)
+        goto END;
+
+    if (res->code != 0) {
+        Genode::error("Server replied clock-in request with code ", adl::int32_t(res->code));
+        status = Status::PROTOCOL_ERROR;
+    }
+    else if (res->header.length < 16) {
+        Genode::error("Bad response. Bad length: ", adl::uint64_t(res->header.length));
+        status = Status::PROTOCOL_ERROR;
+    }
+    else {
+        *id = adl::ntohq(* (adl::int64_t *) res->msg);
+    }
+
+END:
+    if (res) {
+        adl::defaultAllocator.free(res);
+        res = nullptr;
+    }
+    return status;
+}
+
 
 Status Protocol1Connection::sendMemoryNodeClockIn(adl::uint32_t tcp4Ip, adl::uint16_t port) {
     adl::uint8_t data[12];

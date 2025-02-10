@@ -40,42 +40,6 @@
 using namespace monkey;
 
 
-Status checkCanUseProtocolV1(net::ProtocolConnection& client) {
-    adl::ArrayList<adl::int64_t> versions;
-    Status status;
-    if ((status = client.recvHello(versions)) != Status::SUCCESS) {
-        return status;
-    }
-
-    bool versionMatched = false;
-    for (auto& it : versions) {
-        if (it == net::Protocol1Connection::VERSION) {
-            versionMatched = true;
-            break;
-        }
-    }
-
-    if (!versionMatched)
-        return status = Status::PROTOCOL_ERROR;
-
-    versions.clear();
-    versions.append(net::Protocol1Connection::VERSION);
-    if ((status = client.sendHello(versions)) != Status::SUCCESS)
-        return status;
-    
-
-    if ((status = client.recvHello(versions)) != Status::SUCCESS)
-        return status;
-
-    if (versions.size() == 1 && versions[0] == net::Protocol1Connection::VERSION) {
-        return Status::SUCCESS;
-    }
-    
-    return Status::PROTOCOL_ERROR;
-}
-
-
-
 void ConciergeMain::initAdlAlloc() {
     adl::defaultAllocator.init({
         .alloc = [] (adl::size_t size, void* data) {
@@ -197,19 +161,18 @@ Status ConciergeMain::init() {
 void ConciergeMain::serveClient(net::Socket4& conn) {
     Genode::log("Client connected: ", conn.ip.toString().c_str(), " [", conn.port, "]");
 
-    net::ProtocolConnection protocolConn;
-    protocolConn.socketFd = conn.socketFd;
-
-    // Determine protocol version
-    if (checkCanUseProtocolV1(protocolConn) != Status::SUCCESS) {
-        return;
-    }
-    Genode::log("> Protocol Version: ", 1);
-
     net::Protocol1Connection client;
     client.socketFd = conn.socketFd;
     client.port = conn.port;
     client.ip = conn.ip;
+
+
+    // Determine protocol version. Force use version 1.
+    if (client.hello(1, true) != Status::SUCCESS) {
+        return;
+    }
+    Genode::log("> Using protocol Version: ", 1);
+
 
     // Auth
     if (client.auth(keyrings.apps, keyrings.memoryNodes) != Status::SUCCESS) {

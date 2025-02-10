@@ -33,11 +33,14 @@ public:
         Other
     } nodeType = NodeType::Other;
 
-    adl::int64_t nodeId = 0;
 
+    /**
+     * Other side's id.
+     */
     union {
         adl::int64_t memoryNodeId = -1;
         adl::int64_t appId;
+        adl::int64_t nodeId;
     };
 
 
@@ -90,6 +93,18 @@ public:
     );
 
 
+    /**
+     * Server-mode auth: Check client's identity. 
+     * This method works just like the one above except: You can set keyring to nullptr
+     * to ignore some type(s).
+     */
+    Status auth(
+        // app id -> app key
+        const adl::HashMap<adl::int64_t, adl::ByteArray>* appsKeyring,
+        const adl::ArrayList<adl::ByteArray>* memoryNodesKeyring
+    );
+
+
     // ------ 0x1100 : Get Identity Keys ------
 
     struct ReplyGetIdentityKeysParams {
@@ -126,8 +141,8 @@ public:
          * @param data Same as `data` passed to `appreciate`.
          */
         void (*record) (
-            adl::int8_t nodeType, 
-            adl::int8_t keyType, 
+            ReplyGetIdentityKeysParams::NodeType nodeType, 
+            ReplyGetIdentityKeysParams::KeyType keyType, 
             const adl::ByteArray& key, 
             adl::int64_t id, 
             void* data
@@ -142,6 +157,10 @@ public:
 
 
     // ------ 0x2001 : Memory Node Clock In ------
+
+
+    Status memoryNodeClockIn(adl::int64_t* id);
+
 
     /**
      * For TCP4. 

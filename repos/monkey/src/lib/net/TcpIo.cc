@@ -9,6 +9,7 @@
  */
 
 
+#include <base/log.h>
 #include <monkey/net/TcpIo.h>
 
 namespace monkey::net {
@@ -27,7 +28,7 @@ adl::int64_t PromisedSocketIo::recv(void* buf, adl::size_t len) {
     while (sum < len) {
         adl::int64_t curr = read(socketFd, ((char*) buf) + sum, len - sum);
 
-        if (curr == -1) {
+        if (curr <= 0) {
             return -1;
         }
 
