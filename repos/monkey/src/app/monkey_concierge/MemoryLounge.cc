@@ -18,13 +18,13 @@ using net::protocol::MsgType;
 monkey::Status MemoryLounge::processMemoryNodeClockIn(const monkey::net::IP4Addr& ip4Addr, adl::uint16_t port) {
     Status status = Status::SUCCESS;
 
-    if (ip4Addr != conn.ip) {
+    if (ip4Addr != client.ip) {
         Genode::warning("memory node's ip doesn't match.");
         Genode::warning(
             "> from protocol: ", 
             ip4Addr.toString().c_str(), 
             "; from socket: ", 
-            conn.ip.toString().c_str()
+            client.ip.toString().c_str()
         );
     }
 
@@ -37,7 +37,7 @@ monkey::Status MemoryLounge::processMemoryNodeClockIn(const monkey::net::IP4Addr
     context.memoryNodes[nodeId] = info;
     
     nodeId = adl::htonq(nodeId);
-    conn.sendResponse(0, sizeof(adl::int64_t), &nodeId);
+    client.sendResponse(0, sizeof(adl::int64_t), &nodeId);
 
     return status;
 }
@@ -74,12 +74,12 @@ monkey::Status MemoryLounge::processGetIdentityKeys() {
     // reply
 
     if (status != Status::SUCCESS) {
-        conn.sendResponse(1, "Something went wrong on our side.");
+        client.sendResponse(1, "Something went wrong on our side.");
         Genode::error("Error replying to GetIdentityKeys. Status: ", adl::int32_t(status));
         return status;
     }
     
-    return conn.replyGetIdentityKeys(params);
+    return client.replyGetIdentityKeys(params);
 }
 
 
@@ -91,7 +91,7 @@ monkey::Status MemoryLounge::serve() {
     while (true) {
         Genode::log("Sunflower - Memory: Waiting for message...");
         Msg* msg = nullptr;
-        status = conn.recvMsg(&msg);
+        status = client.recvMsg(&msg);
         if (status != Status::SUCCESS) {
             Genode::warning("Failed to get message. Leaving lounge..");
             return status;
@@ -106,15 +106,15 @@ monkey::Status MemoryLounge::serve() {
                 adl::uint8_t ipBuf[16];
                 adl::int32_t tcpVer;
                 adl::uint16_t port;
-                status = conn.decodeMemoryNodeClockIn(msg, &tcpVer, &port, ipBuf);
+                status = client.decodeMemoryNodeClockIn(msg, &tcpVer, &port, ipBuf);
                 
                 if (status != Status::SUCCESS) {            
-                    conn.sendResponse(1, "Failed to decode message.");
+                    client.sendResponse(1, "Failed to decode message.");
                     break;
                 }
 
                 if (tcpVer != 4) {
-                    conn.sendResponse(1, "Only IPv4 supported yet.");
+                    client.sendResponse(1, "Only IPv4 supported yet.");
                     status = Status::PROTOCOL_ERROR;
                     break;
                 }
@@ -134,7 +134,7 @@ monkey::Status MemoryLounge::serve() {
             default: {
                 Genode::warning("> Message Type NOT SUPPORTED");
                 status = Status::PROTOCOL_ERROR;
-                conn.sendResponse(1, "Msg Type not supported.");
+                client.sendResponse(1, "Msg Type not supported.");
                 break;
             }
         }

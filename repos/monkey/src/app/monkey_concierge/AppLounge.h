@@ -8,9 +8,10 @@
 
 #pragma once
 
-#include "./SunflowerLounge.h"
+#include <monkey/net/SunflowerLounge.h>
+#include "./main.h"
 
-struct AppLounge : public SunflowerLounge {
+struct AppLounge : public monkey::net::SunflowerLounge<ConciergeMain, monkey::net::Protocol1Connection> {
 
     AppLounge(
         ConciergeMain& context,

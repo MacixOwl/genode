@@ -8,10 +8,11 @@
 
 #pragma once
 
-#include "./SunflowerLounge.h"
+#include <monkey/net/SunflowerLounge.h>
 #include <monkey/net/IP4Addr.h>
+#include "./main.h"
 
-struct MemoryLounge : public SunflowerLounge {
+struct MemoryLounge : public monkey::net::SunflowerLounge<ConciergeMain, monkey::net::Protocol1Connection> {
 
     MemoryLounge(
         ConciergeMain& context,

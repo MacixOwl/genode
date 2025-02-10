@@ -37,7 +37,7 @@ Status AppLounge::processLocateMemoryNodes() {
     }
 
 
-    status = conn.sendResponse(0, payload.size() * sizeof(MemoryNodeInfoPacked), payload.data());
+    status = client.sendResponse(0, payload.size() * sizeof(MemoryNodeInfoPacked), payload.data());
 
     return status;
 }
@@ -52,7 +52,7 @@ Status AppLounge::serve() {
 
     while (true) {
         Msg* msg = nullptr;
-        status = conn.recvMsg(&msg);
+        status = client.recvMsg(&msg);
         if (status != Status::SUCCESS)
             return status;
 
@@ -66,7 +66,7 @@ Status AppLounge::serve() {
             default: {
                 Genode::warning("> Message Type NOT SUPPORTED");
                 status = Status::PROTOCOL_ERROR;
-                conn.sendResponse(1, "Msg Type not supported.");
+                client.sendResponse(1, "Msg Type not supported.");
                 break;
             }
         }

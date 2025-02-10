@@ -258,6 +258,8 @@ END:
 void MnemosyneMain::serveClient(net::Socket4& conn) {
     Genode::log("Client connected: ", conn.ip.toString().c_str(), " [", conn.port, "]");
 
+    Status status;
+
     net::Protocol1Connection client;
     client.socketFd = conn.socketFd;
     client.ip = conn.ip;
@@ -269,6 +271,21 @@ void MnemosyneMain::serveClient(net::Socket4& conn) {
     Genode::log("> Using protocol version 1.");
 
     // Auth
+
+    if ((status = client.auth(&appKeys, nullptr)) != Status::SUCCESS) {
+        Genode::error("Failed on auth. Status: ", adl::int32_t(status));
+        return;
+    }
+
+    if (client.nodeType != net::Protocol1Connection::NodeType::App) {
+        Genode::error("Client is not App node!");
+        Genode::error("> Connection between memory nodes is not supported yet.");
+        return;
+    }
+
+    // Now, we can say client is an authenticated App node.
+
+    // Enter lounge.
     // todo
     
 }

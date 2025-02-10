@@ -84,7 +84,10 @@ public:
     Status auth(const adl::ByteArray& key);
 
     /**
-     * Server-mode auth: Check client's identity. 
+     * Server-mode auth: Check client's identity.
+     *
+     * @return monkey::Status::SUCCESS Only means no network error occurred.
+     *                                 You should also check whether `this->nodeType` is correct.
      */
     Status auth(
         // app id -> app key
@@ -97,6 +100,9 @@ public:
      * Server-mode auth: Check client's identity. 
      * This method works just like the one above except: You can set keyring to nullptr
      * to ignore some type(s).
+     *
+     * @return monkey::Status::SUCCESS Only means no network error occurred.
+     *                                 You should also check whether `this->nodeType` is correct.
      */
     Status auth(
         // app id -> app key
