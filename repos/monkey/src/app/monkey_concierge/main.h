@@ -46,7 +46,7 @@ struct ConciergeMain {
     ConciergeMain(Genode::Env&);
 
 
-    adl::int64_t nextMemoryNodeId = 1;
+    adl::int64_t nextMemoryNodeId = 900000001LL;
     inline adl::int64_t genMemoryNodeId() { return nextMemoryNodeId++; }
 
     void initAdlAlloc();

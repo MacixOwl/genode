@@ -17,6 +17,7 @@
 
 #include <libc/component.h>
 #include <base/heap.h>
+#include <base/thread.h>
 
 #include <monkey/Status.h>
 #include <monkey/net/IP4Addr.h>
@@ -30,6 +31,15 @@ struct MnemosyneMain {
     adl::int64_t nodeId = 0;
 
     adl::HashMap<adl::int64_t, adl::ByteArray> appKeys;
+
+    // node id -> lounge thread
+    adl::HashMap<adl::int64_t, Genode::Thread*> loungeThreads;
+
+    struct {
+        adl::ArrayList<Genode::Thread*> bin;
+        Genode::Mutex lock;
+    } threadRecycleBin;
+
 
     struct {
         struct {

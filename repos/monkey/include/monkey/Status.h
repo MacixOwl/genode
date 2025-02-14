@@ -14,7 +14,7 @@
 namespace monkey {
 
 enum class Status : adl::int32_t {
-    SUCCESS,
+    SUCCESS = 0,
     OUT_OF_RESOURCE,
     NETWORK_ERROR,
     PROTOCOL_ERROR,

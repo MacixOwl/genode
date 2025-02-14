@@ -43,7 +43,11 @@ Status Socket4::connect() {
 }
 
 
-Status Socket4::start() {
+Status Socket4::start(adl::size_t maxClients) {
+    if (maxClients > INT32_MAX) {
+        return Status::INVALID_PARAMETERS;
+    }
+    
     close();
     
     socketFd = socket(AF_INET, SOCK_STREAM, 0);
@@ -62,7 +66,7 @@ Status Socket4::start() {
         return Status::NETWORK_ERROR;
     }
 
-    if (listen(socketFd, 200) < 0) {
+    if (listen(socketFd, adl::int32_t(maxClients)) < 0) {
         close();
         return Status::NETWORK_ERROR;
     }

@@ -48,6 +48,19 @@ public:
     virtual adl::int64_t version() override { return VERSION; }
 
 
+    /** 
+     * errno: only remembers last failed response received in one-click methods.
+     */
+    struct LastError {
+        adl::uint32_t code = 0;
+        adl::TString msg;
+        adl::TString api;
+
+        void set(protocol::Response* response, const char* api = nullptr);
+        void set(adl::uint32_t code, const void* msg, adl::size_t msgLen, const char* api = nullptr);
+    } lastError;
+
+
     // Connection operations
 
 
@@ -198,22 +211,37 @@ public:
 
     // ------ 0x3001 : Try Alloc ------
 
-    // todo
+    Status sendTryAlloc(adl::size_t blockSize, adl::size_t nBlocks);
+    Status replyTryAlloc(adl::ArrayList<adl::int64_t> blockIds);
+    Status tryAlloc(adl::size_t blockSize, adl::size_t nBlocks, adl::ArrayList<adl::int64_t> idOut);
 
     // ------ 0x3002 : Read Block ------
 
-    // todo
+    Status sendReadBlock(adl::int64_t blockId);
+    Status replyReadBlock(const void* data, adl::size_t size);
+
+    /**
+     * Read data from remote, and fill it into `bufSize`. 
+     *
+     * @param bufSize If 0, api would not check buf's boundary. 
+     *                If not 0 and response's size not match, 
+     *                error reported with no change to buf.
+     */
+    Status readBlock(adl::int64_t blockId, void* buf, adl::size_t bufSize = 0);
 
 
     // ------ 0x3003 : Write Block ------
 
-    // todo
+    Status sendWriteBlock(adl::int64_t blockId, const void* data, adl::size_t size);
+    Status decodeWriteBlock(protocol::Msg* msg, adl::int64_t* id, adl::ByteArray& data);
+
+    Status writeBlock(adl::int64_t blockId, const void* data, adl::size_t size);
 
     // ------ 0x3004 : Check Avail Mem ------
     
     Status sendCheckAvailMem();
-    Status replyCheckAvailMem(adl::size_t availMem);  // todo
-    Status checkAvailMem(adl::size_t* availMem);  // todo
+    Status replyCheckAvailMem(adl::size_t availMem);
+    Status checkAvailMem(adl::size_t* availMem);
 
 
     // ------ 0x3005 : Free Block ------

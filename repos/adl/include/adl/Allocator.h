@@ -44,6 +44,8 @@ protected:
     };
 
 
+public:
+
     template<typename T>
     inline T* allocNoConstruct(size_t count = 1, size_t objSize = sizeof(T)) {
         if (count == 0)
@@ -63,8 +65,7 @@ protected:
         return objs;
     }
 
-public:
-    
+
     template<typename T>
     inline T* alloc(size_t count = 1, bool construct = true, size_t objSize = sizeof(T)) {
 

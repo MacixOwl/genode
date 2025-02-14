@@ -379,7 +379,7 @@ For:
 
 ```
 
-Block Size should be 4096.
+Block Size should be multiples of 4096.
 
 If failed, a Response with code other than 0 would be returned.
 

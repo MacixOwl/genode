@@ -19,6 +19,30 @@ using protocol::MsgType;
 using protocol::Response;
 
 
+void Protocol1Connection::LastError::set(protocol::Response* response, const char* api) {
+    set(response->code, response->msg, response->msgLen, api);
+}
+
+
+void Protocol1Connection::LastError::set(
+    adl::uint32_t code, 
+    const void* msg, 
+    adl::size_t msgLen, 
+    const char* api
+) {
+    this->code = code;
+    this->api = api;
+
+    adl::ByteArray b;
+    if (!b.resize(msgLen)) {
+        return;
+    }
+
+    b.append(msg, msgLen);
+    this->msg = b.toString();
+}
+
+
 Status Protocol1Connection::sendResponse(
     const adl::uint32_t code,
     const adl::size_t msgLen,
@@ -402,6 +426,7 @@ Status Protocol1Connection::memoryNodeClockIn(adl::int64_t* id) {
     if (res->code != 0) {
         Genode::error("Server replied clock-in request with code ", adl::int32_t(res->code));
         status = Status::PROTOCOL_ERROR;
+        lastError.set(res, __FUNCTION__);
     }
     else if (res->header.length < 16) {
         Genode::error("Bad response. Bad length: ", adl::uint64_t(res->header.length));
@@ -450,11 +475,233 @@ Status Protocol1Connection::decodeMemoryNodeClockIn(
 }
 
 
+// ------ 0x3001 : Try Alloc ------
+
+Status Protocol1Connection::sendTryAlloc(adl::size_t blockSize, adl::size_t nBlocks) {
+    adl::ByteArray data;
+    if (!data.resize(16)) {
+        return Status::OUT_OF_RESOURCE;
+    }
+
+    auto a = (adl::uint64_t*) data.data();
+    a[0] = adl::htonq(adl::uint64_t(blockSize));
+    a[1] = adl::htonq(adl::uint64_t(nBlocks));
+    return sendMsg(MsgType::TryAlloc, data);
+}
+
+
+Status Protocol1Connection::replyTryAlloc(adl::ArrayList<adl::int64_t> blockIds) {
+    adl::ArrayList<adl::int64_t> data = blockIds;
+    
+    for (auto& it : data) {
+        it = adl::htonq(it);
+    }
+
+    return sendResponse(0, data.size() * sizeof(data[0]), data.data());
+}
+
+
+Status Protocol1Connection::tryAlloc(
+    adl::size_t blockSize, 
+    adl::size_t nBlocks, 
+    adl::ArrayList<adl::int64_t> idOut
+) {
+    Status status = sendTryAlloc(blockSize, nBlocks);
+    if (status != Status::SUCCESS)
+        return status;
+
+    Response* r = nullptr;
+
+    if ((status = recvResponse(&r)) != Status::SUCCESS) {
+        return status;
+    }
+
+    if (r->code != 0) {
+        lastError.set(r, __FUNCTION__);
+        status = Status::PROTOCOL_ERROR;
+    }
+    else {
+        idOut.clear();
+        for (auto p = (adl::int64_t*) r->msg; (const char*) p < r->msg + r->header.length - 8; p++) {
+            idOut.append(adl::ntohq(*p));
+        }
+    }
+
+    if (r) {
+        adl::defaultAllocator.free(r);
+        r = nullptr;
+    }
+
+    return status;
+}
+
+
+
+// ------ 0x3002 : Read Block ------
+
+Status Protocol1Connection::sendReadBlock(adl::int64_t blockId) {
+    adl::ByteArray data;
+    if (!data.resize(sizeof(blockId)))
+        return Status::OUT_OF_RESOURCE;
+
+    *(adl::int64_t*) data.data() = adl::htonq(blockId);
+    return sendMsg(MsgType::ReadBlock, data);
+}
+
+
+Status Protocol1Connection::replyReadBlock(const void* data, adl::size_t size) {
+    return sendResponse(0, size, data);
+}
+
+
+
+Status Protocol1Connection::readBlock(adl::int64_t blockId, void* buf, adl::size_t bufSize) {
+    Status status = sendReadBlock(blockId);
+
+    if (status != Status::SUCCESS)
+        return status;
+
+    Response* r = nullptr;
+
+    if ((status = recvResponse(&r)) != Status::SUCCESS)
+        return status;
+
+    if (r->code != 0) {
+        lastError.set(r, __FUNCTION__);
+        status = Status::PROTOCOL_ERROR;
+    }
+    else {
+        auto blockSize = r->header.length - 8;
+        if (blockSize != bufSize) {
+            Genode::error(
+                "Vesper Protocol [read block]: bufSize ", 
+                bufSize, 
+                " not match block size ", 
+                blockSize
+            );
+            status = Status::PROTOCOL_ERROR;
+        }
+        else {
+            adl::memcpy(buf, r->msg, bufSize);
+        }
+    }
+
+    if (r) {
+        adl::defaultAllocator.free(r);
+        r = nullptr;
+    }
+
+    return status;
+}
+
+
+// ------ 0x3003 : Write Block ------
+
+Status Protocol1Connection::sendWriteBlock(adl::int64_t blockId, const void* data, adl::size_t size) {
+    adl::ByteArray msg;
+    
+    if (!msg.resize(size + 8)) {
+        return Status::OUT_OF_RESOURCE;
+    }
+
+    *((adl::int64_t*) msg.data()) = adl::htonq(blockId);
+    adl::memcpy(msg.data() + 8, data, size);
+
+    return sendResponse(0, msg);
+}
+
+
+Status Protocol1Connection::decodeWriteBlock(protocol::Msg* msg, adl::int64_t* id, adl::ByteArray& data) {
+    auto len = adl::ntohq(msg->header.length);
+    if (len < 8) {  // Block ID
+        return Status::PROTOCOL_ERROR;
+    }
+
+    *id = *(adl::int64_t*) msg->data;
+    *id = adl::ntohq(*id);
+
+    auto blockSize = len - 8;
+    if (!data.resize(blockSize)) {
+        return Status::OUT_OF_RESOURCE;
+    }
+
+    adl::memcpy(data.data(), msg->data + 8, blockSize);
+
+    return Status::SUCCESS;
+}
+
+
+
+Status Protocol1Connection::writeBlock(adl::int64_t blockId, const void* data, adl::size_t size) {
+    Status status = Status::SUCCESS;
+
+    if ((status = sendWriteBlock(blockId, data, size)) != Status::SUCCESS) {
+        return status;
+    }
+
+    Response* response = nullptr;
+    if ((status = recvResponse(&response)) != Status::SUCCESS) {
+        return status;
+    }
+
+    if (response->code != 0) {
+        lastError.set(response, __FUNCTION__);
+        status = Status::PROTOCOL_ERROR;
+    }
+
+
+    if (response) {
+        adl::defaultAllocator.free(response);
+        response = nullptr;
+    }
+    return status;
+}
+
+
+
+
+
 // ------ 0x3004 : Check Avail Mem ------
 
 Status Protocol1Connection::sendCheckAvailMem() {
     return sendMsg(MsgType::CheckAvailMem);
 }
+
+
+Status Protocol1Connection::replyCheckAvailMem(adl::size_t availMem) {
+    return sendResponse(0, sizeof(availMem), &availMem);
+}
+
+
+Status Protocol1Connection::checkAvailMem(adl::size_t* availMem) {
+    Status status = sendCheckAvailMem();
+    if (status != Status::SUCCESS) {
+        return status;
+    }
+
+    Response* r = nullptr;
+
+    if (r->code != 0) {
+        lastError.set(r, __FUNCTION__);
+        status = Status::PROTOCOL_ERROR;
+    }
+    else if (r->header.length < 16) {
+        status = Status::PROTOCOL_ERROR;
+    }
+    else {
+        *availMem = (adl::size_t) adl::htonq(*(adl::uint64_t*) r->msg);
+    }
+    
+
+    if (r) {
+        adl::defaultAllocator.free(r);
+        r = nullptr;
+    }
+
+    return status;
+}
+
+
 
 
 // ------ 0x3005 : Free Block ------

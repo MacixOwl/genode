@@ -15,12 +15,17 @@
 #include <libc/component.h>
 #include <base/mutex.h>
 #include <base/attached_rom_dataspace.h>
+#include <base/thread.h>
+
+#include <util/construct_at.h>
 
 #include <monkey/Status.h>
 
 #include <monkey/net/protocol.h>
 
 #include <monkey/genodeutils/config.h>
+
+#include "./AppLounge.h"
 
 using namespace monkey;
 
@@ -255,6 +260,32 @@ END:
 }
 
 
+
+class AppLoungeThread : public Genode::Thread {
+public:
+    typedef void (*OnExitCall) (AppLounge&, Status);
+
+    AppLounge lounge;
+    OnExitCall onExit;
+
+    AppLoungeThread(
+        MnemosyneMain& context, 
+        net::Protocol1Connection& client,
+        OnExitCall onExit
+    )
+    : 
+    Genode::Thread(context.env, "App lounge thread", 16 * 1024),
+    lounge(context, client),
+    onExit(onExit)
+    {}
+
+    virtual void entry() override {
+        Status status = lounge.serve();
+        onExit(lounge, status);
+    }
+};
+
+
 void MnemosyneMain::serveClient(net::Socket4& conn) {
     Genode::log("Client connected: ", conn.ip.toString().c_str(), " [", conn.port, "]");
 
@@ -286,8 +317,43 @@ void MnemosyneMain::serveClient(net::Socket4& conn) {
     // Now, we can say client is an authenticated App node.
 
     // Enter lounge.
-    // todo
-    
+
+    if (client.nodeType == net::Protocol1Connection::NodeType::App)    
+    {
+        if (loungeThreads.hasKey(client.nodeId)) {
+            Genode::error("Node (id: ", client.nodeId, ") already serving. Refuse to serve another.");
+            return;
+        }
+
+        AppLounge lounge {*this, client};
+        auto thread = adl::defaultAllocator.allocNoConstruct<AppLoungeThread>(1);
+        if (thread == nullptr) {
+            Genode::error("Failed to create lounge thread. Out of memory.");
+            return;
+        }
+
+
+        Genode::construct_at<AppLoungeThread>(
+            thread, 
+            
+            *this, 
+            client, 
+            [] (AppLounge& lounge, Status status) {
+                Genode::log("App (id: ", lounge.client.nodeId, ") left with status: ", adl::int32_t(status));
+                auto thread = lounge.context.loungeThreads[lounge.client.nodeId];
+                lounge.context.loungeThreads.removeKey(lounge.client.nodeId);
+                lounge.client.close();
+                Genode::log("Closed: ", lounge.client.ip.toString().c_str(), " [", lounge.client.port, "]");
+
+                Genode::Mutex::Guard _g {lounge.context.threadRecycleBin.lock};
+                lounge.context.threadRecycleBin.bin.append(thread);
+            }
+        );
+
+        loungeThreads[client.nodeId] = thread;
+        thread->start();
+    }
+   
 }
 
 
@@ -307,8 +373,14 @@ Status MnemosyneMain::runServer() {
     while (true) {
         auto client = server.accept(true);
         serveClient(client);
-        client.close();
-        Genode::log("Closed: ", client.ip.toString().c_str(), " [", client.port, "]");
+
+        {
+            Genode::Mutex::Guard _g {threadRecycleBin.lock};
+            for (auto it : threadRecycleBin.bin) {
+                adl::defaultAllocator.free(it);
+            }
+            threadRecycleBin.bin.clear();
+        }
     }
 
     server.close();
