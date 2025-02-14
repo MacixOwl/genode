@@ -804,7 +804,7 @@ int64_t TString::toInt64() const {
         TString res; \
         Type value = x; \
         while (value) { \
-            res = ((value % 10) + '0') + res; \
+            res = char((value % 10) + '0') + res; \
             value /= 10; \
         } \
 \
