@@ -38,17 +38,17 @@ namespace monkey::net {
  *    Client                  Server
  *    ==============================
  *
- *         (send)
- *            ---------->       .
- *                              .
- *                           (decode)
- *                              .
- *                              .
- *                   (reply)
- *      .   <-----------
- *      .
- *      .
- *  (appreciate) 
+ *         (send)                        \
+ *            ---------->       .        |
+ *                              .        |
+ *                           (decode)    |
+ *                              .        \
+ *                              .         >  "one click"
+ *                   (reply)             /
+ *      .   <-----------                 |
+ *      .                                |
+ *      .                                |
+ *  (appreciate)                         /
  *
  */
 class ProtocolConnection : public Socket4 {

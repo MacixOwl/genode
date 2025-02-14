@@ -23,7 +23,7 @@ public:
         adl::int32_t tcpVersion;
         adl::uint16_t port;
 
-        adl::uint8_t ipAddr[16];
+        IP4Addr ip;
     };
 
     enum class NodeType {
@@ -204,9 +204,17 @@ public:
 
     // ------ 0x2004 : Locate Memory Nodes ------
 
-    Status sendLocateMemoryNodes(); // todo
-    Status replyLocateMemoryNodes(const adl::ArrayList<MemoryNodeInfo>&);  // todo
-    Status locateMemoryNodes(adl::ArrayList<MemoryNodeInfo>&);  // todo
+    struct LocateMemoryNodeNodeInfoEntry {
+        adl::int64_t id;
+        adl::int32_t tcpVersion;  // must be 4 (in net order)
+        adl::uint32_t port;
+
+        adl::uint32_t inet4addr;
+        adl::int8_t padding[12];
+    } __packed;
+
+    Status sendLocateMemoryNodes();
+    Status locateMemoryNodes(adl::ArrayList<MemoryNodeInfo>&);
 
 
     // ------ 0x3001 : Try Alloc ------

@@ -13,22 +13,14 @@ using namespace monkey;
 using net::protocol::Msg;
 using net::protocol::MsgType;
 
+using LocateMemoryNodeNodeInfoEntry = net::Protocol1Connection::LocateMemoryNodeNodeInfoEntry;
 
 Status AppLounge::processLocateMemoryNodes() {
     Status status = Status::SUCCESS;
 
-    struct MemoryNodeInfoPacked {
-        adl::int64_t id;
-        adl::int32_t tcpVersion;  // must be 4 (in net order)
-        adl::uint32_t port;
-
-        adl::uint32_t inet4addr;
-        adl::int8_t padding[12];
-    } __packed;
-
-    adl::ArrayList<MemoryNodeInfoPacked> payload;
+    adl::ArrayList<LocateMemoryNodeNodeInfoEntry> payload;
     for (const auto& it : context.memoryNodes) {
-        MemoryNodeInfoPacked info;
+        LocateMemoryNodeNodeInfoEntry info;
         info.id = adl::htonq(it.second.id);
         info.tcpVersion = adl::htonl(4);
         info.port = adl::htonl(it.second.port);
@@ -37,7 +29,7 @@ Status AppLounge::processLocateMemoryNodes() {
     }
 
 
-    status = client.sendResponse(0, payload.size() * sizeof(MemoryNodeInfoPacked), payload.data());
+    status = client.sendResponse(0, payload.size() * sizeof(LocateMemoryNodeNodeInfoEntry), payload.data());
 
     return status;
 }

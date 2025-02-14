@@ -12,6 +12,48 @@
 #include <monkey/net/protocol/Protocol1Connection.h>
 #include <monkey/crypto/rc4.h>
 
+
+/**
+ * This macro is designed for simple "ping-pong" like requests.
+ *
+ * This macro should be used after sending request to server.
+ *
+ * The macro do follows:
+ * 1. recv response (return if error).
+ * 2. if response code is not 0, record and set `status` to error type.
+ * 3. if response code is 0, run code in `onSuccess`. `response` is used for raw msg.
+ * 4. free up response message.
+ */
+#define RECV_AND_HANDLE_RESPONSE(onSuccess) \
+    do { \
+        Response* response = nullptr; \
+        if ((status = recvResponse(&response)) != Status::SUCCESS) { \
+            return status; \
+        } \
+        if (response->code != 0) { \
+            Genode::error( \
+                "VesperProtocol: Response code is ", \
+                (response->code + 0), \
+                " in api ", \
+                __FUNCTION__ \
+            ); \
+            lastError.set(response, __FUNCTION__); \
+            Genode::error( \
+                "> Error message is: ", \
+                (lastError.msg.c_str() ? lastError.msg.c_str() : "<EMPTY>") \
+            ); \
+            status = Status::PROTOCOL_ERROR; \
+        } \
+        else { \
+            onSuccess \
+        } \
+        if (response) { \
+            adl::defaultAllocator.free(response); \
+            response = nullptr; \
+        } \
+    } while (0)
+
+
 namespace monkey::net {
 
 using protocol::Msg;
@@ -419,28 +461,17 @@ Status Protocol1Connection::memoryNodeClockIn(adl::int64_t* id) {
     if (status != Status::SUCCESS)
         return Status::PROTOCOL_ERROR;
 
-    Response* res = nullptr;
-    if ((status = recvResponse(&res)) != Status::SUCCESS)
-        goto END;
+    RECV_AND_HANDLE_RESPONSE(
+        auto& res = response;
+        if (res->header.length < 16) {
+            Genode::error("Bad response. Bad length: ", adl::uint64_t(res->header.length));
+            status = Status::PROTOCOL_ERROR;
+        }
+        else {
+            *id = adl::ntohq(* (adl::int64_t *) res->msg);
+        }
+    );
 
-    if (res->code != 0) {
-        Genode::error("Server replied clock-in request with code ", adl::int32_t(res->code));
-        status = Status::PROTOCOL_ERROR;
-        lastError.set(res, __FUNCTION__);
-    }
-    else if (res->header.length < 16) {
-        Genode::error("Bad response. Bad length: ", adl::uint64_t(res->header.length));
-        status = Status::PROTOCOL_ERROR;
-    }
-    else {
-        *id = adl::ntohq(* (adl::int64_t *) res->msg);
-    }
-
-END:
-    if (res) {
-        adl::defaultAllocator.free(res);
-        res = nullptr;
-    }
     return status;
 }
 
@@ -472,6 +503,51 @@ Status Protocol1Connection::decodeMemoryNodeClockIn(
     
     adl::memcpy(ip, msg->data + 8, (*tcpVer == 4 ? 4 : 16));
     return Status::SUCCESS;
+}
+
+
+
+// ------ 0x2004 : Locate Memory Nodes ------
+
+Status Protocol1Connection::sendLocateMemoryNodes() {
+    return sendMsg(MsgType::LocateMemoryNodes);
+}
+
+
+Status Protocol1Connection::locateMemoryNodes(adl::ArrayList<MemoryNodeInfo>& out) {
+    Status status = sendLocateMemoryNodes();
+    if (status != Status::SUCCESS)
+        return status;
+
+    RECV_AND_HANDLE_RESPONSE(
+        out.clear();
+        auto& r = response;
+
+        auto ENTRY_SIZE = sizeof(LocateMemoryNodeNodeInfoEntry);
+        for (adl::size_t off = 0; off < (r->header.length - 8) / ENTRY_SIZE; off += ENTRY_SIZE) {
+            auto& entryPacked = *(LocateMemoryNodeNodeInfoEntry*) (r->msg + off);
+            
+            if (entryPacked.tcpVersion != 4) {
+                Genode::error(
+                    "VesperProtocol [locate memory nodes]: Entry on offset ", 
+                    off, 
+                    " 's tcp version is ", 
+                    (entryPacked.tcpVersion + 0),  // member of packed struct cannot in Genode::log directly. 
+                    ". Ignored."
+                );
+
+                continue;
+            }
+            
+            out.append({});
+            out.back().id = adl::ntohq(entryPacked.id);
+            out.back().port = (adl::uint16_t) adl::ntohl(entryPacked.port);
+            out.back().tcpVersion = entryPacked.tcpVersion;
+            out.back().ip = entryPacked.inet4addr;
+        }
+    );
+
+    return status;
 }
 
 
@@ -510,27 +586,14 @@ Status Protocol1Connection::tryAlloc(
     if (status != Status::SUCCESS)
         return status;
 
-    Response* r = nullptr;
 
-    if ((status = recvResponse(&r)) != Status::SUCCESS) {
-        return status;
-    }
-
-    if (r->code != 0) {
-        lastError.set(r, __FUNCTION__);
-        status = Status::PROTOCOL_ERROR;
-    }
-    else {
+    RECV_AND_HANDLE_RESPONSE(
+        auto& r = response;
         idOut.clear();
         for (auto p = (adl::int64_t*) r->msg; (const char*) p < r->msg + r->header.length - 8; p++) {
             idOut.append(adl::ntohq(*p));
         }
-    }
-
-    if (r) {
-        adl::defaultAllocator.free(r);
-        r = nullptr;
-    }
+    );
 
     return status;
 }
@@ -561,16 +624,8 @@ Status Protocol1Connection::readBlock(adl::int64_t blockId, void* buf, adl::size
     if (status != Status::SUCCESS)
         return status;
 
-    Response* r = nullptr;
-
-    if ((status = recvResponse(&r)) != Status::SUCCESS)
-        return status;
-
-    if (r->code != 0) {
-        lastError.set(r, __FUNCTION__);
-        status = Status::PROTOCOL_ERROR;
-    }
-    else {
+    RECV_AND_HANDLE_RESPONSE(
+        auto& r = response;
         auto blockSize = r->header.length - 8;
         if (blockSize != bufSize) {
             Genode::error(
@@ -584,12 +639,7 @@ Status Protocol1Connection::readBlock(adl::int64_t blockId, void* buf, adl::size
         else {
             adl::memcpy(buf, r->msg, bufSize);
         }
-    }
-
-    if (r) {
-        adl::defaultAllocator.free(r);
-        r = nullptr;
-    }
+    );
 
     return status;
 }
@@ -639,24 +689,10 @@ Status Protocol1Connection::writeBlock(adl::int64_t blockId, const void* data, a
         return status;
     }
 
-    Response* response = nullptr;
-    if ((status = recvResponse(&response)) != Status::SUCCESS) {
-        return status;
-    }
+    RECV_AND_HANDLE_RESPONSE({});
 
-    if (response->code != 0) {
-        lastError.set(response, __FUNCTION__);
-        status = Status::PROTOCOL_ERROR;
-    }
-
-
-    if (response) {
-        adl::defaultAllocator.free(response);
-        response = nullptr;
-    }
     return status;
 }
-
 
 
 
@@ -679,24 +715,9 @@ Status Protocol1Connection::checkAvailMem(adl::size_t* availMem) {
         return status;
     }
 
-    Response* r = nullptr;
-
-    if (r->code != 0) {
-        lastError.set(r, __FUNCTION__);
-        status = Status::PROTOCOL_ERROR;
-    }
-    else if (r->header.length < 16) {
-        status = Status::PROTOCOL_ERROR;
-    }
-    else {
-        *availMem = (adl::size_t) adl::htonq(*(adl::uint64_t*) r->msg);
-    }
-    
-
-    if (r) {
-        adl::defaultAllocator.free(r);
-        r = nullptr;
-    }
+    RECV_AND_HANDLE_RESPONSE(
+        *availMem = (adl::size_t) adl::htonq(*(adl::uint64_t*) response->msg);
+    );
 
     return status;
 }
