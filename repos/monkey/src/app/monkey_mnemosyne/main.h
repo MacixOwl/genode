@@ -11,6 +11,8 @@
 
 #pragma once
 
+#include "./config.h"
+
 #include <adl/sys/types.h>
 #include <adl/collections/ArrayList.hpp>
 #include <adl/collections/HashMap.hpp>
@@ -23,12 +25,17 @@
 #include <monkey/net/IP4Addr.h>
 #include <monkey/net/Socket4.h>
 
+#include "./Block.h"
 
 struct MnemosyneMain {
 
     Genode::Env& env;
     Genode::Heap heap { env.ram(), env.rm() };
     adl::int64_t nodeId = 0;
+
+    // block id -> block struct
+    // TODO: consider using wayland-style linked list so we can find apps' block faster by app id.
+    adl::HashMap<adl::int64_t, Block> memoryBlocks;
 
     adl::HashMap<adl::int64_t, adl::ByteArray> appKeys;
 
@@ -57,6 +64,17 @@ struct MnemosyneMain {
 
     MnemosyneMain(Genode::Env&);
 
+    /**
+     * For app lounge.
+     * @param size block size
+     * @param record `true` then it would be recorded by mnemosyne main.
+     * @return if failed, Block's size would be set to 0.
+     */
+    Block allocMemoryBlock(adl::size_t size, adl::int64_t owner, bool record = true);
+    Genode::Mutex memoryBlockAllocationLock;
+    adl::int64_t nextMemoryBlockId = 5000000001;
+
+    void freeMemoryBlock(Block&);
 
     monkey::Status loadConfig();
     monkey::Status init();

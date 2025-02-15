@@ -72,6 +72,50 @@ static void initAdlAlloc(Genode::Heap& heap) {
 }
 
 
+Block MnemosyneMain::allocMemoryBlock(adl::size_t size, adl::int64_t owner, bool record) {
+    if (size == 0) {
+        return {};
+    }
+
+    Genode::Mutex::Guard _g { memoryBlockAllocationLock };
+
+    adl::size_t finalSize = (size + 4095) & ~0xFFFul;
+
+    if (env.pd().avail_ram().value < MONKEY_MNEMOSYNE_HEAP_MEMORY_RESERVED + finalSize) {
+        return {};
+    }
+
+    Block b;
+    b.data = (char*) heap.alloc(finalSize);
+    if (!b.data) {
+        return {};
+    }
+
+    b.id = nextMemoryBlockId++;
+    b.owner = owner;
+    b.size = finalSize;
+
+    Genode::log("Allocated block for ", owner, ". Block id: ", b.id, ", size ", b.size);
+
+    if (record) {
+        this->memoryBlocks[b.id] = b;
+    }
+
+    return b;
+}
+
+
+void MnemosyneMain::freeMemoryBlock(Block& b) {
+    Genode::Mutex::Guard _g { memoryBlockAllocationLock };
+
+    this->memoryBlocks.removeKey(b.id, true);
+
+    Genode::log("Released block for ", b.owner, ". Block id: ", b.id, ", size ", b.size);
+    
+    heap.free(b.data, b.size);
+}
+
+
 Status MnemosyneMain::loadConfig() {
     Genode::Attached_rom_dataspace configDs { env, "config" };
     auto configRoot = configDs.xml().sub_node("monkey-mnemosyne");

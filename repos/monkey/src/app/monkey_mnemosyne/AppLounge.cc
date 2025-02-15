@@ -13,51 +13,66 @@ using monkey::net::protocol::Msg;
 using monkey::net::protocol::MsgType;
 using monkey::net::protocol::Header;
 
-Status AppLounge::processTryAlloc(adl::size_t blockSize) {
-    Status status = Status::SUCCESS;
+Status AppLounge::processTryAlloc(adl::size_t blockSize, adl::size_t nBlocks) {
 
-    // todo
+    if (nBlocks != 1) {
+        client.sendResponse(1, "Not supported. This mnemosyne only partly support protocol v1.");
 
-    return status;
+        // not supported yet, but should be supported refering to protocol v1.
+        return Status::PROTOCOL_ERROR; 
+    }
+
+    Block b = context.allocMemoryBlock(blockSize, client.appId);
+    if (b.size == 0) {
+        client.sendResponse(2, "Failed to alloc. Maybe out of ram.");
+        return Status::SUCCESS;
+    }
+
+    adl::ArrayList<adl::int64_t> ret;
+    ret.append(b.id);
+    return client.replyTryAlloc(ret);
 }
 
 
+#define GET_AND_VERIFY_BLOCK(blockId, blockVariableName) \
+    if (!context.memoryBlocks.hasKey(blockId)) { \
+        client.sendResponse(1, "Not your block!"); \
+        return Status::SUCCESS; \
+    } \
+    Block blockVariableName = context.memoryBlocks.getData(blockId); \
+    if (blockVariableName.owner != client.appId) { \
+        client.sendResponse(1, "Not your block!"); \
+        return Status::SUCCESS; \
+    }
+
+
 Status AppLounge::processReadBlock(adl::int64_t blockId) {
-    Status status = Status::SUCCESS;
-
-    // todo
-
-    return status;
+    GET_AND_VERIFY_BLOCK(blockId, b);
+    return client.replyReadBlock(b.data, b.size);
 }
 
 
 Status AppLounge::processWriteBlock(adl::int64_t blockId, const void* data) {
-    Status status = Status::SUCCESS;
-
-    // todo
-
-    return status;
+    GET_AND_VERIFY_BLOCK(blockId, b);
+    adl::memcpy(b.data, data, b.size);
+    return client.sendResponse(0);
 }
 
 
 Status AppLounge::processCheckAvailMem() {
-    Status status = Status::SUCCESS;
-
-    // todo
-
-    return status;
+    adl::size_t availMem = context.env.pd().avail_ram().value;
+    availMem -= MONKEY_MNEMOSYNE_HEAP_MEMORY_RESERVED;
+    return client.replyCheckAvailMem(availMem);
 }
 
 
 Status AppLounge::processFreeBlock(adl::int64_t blockId) {
-    Status status = Status::SUCCESS;
-
-    // todo
-
-    return status;
+    GET_AND_VERIFY_BLOCK(blockId, b);
+    context.freeMemoryBlock(b);
+    return client.sendResponse(0);
 }
 
-
+#undef GET_AND_VERIFY_BLOCK
 
 Status AppLounge::serve() {
 
@@ -75,7 +90,31 @@ Status AppLounge::serve() {
 
 
         switch ((MsgType) msg->header.type) {
-            // todo
+            case MsgType::TryAlloc: {
+                // todo
+                break;
+            }
+            
+            case MsgType::FreeBlock: {
+                // todo
+                
+                break;
+            }
+            
+            case MsgType::ReadBlock: {
+                // todo
+                break;
+            }
+
+            case MsgType::WriteBlock: {
+                // todo
+                break;
+            }
+
+            case MsgType::CheckAvailMem: {
+                processCheckAvailMem();
+                break;
+            }
 
             default: {
                 Genode::warning("> Message Type NOT SUPPORTED");

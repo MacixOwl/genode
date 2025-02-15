@@ -16,5 +16,8 @@
 struct Block {
     adl::size_t size = 0;
     char* data = nullptr;
+
+    adl::int64_t id = 0;
+    adl::int64_t owner = 0;
 };
 

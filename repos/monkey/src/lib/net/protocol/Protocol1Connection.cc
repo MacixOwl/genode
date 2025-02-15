@@ -727,7 +727,7 @@ Status Protocol1Connection::checkAvailMem(adl::size_t* availMem) {
 
 // ------ 0x3005 : Free Block ------
 
-Status Protocol1Connection::sendFreeBlock(adl::uint64_t blockId) {
+Status Protocol1Connection::sendFreeBlock(adl::int64_t blockId) {
     auto bId_netOrder = adl::htonq(blockId);
     return sendMsg(MsgType::FreeBlock, &bId_netOrder, sizeof(bId_netOrder));
 }

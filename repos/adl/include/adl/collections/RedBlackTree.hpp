@@ -76,7 +76,7 @@ public:
      * 
      * @param key
      */
-    RedBlackTree<KeyType, DataType>& removeKey(const KeyType&);
+    RedBlackTree<KeyType, DataType>& removeKey(const KeyType&, bool noExcept = true);
 
     adl::size_t size();
 
@@ -483,7 +483,8 @@ RedBlackTree<KeyType, DataType>& RedBlackTree<KeyType, DataType>::setData(
 
 template<typename KeyType, typename DataType>
 RedBlackTree<KeyType, DataType>& RedBlackTree<KeyType, DataType>::removeKey(
-    const KeyType& key
+    const KeyType& key,
+    bool noExcept
 )
 {
     WriteGuard _g {this};
@@ -502,12 +503,15 @@ RedBlackTree<KeyType, DataType>& RedBlackTree<KeyType, DataType>::removeKey(
 
     if (currentNode == nullptr) {
 
+        if (noExcept)
+            return *this;
+        else {
 #if 0
-        throw std::runtime_error("could not find your key in the object."); // key not found.
+            throw std::runtime_error("could not find your key in the object."); // key not found.
 #else
-        throw RuntimeError {};
+            throw RuntimeError {};
 #endif
-    
+        }
     }
 
 
