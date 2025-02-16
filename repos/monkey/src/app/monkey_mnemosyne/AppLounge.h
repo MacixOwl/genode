@@ -27,7 +27,7 @@ struct AppLounge : monkey::net::SunflowerLounge<MnemosyneMain, monkey::net::Prot
 
     monkey::Status processTryAlloc(adl::size_t blockSize, adl::size_t nBlocks);
     monkey::Status processReadBlock(adl::int64_t blockId);
-    monkey::Status processWriteBlock(adl::int64_t blockId, const void* data);
+    monkey::Status processWriteBlock(adl::int64_t blockId, const adl::ByteArray& data);
     monkey::Status processCheckAvailMem();
     monkey::Status processFreeBlock(adl::int64_t blockId);
 

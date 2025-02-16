@@ -220,14 +220,14 @@ public:
     // ------ 0x3001 : Try Alloc ------
 
     Status sendTryAlloc(adl::size_t blockSize, adl::size_t nBlocks);
-    Status decodeTryAlloc(adl::size_t* blockSize, adl::size_t* nBlocks); // todo
+    Status decodeTryAlloc(protocol::Msg* msg, adl::size_t* blockSize, adl::size_t* nBlocks);
     Status replyTryAlloc(adl::ArrayList<adl::int64_t> blockIds);
     Status tryAlloc(adl::size_t blockSize, adl::size_t nBlocks, adl::ArrayList<adl::int64_t> idOut);
 
     // ------ 0x3002 : Read Block ------
 
     Status sendReadBlock(adl::int64_t blockId);
-    Status decodeReadBlock(protocol::Msg* msg, adl::int64_t* blockId); // todo
+    Status decodeReadBlock(protocol::Msg* msg, adl::int64_t* blockId);
     Status replyReadBlock(const void* data, adl::size_t size);
 
     /**
@@ -257,8 +257,8 @@ public:
     // ------ 0x3005 : Free Block ------
 
     Status sendFreeBlock(adl::int64_t blockId);
-    Status decodeFreeBlock(adl::int64_t* blockId);  // todo
-    Status freeBlock(adl::int64_t blockId);  // todo
+    Status decodeFreeBlock(protocol::Msg*, adl::int64_t* blockId);
+    Status freeBlock(adl::int64_t blockId);
 
 };
 
