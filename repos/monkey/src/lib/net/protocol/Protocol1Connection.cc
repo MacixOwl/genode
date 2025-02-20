@@ -85,6 +85,13 @@ void Protocol1Connection::LastError::set(
 }
 
 
+void Protocol1Connection::LastError::clear() {
+    code = 0;
+    msg.clear();
+    api.clear();
+}
+
+
 Status Protocol1Connection::sendResponse(
     const adl::uint32_t code,
     const adl::size_t msgLen,
@@ -527,12 +534,13 @@ Status Protocol1Connection::locateMemoryNodes(adl::ArrayList<MemoryNodeInfo>& ou
         for (adl::size_t off = 0; off < (r->header.length - 8) / ENTRY_SIZE; off += ENTRY_SIZE) {
             auto& entryPacked = *(LocateMemoryNodeNodeInfoEntry*) (r->msg + off);
             
-            if (entryPacked.tcpVersion != 4) {
+            auto tcpVer = adl::ntohl(entryPacked.tcpVersion);
+            if (tcpVer != 4) {
                 Genode::error(
                     "VesperProtocol [locate memory nodes]: Entry on offset ", 
                     off, 
                     " 's tcp version is ", 
-                    (entryPacked.tcpVersion + 0),  // member of packed struct cannot in Genode::log directly. 
+                    (tcpVer + 0),  // member of packed struct cannot in Genode::log directly. 
                     ". Ignored."
                 );
 
@@ -542,7 +550,7 @@ Status Protocol1Connection::locateMemoryNodes(adl::ArrayList<MemoryNodeInfo>& ou
             out.append({});
             out.back().id = adl::ntohq(entryPacked.id);
             out.back().port = (adl::uint16_t) adl::ntohl(entryPacked.port);
-            out.back().tcpVersion = entryPacked.tcpVersion;
+            out.back().tcpVersion = tcpVer;
             out.back().ip = entryPacked.inet4addr;
         }
     );

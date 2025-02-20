@@ -17,7 +17,7 @@
 #include <netinet/in.h>
 
 
-#define VESPER_PROTOCOL_DEBUG 0
+#define VESPER_PROTOCOL_DEBUG 1
 
 
 namespace monkey::net {
@@ -50,6 +50,9 @@ namespace monkey::net {
  *      .                                |
  *  (appreciate)                         /
  *
+ *
+ * This class only maintains basic info for connection, so it can be copied freely.
+ * Do not store data like `request counter` in it.
  */
 class ProtocolConnection : public Socket4 {
 public:

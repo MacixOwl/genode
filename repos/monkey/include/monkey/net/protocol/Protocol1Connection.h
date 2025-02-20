@@ -58,6 +58,7 @@ public:
 
         void set(protocol::Response* response, const char* api = nullptr);
         void set(adl::uint32_t code, const void* msg, adl::size_t msgLen, const char* api = nullptr);
+        void clear();
     } lastError;
 
 

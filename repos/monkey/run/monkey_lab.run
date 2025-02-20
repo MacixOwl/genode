@@ -114,28 +114,6 @@ install_config {
     </start>
 
 
-<!--    
-    <start name="tcp_terminal" caps="200">
-        <resource name="RAM" quantum="128M"/>
-        <provides> <service name="Terminal"/> </provides>
-        <config>
-            <policy label_prefix="dkv_lab" ip="202.120.37.25" port="20024"/>
-            <vfs>
-                <dir name="dev"> <log/> </dir>
-                <dir name="socket"> <lwip dhcp="yes"/> </dir>
-                <dir name="pipe"> <pipe/> </dir>
-            </vfs>
-            <libc stdout="/dev/log" socket="/socket" pipe="/pipe"/>
-        </config>
-        <route>
-            <service name="Nic"> <child name="nic_router"/> </service>
-            <any-service> <parent/> <any-child/> </any-service>
-        </route>
-    </start>
--->
-
-
-
     <start name="monkey_lab" caps="300">
         <resource name="RAM" quantum="256M"/>
 
@@ -147,6 +125,23 @@ install_config {
             </vfs>
             <libc stdout="/dev/log" socket="/socket" pipe="/pipe"/>
             
+
+            <monkey-lab>
+            
+                <monkey-tycoon>
+                    <concierge>
+                        <ip>10.0.2.2</ip>
+                        <port>5555</port>
+                    </concierge>
+
+                    <app>
+                        <key>f578bd06-6f8e-42b3-8be9-860c7c645549</key>
+                    </app>
+
+                </monkey-tycoon>
+            
+            </monkey-lab>
+
         </config>
 
         <route>
@@ -169,6 +164,5 @@ install_config {
 build_boot_image { core ld.lib.so init timer monkey_lab }
 
 append qemu_args " -nographic "
-append_qemu_nic_args "hostfwd=tcp:127.0.0.1:5555-:8888"
 
 run_genode_until forever
