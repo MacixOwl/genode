@@ -18,7 +18,8 @@ enum class Status : adl::int32_t {
     OUT_OF_RESOURCE,
     NETWORK_ERROR,
     PROTOCOL_ERROR,
-    INVALID_PARAMETERS
+    INVALID_PARAMETERS,
+    NOT_FOUND
 };
 
 }

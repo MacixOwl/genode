@@ -463,7 +463,7 @@ Status Protocol1Connection::decodeMemoryNodeShowId(protocol::Msg* msg, adl::int6
 // ------ 0x2001 : Memory Node Clock In ------
 
 
-Status Protocol1Connection::memoryNodeClockIn(adl::int64_t* id) {
+Status Protocol1Connection::memoryNodeClockIn(adl::int64_t* id, IP4Addr ip, adl::uint16_t port) {
     Status status = sendMemoryNodeClockIn(ip.ui32, port);
     if (status != Status::SUCCESS)
         return Status::PROTOCOL_ERROR;
@@ -531,7 +531,7 @@ Status Protocol1Connection::locateMemoryNodes(adl::ArrayList<MemoryNodeInfo>& ou
         auto& r = response;
 
         auto ENTRY_SIZE = sizeof(LocateMemoryNodeNodeInfoEntry);
-        for (adl::size_t off = 0; off < (r->header.length - 8) / ENTRY_SIZE; off += ENTRY_SIZE) {
+        for (adl::size_t off = 0; off < r->header.length - 8; off += ENTRY_SIZE) {
             auto& entryPacked = *(LocateMemoryNodeNodeInfoEntry*) (r->msg + off);
             
             auto tcpVer = adl::ntohl(entryPacked.tcpVersion);
@@ -738,7 +738,8 @@ Status Protocol1Connection::sendCheckAvailMem() {
 
 
 Status Protocol1Connection::replyCheckAvailMem(adl::size_t availMem) {
-    return sendResponse(0, sizeof(availMem), &availMem);
+    adl::uint64_t availMemNetOrder = adl::htonq((adl::uint64_t) availMem);
+    return sendResponse(0, sizeof(availMem), &availMemNetOrder);
 }
 
 

@@ -110,6 +110,9 @@ struct AppMain {
                 }
                 
                 tycoon.start(addr, size);
+                adl::size_t tycoonRam = 0;
+                tycoon.checkAvailableMem(&tycoonRam);
+                Genode::log("There are ", tycoonRam, " bytes ram on monkey memory network.");
             } // end of memory probing
 
             ((char*)0x100000000030)[2] = 'c';

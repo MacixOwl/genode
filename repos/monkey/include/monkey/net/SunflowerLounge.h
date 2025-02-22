@@ -22,7 +22,7 @@ template <typename ContextType, typename ProtocolConnectionType>
 struct SunflowerLounge {
 
     ContextType& context;
-    ProtocolConnectionType& client;
+    ProtocolConnectionType client;
 
     SunflowerLounge(
         ContextType& context,

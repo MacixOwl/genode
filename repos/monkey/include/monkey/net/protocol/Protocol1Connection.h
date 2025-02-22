@@ -179,7 +179,7 @@ public:
     // ------ 0x2001 : Memory Node Clock In ------
 
 
-    Status memoryNodeClockIn(adl::int64_t* id);
+    Status memoryNodeClockIn(adl::int64_t* id, IP4Addr ip, adl::uint16_t port);
 
 
     /**

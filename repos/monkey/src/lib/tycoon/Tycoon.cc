@@ -55,9 +55,7 @@ monkey::Status Tycoon::loadConfig(const Genode::Xml_node& xml) {
 
 monkey::Status Tycoon::openConnection(bool concierge, adl::int64_t id, bool force) {
 
-    // close connection if `force`.
-
-    if (force) {
+    if (force) { // close connection if `force`.
         if (concierge) {
             connections.concierge.close();
         }
@@ -81,7 +79,78 @@ monkey::Status Tycoon::openConnection(bool concierge, adl::int64_t id, bool forc
             }
         }
     }
-    // todo
+
+
+    // ------ open new connection. ------
+
+    Status status = Status::SUCCESS;
+    net::ProtocolConnection conn;
+
+    // determine ip and port.
+    if (concierge) {
+        conn.ip = config.concierge.ip;
+        conn.port = config.concierge.port;
+    }
+    else {
+        status = Status::NOT_FOUND;
+        for (auto& it : memoryNodesInfo) {
+            if (it.id == id) {
+                status = Status::SUCCESS;
+                conn.ip = it.ip;
+                conn.port = it.port;
+                break;
+            }
+        }
+        if (status != Status::SUCCESS)
+            return status;
+    }
+    
+
+    // connect
+    if ((status = conn.connect()) != Status::SUCCESS) {
+        Genode::error("Failed to connect to ", conn.ip.toString().c_str(), ":", conn.port);
+        return status;
+    }
+
+    // hello
+    if ((status = conn.hello(net::Protocol1Connection::VERSION, false)) != Status::SUCCESS) {
+        Genode::error("Failed on Hello.");
+        conn.close();
+        return status;
+    }
+
+    net::Protocol1Connection connV1;
+    connV1.ip = conn.ip;
+    connV1.port = conn.port;
+    connV1.socketFd = conn.socketFd;
+
+    // auth
+    if ((status = connV1.auth(config.app.key)) != Status::SUCCESS) {
+        Genode::error("Failed on auth.");
+        connV1.close();
+        return status;
+    }
+
+    // save this connection
+    net::Protocol1Connection* pConn = nullptr;
+    if (concierge) {
+        pConn = &connections.concierge;
+    }
+    else {
+        auto newConn = adl::defaultAllocator.alloc<net::Protocol1Connection>();
+        if (!newConn) {
+            connV1.close();
+            return Status::OUT_OF_RESOURCE;
+        }
+
+        connections.mnemosynes[id] = newConn;
+        pConn = newConn;
+    }
+
+    pConn->ip = connV1.ip;
+    pConn->port = connV1.port;
+    pConn->socketFd = connV1.socketFd;
+    return Status::SUCCESS;
 }
 
 
@@ -169,36 +238,9 @@ monkey::Status Tycoon::start(adl::uintptr_t vaddr, adl::size_t size) {
         Genode::Hex(vaddr), ", ", Genode::Hex(vaddr + size), ") (", size, " bytes)."
     );
 
-    Status status;
-
-    // hello
-    {
-        net::ProtocolConnection conn;
-        conn.ip = config.concierge.ip;
-        conn.port = config.concierge.port;
-        status = conn.connect();
-        if (status != Status::SUCCESS) {
-            Genode::error("Failed to connect to concierge.");
-            return status;
-        }
-
-        if ((status = conn.hello(connections.concierge.version(), false)) != Status::SUCCESS) {
-            Genode::error("Failed on Hello.");
-            conn.close();
-            return status;
-        }
-
-        connections.concierge.socketFd = conn.socketFd;
-        connections.concierge.ip = conn.ip;
-        connections.concierge.port = conn.port;
-    }  // end of hello
-
-    
-    // auth
-
-    if ((status = connections.concierge.auth(config.app.key)) != Status::SUCCESS) {
-        Genode::error("Failed on auth.");
-        goto ERROR;
+    Status status = openConnection(true);
+    if (status != Status::SUCCESS) {
+        return status;
     }
 
     // get memory nodes
@@ -249,5 +291,29 @@ void Tycoon::stop() {
 
 
 monkey::Status Tycoon::checkAvailableMem(adl::size_t* res) {
-    // todo
+    adl::size_t sum = 0;
+
+    for (auto& it : memoryNodesInfo) {
+        Status status = openConnection(false, it.id);
+        if (status != Status::SUCCESS) {
+            continue;
+        }
+
+        adl::size_t mem;
+        status = connections.mnemosynes[it.id]->checkAvailMem(&mem);
+        if (status == Status::SUCCESS) {
+            Genode::log(
+                "Tycoon: Discovered ", mem, " bytes of RAM on ", 
+                it.ip.toString().c_str(), ":", it.port
+            );
+            sum += mem;
+        }
+        else {
+            Genode::error("Something went wrong when connecting to mnemosyne ", it.id);
+        }
+    }
+
+    *res = sum;
+
+    return Status::SUCCESS;
 }

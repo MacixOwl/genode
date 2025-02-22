@@ -218,7 +218,8 @@ Status MnemosyneMain::clockIn() {
     // Clock in.
     
     adl::int64_t id;
-    if ((status = client.memoryNodeClockIn(&id)) != Status::SUCCESS) {
+    status = client.memoryNodeClockIn(&id, config.mnemosyne.ip, config.mnemosyne.port);
+    if (status != Status::SUCCESS) {
         Genode::error("(Clock In) Failed on doing Memory Node Clock In.");
         goto END;
     }
@@ -369,7 +370,6 @@ void MnemosyneMain::serveClient(net::Socket4& conn) {
             return;
         }
 
-        AppLounge lounge {*this, client};
         auto thread = adl::defaultAllocator.allocNoConstruct<AppLoungeThread>(1);
         if (thread == nullptr) {
             Genode::error("Failed to create lounge thread. Out of memory.");

@@ -152,8 +152,9 @@ public:
 
     monkey::Status checkAvailableMem(adl::size_t* res);
 
-    friend PageFaultSignalBridge;
 
+public:
+    friend PageFaultSignalBridge;
 };
 
 
