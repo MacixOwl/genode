@@ -53,6 +53,38 @@ monkey::Status Tycoon::loadConfig(const Genode::Xml_node& xml) {
 }
 
 
+monkey::Status Tycoon::openConnection(bool concierge, adl::int64_t id, bool force) {
+
+    // close connection if `force`.
+
+    if (force) {
+        if (concierge) {
+            connections.concierge.close();
+        }
+        else if (connections.mnemosynes.hasKey(id)) {
+            connections.mnemosynes[id]->close();
+            adl::defaultAllocator.free(connections.mnemosynes[id]);
+            connections.mnemosynes.removeKey(id);
+        }
+    }
+    else {  // just return if connection already exists.
+        if (concierge) {
+            if (connections.concierge.valid())
+                return Status::SUCCESS;
+        }
+        else if (connections.mnemosynes.hasKey(id)) {
+            if (connections.mnemosynes[id]->valid())
+                return Status::SUCCESS;
+            else {
+                adl::defaultAllocator.free(connections.mnemosynes[id]);
+                connections.mnemosynes.removeKey(id);
+            }
+        }
+    }
+    // todo
+}
+
+
 void Tycoon::handlePageFaultSignal() {
     if (!memSpace.manage) {
         return;
@@ -93,7 +125,28 @@ auto attachResult = rm.attach(
 //todo
 #endif
 
+    auto pageAddr = state.addr & ~0xffful;
+    if (pages.hasKey(pageAddr)) {
+        // todo
+    }
+    else {
+        Status status = allocPage(pageAddr);
+        // todo
+    }
+}
 
+
+monkey::Status Tycoon::allocPage(adl::uintptr_t addr) {
+    adl::uintptr_t pageAddr = addr & ~0xffful;
+    // todo
+
+    
+}
+
+
+
+monkey::Status Tycoon::freePage(adl::uintptr_t addr) {
+    adl::uintptr_t pageAddr = addr & ~0xffful;
     // todo
 }
 
@@ -117,7 +170,6 @@ monkey::Status Tycoon::start(adl::uintptr_t vaddr, adl::size_t size) {
     );
 
     Status status;
-    adl::ArrayList<net::Protocol1Connection::MemoryNodeInfo> memoryNodesInfo;
 
     // hello
     {
@@ -164,8 +216,6 @@ monkey::Status Tycoon::start(adl::uintptr_t vaddr, adl::size_t size) {
     }
 
 
-    // todo: connect to memory nodes.
-
     memSpace.manage = true; memSpace.vaddr = vaddr; memSpace.size = size;
     Genode::log("Tycoon: Started.");
 
@@ -191,6 +241,7 @@ void Tycoon::stop() {
     disconnectConcierge();
     for (auto it : connections.mnemosynes) {
         it.second->close();
+        adl::defaultAllocator.free(it.second);
     }
     connections.mnemosynes.clear();
 }

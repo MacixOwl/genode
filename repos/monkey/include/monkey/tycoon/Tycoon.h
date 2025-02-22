@@ -10,6 +10,10 @@
 
 #pragma once
 
+#define MONKEY_TYCOON_INCLUDE_INTERNALS
+    #include <monkey/tycoon/Page.h>
+#undef MONKEY_TYCOON_INCLUDE_INTERNALS
+
 #include <monkey/net/protocol.h>
 #include <monkey/genodeutils/config.h>
 
@@ -82,7 +86,36 @@ protected:
         adl::HashMap<adl::int64_t, net::Protocol1Connection*> mnemosynes;
     } connections;
 
+    adl::ArrayList<net::Protocol1Connection::MemoryNodeInfo> memoryNodesInfo;
 
+    // addr (4KB aligned) to Page struct.
+    adl::HashMap<adl::uintptr_t, tycoon::Page> pages;
+
+
+protected:
+
+    /**
+     * Open a connection with concierge or mnemosyne.
+     * On success, connection would be logged to `connections` struct.
+     *
+     * If connection already exists and `force` is false, previous connection would be used.
+     *
+     * @param concierge `true` if you want to connect with concierge, `false` if mnemosyne.
+     * @param id Mnemosyne id you'd like to connect. Ignored for concierge.
+     * @param force Close previous connection and re-open a new one.
+     */
+    monkey::Status openConnection(bool concierge, adl::int64_t id = 0, bool force = false);
+
+    void handlePageFaultSignal();
+
+    /**
+     * Try allocate a page.
+     * If success, page would be logged to `pages`.
+     *
+     * @param addr Should be 4KB aligned.
+     */
+    monkey::Status allocPage(adl::uintptr_t addr);
+    monkey::Status freePage(adl::uintptr_t addr);
 
 public:
 
@@ -109,7 +142,6 @@ public:
      */
     monkey::Status loadConfig(const Genode::Xml_node&);
 
-    void handlePageFaultSignal();
 
     void disconnectConcierge();
 
