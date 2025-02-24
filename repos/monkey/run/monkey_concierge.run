@@ -125,7 +125,7 @@ install_config {
         <config>
             <vfs>
                 <dir name="dev"> <log/> </dir>
-                <dir name="socket"> <lwip dhcp="ye"/> </dir>
+                <dir name="socket"> <lwip dhcp="yes"/> </dir>
                 <dir name="pipe"> <pipe/> </dir>
             </vfs>
             <libc stdout="/dev/log" socket="/socket" pipe="/pipe"/>
