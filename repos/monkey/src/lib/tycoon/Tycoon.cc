@@ -15,6 +15,11 @@ using namespace monkey;
 
 Tycoon::~Tycoon() {
     stop();
+
+    for (auto& it : buffers) {
+        env.pd().free(it);
+    }
+    buffers.clear();
 }
 
 
@@ -50,6 +55,30 @@ monkey::Status Tycoon::loadConfig(const Genode::Xml_node& xml) {
     }
 
     return status;
+}
+
+
+monkey::Status Tycoon::init(const Genode::Xml_node& xml, const InitParams& params) {
+    if (initialized) {
+        Genode::warning("Tycoon: Already initialized. New call ignored.");
+        return Status::SUCCESS;
+    }
+
+    Status status = loadConfig(xml);
+    if (status != Status::SUCCESS) {
+        return status;
+    }
+
+    if (params.nbuf == 0) {
+        return Status::INVALID_PARAMETERS;
+    }
+
+    for (adl::size_t i = 0; i < params.nbuf; i++) {
+        auto ds = env.pd().alloc(4096);
+        buffers.append(ds);
+    }
+
+    return Status::SUCCESS;
 }
 
 
@@ -182,41 +211,117 @@ void Tycoon::handlePageFaultSignal() {
         return;
     }
 
-#if 0
-// todo
-auto attachResult = rm.attach(
-    env.ram().alloc(4096),
-    4096,
-    0,
-    true,
-    state.addr
-);
-//todo
-#endif
 
     auto pageAddr = state.addr & ~0xffful;
-    if (pages.hasKey(pageAddr)) {
-        // todo
-    }
-    else {
+    if (!pages.hasKey(pageAddr)) {
         Status status = allocPage(pageAddr);
-        // todo
+        if (status != Status::SUCCESS) {
+            Genode::error("Tycoon handlePageFaultSignal: Failed to alloc page.");
+            return;
+        }
     }
+
+    Genode::error("C2");
+    if (buffers.isEmpty()) {
+        Status status = swapOut();
+        if (status != Status::SUCCESS) {
+            Genode::error("Failed to swap out. 7886c6f7-f1ba-4f04-816e-da295c363329");
+            return;
+        }
+    }
+
+    // assert: buffers not empty, pages[addr] allocated.
+
+    auto& page = pages[pageAddr];
+    page.present = true;
+    page.mapped = true;
+    page.dirty = true;
+    page.writable = true;
+    page.buf = buffers.pop();
+    env.rm().attach_at(page.buf, page.addr);
 }
 
 
 monkey::Status Tycoon::allocPage(adl::uintptr_t addr) {
     adl::uintptr_t pageAddr = addr & ~0xffful;
-    // todo
+    if (pages.hasKey(pageAddr)) {
+        Genode::warning("Page at ", Genode::Hex(pageAddr), " already exists.");
+        return Status::SUCCESS;
+    }
 
+    Status status;
+    adl::int64_t blockId;
+    adl::int64_t mnemosyneId;
+    for (auto& it : memoryNodesInfo) {
+        status = openConnection(false, it.id);
+        if (status != Status::SUCCESS)
+            continue;
+
+        adl::ArrayList<adl::int64_t> idOut;
+        auto conn = connections.mnemosynes[it.id];
+
+        status = conn->tryAlloc(4096, 1, idOut);
+        if (status != Status::SUCCESS) {
+            Genode::log("Tycoon: Failed to alloc on ", it.ip.toString().c_str(), ":", it.port);
+            Genode::log(
+                "> ", conn->lastError.api.c_str(), ": ", 
+                conn->lastError.code, ": ", 
+                conn->lastError.msg.c_str()
+            );
+            continue;
+        }
+
+        blockId = idOut[0];
+        mnemosyneId = it.id;
+        break;
+    }
+
+    if (status != Status::SUCCESS) {
+        return Status::SUCCESS;
+    }
+
+    auto& page = pages[pageAddr];
+    page.addr = pageAddr;
+    page.blockId = blockId;
+    page.dirty = false;
+    page.present = false;
+    page.writable = false;
+    page.mapped = false;
+    page.mnemosyneId = mnemosyneId;
     
+    return Status::SUCCESS;
 }
 
 
 
 monkey::Status Tycoon::freePage(adl::uintptr_t addr) {
     adl::uintptr_t pageAddr = addr & ~0xffful;
-    // todo
+    if (!pages.hasKey(pageAddr)) {
+        return Status::NOT_FOUND;
+    }
+
+    auto& page = pages[pageAddr];
+
+    // free
+
+    Status status = openConnection(false, page.mnemosyneId);
+    if (status != Status::SUCCESS) {
+        Genode::error("Failed to free page: failed to open connection.");
+        return status;
+    }
+
+    if ((status = connections.mnemosynes[page.mnemosyneId]->freeBlock(page.blockId)) != Status::SUCCESS) {
+        Genode::error("Failed to free page.");
+        return status;
+    }
+
+    if (page.present) {
+        buffers.append(page.buf);
+        page.present = false;
+    }
+
+    pages.removeKey(pageAddr);
+    return Status::SUCCESS;
 }
 
 
@@ -225,8 +330,92 @@ void Tycoon::disconnectConcierge() {
 }
 
 
+monkey::Status Tycoon::swapOut() {
+    tycoon::Page* best = nullptr;
+
+    // TODO: This procedure should be optimized.
+    for (auto it : pages) {
+        auto& page = it.second;
+        if (!page.present)
+            continue;
+
+        if (!best)
+            best = &page;
+
+        if (!page.dirty && !page.mapped) {
+            best = &page;
+            break;
+        }
+    }
+
+    if (!best)
+        return Status::NOT_FOUND;
+
+    if (best->dirty) {
+        Status status = sync(*best);
+        if (status != Status::SUCCESS) {
+            Genode::error("Failed to sync page. Failed to swap out.");
+            return status;
+        }
+    }
+
+    if (best->mapped) {
+        env.rm().detach(best->addr);
+        best->mapped = false;
+    }
+
+    best->present = false;
+    buffers.append(best->buf);
+    return Status::SUCCESS;
+}
+
+
+monkey::Status Tycoon::sync(tycoon::Page& page) {
+    if (!page.present || !page.dirty)
+        return Status::SUCCESS;
+    
+    // assert: page.present, page.dirty
+
+    Status status = openConnection(false, page.mnemosyneId);
+    if (status != Status::SUCCESS) {
+        Genode::error("Something went wrong. 3d6c38c7-4885-432c-8974-bd0fe95d28e2");
+        return status;
+    }
+
+    if (!page.mapped) {
+        env.rm().attach_at(page.buf, page.addr);
+    }
+
+    status = connections.mnemosynes[page.mnemosyneId]->writeBlock(
+        page.blockId, 
+        (void*) page.addr, 
+        4096
+    );
+
+    if (!page.mapped) {
+        env.rm().detach(page.addr);
+    }
+
+    if (status != Status::SUCCESS) {
+        Genode::error("Something went wrong. ccf7a0ae-eb41-4d48-af0e-0bbbb857f12d");
+        return status;
+    }
+
+    page.dirty = false;
+    return Status::SUCCESS;
+}
+
+
 monkey::Status Tycoon::sync() {
-    // todo
+    Status status;
+    for (auto it : pages) {
+        status = sync(it.second);
+        if (status != Status::SUCCESS) {
+            return status;
+        }
+    }
+
+    return Status::SUCCESS;
 }
 
 
@@ -258,7 +447,9 @@ monkey::Status Tycoon::start(adl::uintptr_t vaddr, adl::size_t size) {
     }
 
 
-    memSpace.manage = true; memSpace.vaddr = vaddr; memSpace.size = size;
+    memSpace.manage = true;
+    memSpace.vaddr = vaddr;
+    memSpace.size = size;
     Genode::log("Tycoon: Started.");
 
 ERROR:
@@ -277,6 +468,23 @@ void Tycoon::stop() {
         Genode::error("Tycoon: Something went wrong syncing data.");
     }
 
+    
+    // Release buffers.
+
+    for (auto it : pages) {
+        tycoon::Page& page = it.second;
+        if (!page.present)
+            continue;
+
+        // assert false: page.dirty
+        
+        page.present = false;
+        buffers.append(page.buf);
+    }
+
+    pages.clear();
+
+
     // Close connections.
 
     Genode::log("Tycoon: Closing connections...");
@@ -286,6 +494,9 @@ void Tycoon::stop() {
         adl::defaultAllocator.free(it.second);
     }
     connections.mnemosynes.clear();
+
+
+    memSpace.manage = false;
 }
 
 

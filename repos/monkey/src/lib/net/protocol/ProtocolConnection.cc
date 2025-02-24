@@ -50,7 +50,12 @@ Status ProtocolConnection::sendMsg(MsgType type, const void* data, adl::uint64_t
         );
 
         Genode::log("VESPER_PROTOCOL_DEBUG : Send Msg");
-        Genode::log("> header.type  : ", Genode::Hex(adl::ntohl(header.type)));
+        auto typeMachineOrder = adl::ntohl(header.type);
+        Genode::log(
+            "> header.type  : ", 
+            Genode::Hex(typeMachineOrder),
+            " ", protocol::msgTypeToString(MsgType(typeMachineOrder))
+        );
         Genode::log("> header.length: ", adl::size_t(adl::ntohq(header.length)));
         Genode::log(hex.c_str());
     }
@@ -165,7 +170,11 @@ Status ProtocolConnection::recvMsg(Msg** msg, MsgType type) {
         );
 
         Genode::log("VESPER_PROTOCOL_DEBUG : Recv Msg");
-        Genode::log("> header.type  : ", Genode::Hex(header.type));
+        Genode::log(
+            "> header.type  : ", 
+            Genode::Hex(header.type), " ", 
+            protocol::msgTypeToString(MsgType(header.type))
+        );
         Genode::log("> header.length: ", adl::size_t(header.length));
         Genode::log(hex.c_str());
         Genode::log("Note: Header field is adjusted to host's byte order.");

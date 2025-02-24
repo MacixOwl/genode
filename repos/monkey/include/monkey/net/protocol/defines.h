@@ -56,6 +56,8 @@ enum class MsgType : adl::uint32_t {
 };
 
 
+const char* msgTypeToString(MsgType);
+
 
 struct Header {
     union {

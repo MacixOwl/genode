@@ -20,6 +20,8 @@
 #include <monkey/genodeutils/memory.h>
 #include <monkey/tycoon/Tycoon.h>
 
+#include "./config.h"
+
 using namespace Genode;
 using namespace monkey;
 
@@ -45,11 +47,32 @@ struct AppMain {
     }
 
 
-    Status loadConfig() {
+    Status initTycoon() {
         Genode::Attached_rom_dataspace configDs { env, "config" };
         auto configRoot = configDs.xml().sub_node("monkey-lab");
         auto tycoonRoot = configRoot.sub_node("monkey-tycoon");
-        tycoon.loadConfig(tycoonRoot);
+
+        monkey::Tycoon::InitParams params;
+
+        // determine params.nbuf
+        {
+            auto availMem = env.pd().avail_ram().value;
+            availMem -= MONKEY_LAB_LOCAL_HEAP_MEMORY_RESERVED;
+            auto availPages = availMem / 4096;
+            if (availPages < 2) {
+                Genode::error("Only ", availPages, " page(s) left. R u kidding me???");
+                return Status::OUT_OF_RESOURCE;
+            }
+
+            params.nbuf = availPages;
+
+            // todo
+params.nbuf = 1;  // for testing.
+            // todo
+        }
+
+        tycoon.init(tycoonRoot, params);
+
         return Status::SUCCESS;
     }
 
@@ -64,7 +87,7 @@ struct AppMain {
             Status status = Status::SUCCESS;
 
             try {
-                status = loadConfig();
+                status = initTycoon();
             }
             catch (...) {
                 Genode::error("Something went wrong loading config. Exit.");
@@ -116,7 +139,15 @@ struct AppMain {
             } // end of memory probing
 
             ((char*)0x100000000030)[2] = 'c';
-            Genode::log("Page fault return");
+
+
+            ((char*)0x100002000030)[2] = 'd';
+
+            Genode::log("((char*)0x100000000030)[2]: ", Genode::Hex( ((char*)0x100000000030)[2]));
+            Genode::log("((char*)0x100002000030)[2]: ", Genode::Hex(((char*)0x100002000030)[2]));
+
+            tycoon.stop();
+            Genode::log("Monkey Lab end.");
         
         });
     }

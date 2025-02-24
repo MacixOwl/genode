@@ -17,7 +17,7 @@
 #include <monkey/net/protocol.h>
 #include <monkey/genodeutils/config.h>
 
-#include <base/component.h>
+#include <libc/component.h>
 
 
 namespace monkey {
@@ -60,6 +60,8 @@ protected:
     
     } pageFaultSignalBridge;
 
+    bool initialized = false;
+
 
     struct {
         struct {
@@ -91,6 +93,9 @@ protected:
     // addr (4KB aligned) to Page struct.
     adl::HashMap<adl::uintptr_t, tycoon::Page> pages;
 
+    // only stores empty buffers.
+    adl::ArrayList<Genode::Ram_dataspace_capability> buffers;
+    
 
 protected:
 
@@ -117,18 +122,7 @@ protected:
     monkey::Status allocPage(adl::uintptr_t addr);
     monkey::Status freePage(adl::uintptr_t addr);
 
-public:
-
-
-    Tycoon(Genode::Env& env) 
-    : 
-    pageFaultSignalBridge(*this, env),
-    env(env)
-    {}
-
-    virtual ~Tycoon();
-    
-
+    void disconnectConcierge();
 
     /**
      * 
@@ -142,8 +136,28 @@ public:
      */
     monkey::Status loadConfig(const Genode::Xml_node&);
 
+    monkey::Status swapOut();
+    monkey::Status sync(tycoon::Page&);
+public:
 
-    void disconnectConcierge();
+
+    Tycoon(Genode::Env& env) 
+    : 
+    pageFaultSignalBridge(*this, env),
+    env(env)
+    {}
+
+    virtual ~Tycoon();
+    
+
+    struct InitParams {
+        // how many pages used for buffering.
+        adl::size_t nbuf;
+    };
+
+    monkey::Status init(const Genode::Xml_node&, const InitParams&);
+
+
 
     monkey::Status sync();
 
