@@ -195,12 +195,13 @@ Status MnemosyneMain::clockIn() {
     net::Protocol1Connection client;
     client.ip = config.concierge.ip;
     client.port = config.concierge.port;
-    Status status = client.connect();
-    if (status != Status::SUCCESS) {
+    
+    while (client.connect() != Status::SUCCESS) {
         Genode::error("Failed to connect with server.");
-        goto END;
+        Genode::error("> Retrying...");
     }
 
+    Status status;
 
     // Open protocol v1 connection.
 

@@ -19,7 +19,8 @@ enum class Status : adl::int32_t {
     NETWORK_ERROR,
     PROTOCOL_ERROR,
     INVALID_PARAMETERS,
-    NOT_FOUND
+    NOT_FOUND,
+    NOT_INITIALIZED
 };
 
 }
