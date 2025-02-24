@@ -36,7 +36,7 @@ build {
 
 install_config {
 
-<config>
+<config verbose="yes" prio_levels="4">
     <default-route>
         <any-service> <parent/> <any-child/> </any-service>
     </default-route>
@@ -55,13 +55,15 @@ install_config {
     <default caps="200"/>
 
 
-    <start name="timer">
+    <start name="timer" priority="0">
+        
         <resource name="RAM" quantum="2M"/>
         <provides> <service name="Timer"/> </provides>
     </start>
 
 
-    <start name="drivers" caps="1000" managing_system="yes">
+    <start name="drivers" caps="1200" managing_system="yes" priority="0">
+        
         <resource name="RAM" quantum="256M"/>
         <binary name="init"/>
         <route>
@@ -72,7 +74,8 @@ install_config {
         </route>
     </start>
 
-    <start name="nic_router" caps="200">
+    <start name="nic_router" caps="400" priority="0">
+        
         <resource name="RAM" quantum="128M"/>
         <provides>
             <service name="Nic"/>
@@ -114,7 +117,8 @@ install_config {
 
 
 
-    <start name="monkey_mnemosyne" caps="300">
+    <start name="monkey_mnemosyne" caps="2000" priority="-1">
+        
         <resource name="RAM" quantum="20M"/>
 
         <config>
