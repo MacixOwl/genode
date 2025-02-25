@@ -16,6 +16,9 @@
 
 #include <monkey/net/protocol.h>
 #include <monkey/genodeutils/config.h>
+#include <monkey/dock/Connection.h>
+
+#include <monkey/tycoon/Protocol1ConnectionDock.h>
 
 #include <libc/component.h>
 
@@ -84,8 +87,8 @@ protected:
 
 
     struct {
-        net::Protocol1Connection concierge;
-        adl::HashMap<adl::int64_t, net::Protocol1Connection*> mnemosynes;
+        tycoon::Protocol1ConnectionDock concierge;
+        adl::HashMap<adl::int64_t, tycoon::Protocol1ConnectionDock*> mnemosynes;
     } connections;
 
     adl::ArrayList<net::Protocol1Connection::MemoryNodeInfo> memoryNodesInfo;
@@ -96,6 +99,7 @@ protected:
     // only stores empty buffers.
     adl::ArrayList<Genode::Ram_dataspace_capability> buffers;
     
+    dock::Connection dock;
 
 protected:
 
@@ -144,8 +148,15 @@ public:
     Tycoon(Genode::Env& env) 
     : 
     pageFaultSignalBridge(*this, env),
-    env(env)
-    {}
+    env(env),
+    dock(env)
+    {
+        dock.makeBuffer(2);
+        dock.getBuffer();
+        dock.mapBuffer(0x170000000ul, 8192);  // todo: really this addr?
+
+        connections.concierge.dock = &dock;
+    }
 
     virtual ~Tycoon();
     

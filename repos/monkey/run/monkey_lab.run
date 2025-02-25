@@ -27,7 +27,7 @@ import_from_depot [depot_user]/src/[base_src] \
 
 
 build {
-    core init timer app/monkey_lab
+    core init timer monkey_dock app/monkey_lab
 }
 
 
@@ -82,7 +82,7 @@ install_config {
         <config verbose_domain_state="yes">
 
 
-            <policy label_prefix="monkey_lab" domain="downlink"/>
+            <policy label_prefix="monkey_dock" domain="downlink"/>
             <policy label_prefix="drivers" domain="uplink"/>
 
             <domain name="uplink">
@@ -114,8 +114,9 @@ install_config {
     </start>
 
 
-    <start name="monkey_lab" caps="300">
-        <resource name="RAM" quantum="256M"/>
+    <start name="monkey_dock" caps="1000">
+        <resource name="RAM" quantum="16M"/>
+        <provides> <service name="MonkeyDock"/> </provides>
 
         <config>
             <vfs>
@@ -124,7 +125,19 @@ install_config {
                 <dir name="pipe"> <pipe/> </dir>
             </vfs>
             <libc stdout="/dev/log" socket="/socket" pipe="/pipe"/>
-            
+        </config>
+
+        <route>
+            <service name="Nic"> <child name="nic_router"/> </service>
+            <any-service> <parent/> <any-child/> </any-service>
+        </route>
+    </start>
+
+
+    <start name="monkey_lab" caps="300">
+        <resource name="RAM" quantum="256M"/>
+
+        <config>
 
             <monkey-lab>
             
@@ -144,10 +157,6 @@ install_config {
 
         </config>
 
-        <route>
-            <service name="Nic"> <child name="nic_router"/> </service>
-            <any-service> <parent/> <any-child/> </any-service>
-        </route>
     </start>
 
 
@@ -161,7 +170,7 @@ install_config {
 #
 
 
-build_boot_image { core ld.lib.so init timer monkey_lab }
+build_boot_image { core ld.lib.so init timer monkey_dock monkey_lab }
 
 append qemu_args " -nographic "
 

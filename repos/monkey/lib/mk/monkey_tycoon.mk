@@ -9,6 +9,6 @@ vpath %.c $(REP_DIR)/src/lib/tycoon
 vpath %.cc $(REP_DIR)/src/lib/tycoon
 vpath %.cpp $(REP_DIR)/src/lib/tycoon
 
-SRC_CC += Tycoon.cc
+SRC_CC += Tycoon.cc Protocol1ConnectionDock.cc
 
 LIBS = base adl monkey_crypto monkey_net monkey_genode_utils libc vfs

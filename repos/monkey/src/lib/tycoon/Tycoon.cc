@@ -113,7 +113,8 @@ monkey::Status Tycoon::openConnection(bool concierge, adl::int64_t id, bool forc
     // ------ open new connection. ------
 
     Status status = Status::SUCCESS;
-    net::ProtocolConnection conn;
+    tycoon::Protocol1ConnectionDock conn;
+    conn.dock = &dock;
 
     // determine ip and port.
     if (concierge) {
@@ -148,27 +149,23 @@ monkey::Status Tycoon::openConnection(bool concierge, adl::int64_t id, bool forc
         return status;
     }
 
-    net::Protocol1Connection connV1;
-    connV1.ip = conn.ip;
-    connV1.port = conn.port;
-    connV1.socketFd = conn.socketFd;
 
     // auth
-    if ((status = connV1.auth(config.app.key)) != Status::SUCCESS) {
+    if ((status = conn.auth(config.app.key)) != Status::SUCCESS) {
         Genode::error("Failed on auth.");
-        connV1.close();
+        conn.close();
         return status;
     }
 
     // save this connection
-    net::Protocol1Connection* pConn = nullptr;
+    tycoon::Protocol1ConnectionDock* pConn = nullptr;
     if (concierge) {
         pConn = &connections.concierge;
     }
     else {
-        auto newConn = adl::defaultAllocator.alloc<net::Protocol1Connection>();
+        auto newConn = adl::defaultAllocator.alloc<tycoon::Protocol1ConnectionDock>();
         if (!newConn) {
-            connV1.close();
+            conn.close();
             return Status::OUT_OF_RESOURCE;
         }
 
@@ -176,9 +173,11 @@ monkey::Status Tycoon::openConnection(bool concierge, adl::int64_t id, bool forc
         pConn = newConn;
     }
 
-    pConn->ip = connV1.ip;
-    pConn->port = connV1.port;
-    pConn->socketFd = connV1.socketFd;
+    pConn->ip = conn.ip;
+    pConn->port = conn.port;
+    pConn->socketFd = conn.socketFd;
+    pConn->dock = &dock;
+
     return Status::SUCCESS;
 }
 
@@ -213,15 +212,32 @@ void Tycoon::handlePageFaultSignal() {
 
 
     auto pageAddr = state.addr & ~0xffful;
-    if (!pages.hasKey(pageAddr)) {
+    bool isNewPage = false;
+    if (pages.hasKey(pageAddr)) {
+        auto& page = pages[pageAddr];
+        if (page.present && page.mapped) {
+            env.rm().detach(page.addr);
+            env.rm().attach_at(page.buf, page.addr);
+            page.writable = true;
+            page.dirty = true;
+            return;
+        }
+        else if (page.present) {
+            env.rm().attach_at(page.buf, page.addr);
+            page.writable = page.dirty = page.mapped = true;
+            return;
+        }
+    }
+    else {
         Status status = allocPage(pageAddr);
+        isNewPage = true;
         if (status != Status::SUCCESS) {
             Genode::error("Tycoon handlePageFaultSignal: Failed to alloc page.");
             return;
         }
     }
 
-    Genode::error("C2");
+
     if (buffers.isEmpty()) {
         Status status = swapOut();
         if (status != Status::SUCCESS) {
@@ -238,6 +254,40 @@ void Tycoon::handlePageFaultSignal() {
     page.dirty = true;
     page.writable = true;
     page.buf = buffers.pop();
+
+    if (isNewPage) {
+        env.rm().attach_at(page.buf, page.addr);
+        return;
+    }
+    
+
+    // fetch old page stored on remote.
+
+    Status status = openConnection(false, page.mnemosyneId);
+    
+    if (status != Status::SUCCESS) {
+        Genode::error("Failed to open connection to mnemosyne ", page.mnemosyneId);
+        return;
+    }
+
+    adl::uintptr_t tmpAddr = 0x90000000ul;  // todo: really this address?
+
+    env.rm().attach_at(page.buf, tmpAddr);
+    status = connections.mnemosynes[page.mnemosyneId]->readBlock(
+        page.blockId,
+        (void*) tmpAddr,
+        4096
+    );
+
+    env.rm().detach(tmpAddr);
+
+    if (status != Status::SUCCESS) {
+        page.mapped = false;
+        page.dirty = false;
+        Genode::error("Something went wrong. 5c9c81ec-0c49-40df-8f34-332a5b5f43a7");
+        return;
+    }
+
     env.rm().attach_at(page.buf, page.addr);
 }
 
@@ -277,7 +327,7 @@ monkey::Status Tycoon::allocPage(adl::uintptr_t addr) {
     }
 
     if (status != Status::SUCCESS) {
-        return Status::SUCCESS;
+        return status;
     }
 
     auto& page = pages[pageAddr];
