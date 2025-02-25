@@ -38,8 +38,14 @@ struct Socket4 : public monkey::net::PromisedSocketIo {
     adl::uint16_t port = 0;
 
 
-    // For client mode.
-    monkey::Status connect();
+    /**
+     * For client mode.
+     *
+     * This should do 2 things:
+     *   1. Create socket
+     *   2. Connect to server
+     */
+    virtual monkey::Status connect();
 
 
     // For server mode.
