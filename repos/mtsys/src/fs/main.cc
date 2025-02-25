@@ -9,6 +9,7 @@
 #include <pivot/pivot_session.h>
 #include <fs/fs_session.h>
 #include <memory/memory_connection.h>
+#include <memory/local_allocator.h>
 #include <kv/kv_connection.h>
 #include <fs/filesys_ram.h>
 
@@ -39,6 +40,8 @@ struct MtsysFs::Component_state
 {
     Genode::Env &env;
     Genode::Sliced_heap sliced_heap { env.ram(), env.rm() };
+    MtsysMemory::Connection mem_obj { env };
+    MtsysMemory::Local_allocator alloc_obj { env, mem_obj };
     MfsHandle* fd_array[MAX_FDNUM];
     int fd_tail = 0;
     int fd_head = 0;
@@ -50,7 +53,7 @@ struct MtsysFs::Component_state
     Component_state(Genode::Env &env)
     : env(env),
     fd_array(),
-    ramfs(env, sliced_heap)
+    ramfs(env, alloc_obj)
     {
         Genode::log("File system server state initializing");
         for (int i = 0; i < MAX_FDNUM; i++) {

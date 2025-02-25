@@ -8,9 +8,7 @@
 
 #include <pivot/pivot_session.h>
 
-
-#define MTSYS_KV_UNCYNC 1
-#define MTSYS_KV_WAITUS 25
+#include <mtsys_options.h>
 
 
 namespace MtsysKv { 
@@ -141,7 +139,7 @@ struct MtsysKv::Connection : Genode::Connection<Session>, Session_client
 
 public:
 
-#ifdef MTSYS_KV_UNCYNC
+#ifdef MTSYS_OPTION_KVUNCYNC
 	Work_Thread worker;
 
 	Connection(Genode::Env &env)
@@ -164,7 +162,7 @@ public:
 	{ }
 #endif
 
-#ifdef MTSYS_KV_UNCYNC
+#ifdef MTSYS_OPTION_KVUNCYNC
 
 	int queued_insert(KvRpcString key, KvRpcString value)
 	{	

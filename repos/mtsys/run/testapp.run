@@ -68,7 +68,7 @@ install_config {
 
 	<start name="testapp2">
 		<affinity xpos="0" width="8"/>
-        <resource name="RAM" quantum="16M"/>
+        <resource name="RAM" quantum="160M"/>
 	</start>
 	
 </config>}

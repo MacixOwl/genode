@@ -6,6 +6,7 @@
 
 #include <session/session.h>
 #include <base/rpc.h>
+#include <mtsys_options.h>
 
 namespace MtsysPivot { 
 	struct Service_Main_Id;
@@ -33,8 +34,6 @@ enum SERVICE_CPUMAP {
 };
 
 const int SERVICE_CPUWIDTH = 2;
-
-const int SERVICE_IPC_QUEUE_SIZE = 128;
 
 
 struct MtsysPivot::Service_Main_Id

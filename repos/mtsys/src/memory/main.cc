@@ -159,6 +159,7 @@ struct MtsysMemory::Session_component : Genode::Rpc_object<Session>
 		int level = DS_SIZE2LEVEL(size);
 		// Genode::log("Allocating dataspace size: ", size, " level: ", level);
 		if (level < 0 || level >= DS_SIZE_LEVELS) {
+			Genode::log("memory server: about to use single dataspace for size: ", size);
 			// use single dataspace
 			int target_id = -1;
 			int found = 0;

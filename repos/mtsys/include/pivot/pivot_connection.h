@@ -162,7 +162,7 @@ struct MtsysPivot::ServiceHub {
 
 
 	int Kv_insert(const MtsysKv::KvRpcString key, const MtsysKv::KvRpcString value) {
-#ifdef MTSYS_KV_UNCYNC
+#ifdef MTSYS_OPTION_KVUNCYNC
 			return kv_obj.queued_insert(key, value);
 #else
 			return kv_obj.insert(key, value);
@@ -170,7 +170,7 @@ struct MtsysPivot::ServiceHub {
 	}
 
 	int Kv_del(const MtsysKv::KvRpcString key) {
-#ifdef MTSYS_KV_UNCYNC
+#ifdef MTSYS_OPTION_KVUNCYNC
 			return kv_obj.queued_del(key);
 #else
 			return kv_obj.del(key);
@@ -178,7 +178,7 @@ struct MtsysPivot::ServiceHub {
 	}
 
 	const MtsysKv::KvRpcString Kv_read(const MtsysKv::KvRpcString key) {
-#ifdef MTSYS_KV_UNCYNC
+#ifdef MTSYS_OPTION_KVUNCYNC
 			return kv_obj.queued_read(key);
 #else
 			return kv_obj.read(key);
@@ -186,7 +186,7 @@ struct MtsysPivot::ServiceHub {
 	}
 
 	int Kv_update(const MtsysKv::KvRpcString key, const MtsysKv::KvRpcString value) {
-#ifdef MTSYS_KV_UNCYNC
+#ifdef MTSYS_OPTION_KVUNCYNC
 			return kv_obj.queued_update(key, value);
 #else
 		 	return kv_obj.update(key, value);
@@ -208,7 +208,7 @@ struct MtsysPivot::ServiceHub {
 			env.rm().attach_at(ds, Kvrpc_Addr);
 			kvrpc_dataspace_prepared = 1;
 		}
-#ifdef MTSYS_KV_UNCYNC
+#ifdef MTSYS_OPTION_KVUNCYNC
 		kv_obj.wait_queue_empty();
 #endif
 		kv_obj.range_scan(leftBound, rightBound);

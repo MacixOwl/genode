@@ -18,6 +18,7 @@
 #include <base/heap.h>
 
 #include <memory/memory_connection.h>
+#include <mtsys_options.h>
 
 
 namespace MtsysMemory {  
@@ -26,7 +27,6 @@ namespace MtsysMemory {
 }
 
 
-#define MTSYS_MEMORY_ONLYLOCAL 0
 const unsigned long REMOTE_MEMADDR = 0x1000000000;
 
 const int DS_MIN_SIZE = 4096 << 2;
@@ -352,7 +352,7 @@ namespace MtsysMemory {
         int ds_size = best_fit_ds(size);
         if (ds_size == 0) return 0;
         MtsysMemory::LocalMemobj *capaddr = new(sliced_heap) MtsysMemory::LocalMemobj();
-        if (MTSYS_MEMORY_ONLYLOCAL){
+        if (!MTSYS_OPTION_LCMEMORY){
             // use local dataspace
             Genode::Attached_ram_dataspace* ds;
             if (ds_size > 0){
@@ -396,7 +396,7 @@ namespace MtsysMemory {
 
     int Local_allocator::free_atds(void* addr) {
         Genode::log("freeing dataspace at addr: ", addr);
-        if (MTSYS_MEMORY_ONLYLOCAL){            
+        if (!MTSYS_OPTION_LCMEMORY){            
             // now free the local dataspace
             env.rm().detach(addr);
             // find the cap in the hash table
@@ -430,8 +430,31 @@ namespace MtsysMemory {
 
     Alloc_result Local_allocator::try_alloc(Genode::size_t size)
     {   
-        // Genode::log("allocating size: ", size);
+        if (size == 0) return Alloc_error(Alloc_error::DENIED);
+
         int slab_size = best_fit_slab(size);
+        
+        if (MTSYS_OPTION_LCMEMORY == 2){
+            // only use remote memory
+            MtsysMemory::LocalMemobj *capaddr = new(sliced_heap) MtsysMemory::LocalMemobj();
+            Genode::log("allocating remote dataspace size: ", slab_size);
+            Genode::Ram_dataspace_capability cap;
+            if (slab_size > 0)
+                cap = mem_obj.Memory_alloc(slab_size, capaddr->addr);
+            else
+                cap = mem_obj.Memory_alloc(size, capaddr->addr);
+            capaddr->cap = &cap;
+            capaddr->size = slab_size;
+            Genode::log("attaching remote dataspace at addr: ", (void*)(capaddr->addr + REMOTE_MEMADDR));
+            if (slab_size > 0)
+                env.rm().attach_at(*(capaddr->cap), capaddr->addr + REMOTE_MEMADDR, slab_size);
+            else
+                env.rm().attach_at(*(capaddr->cap), capaddr->addr + REMOTE_MEMADDR, size);
+            return (void *)(capaddr->addr + REMOTE_MEMADDR);
+        }
+
+        // Genode::log("allocating size: ", size);
+        
         int slab_level = SLAB_SIZE2LEVEL(slab_size);
         // Genode::log("slab size: ", slab_size, " slab level: ", slab_level);
         if (slab_size < 0 || slab_level < 0 || slab_level >= SLAB_SIZE_LEVELS) {
@@ -532,6 +555,13 @@ namespace MtsysMemory {
     void Local_allocator::free(void *addr, Genode::size_t)
     {
         if (addr == 0) return;
+
+        if (MTSYS_OPTION_LCMEMORY == 2){
+            // only use remote memory
+            mem_obj.Memory_free((Genode::addr_t)addr - REMOTE_MEMADDR);
+            return;
+        }
+
         // find in the pin hash
         unsigned long addr_base = (unsigned long)addr;
         int b = hash_bucket(addr_base, HASH_SIZE);

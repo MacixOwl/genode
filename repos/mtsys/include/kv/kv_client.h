@@ -9,6 +9,7 @@
 #include <cpu/atomic.h>
 
 #include <adl/collections/RedBlackTree.hpp>
+#include <mtsys_options.h>
 
 namespace MtsysKv { 
 	struct Session_client;
@@ -16,18 +17,18 @@ namespace MtsysKv {
 
 
 
+#ifdef MTSYS_OPTION_CACHE
 #define MTSYS_KV_CLIENT_ENSURE_DATA_VERSION() \
 	do { \
 		if (!pRemoteDataVersion) {\
 			this->get_data_version_addr(); \
 		} \
-		Genode::log("remote version: ", *pRemoteDataVersion, ". local version: ", localDataVersion); \
 		if (*pRemoteDataVersion != localDataVersion) { \
 			localDataVersion = *pRemoteDataVersion; \
-			Genode::log("Data updated. Local cache cleared."); \
 			cacheDB.clear(); \
 		} \
 	} while (0)
+#endif
 
 
 struct MtsysKv::Session_client : Genode::Rpc_client<Session>
@@ -40,9 +41,10 @@ protected:
 	Genode::uint64_t localDataVersion = 0;
 	Genode::uint64_t* pRemoteDataVersion = nullptr;
 
+#ifdef MTSYS_OPTION_CACHE
 	adl::RedBlackTree<KvRpcString, KvRpcString> cacheDB;
-
 	static const Genode::addr_t remoteDataVersionLocalAddr = 0xa2000000; // TODO: really this address?
+#endif
 
 public:
 
@@ -69,9 +71,11 @@ public:
 	}
 
 	~Session_client() {
+#ifdef MTSYS_OPTION_CACHE
 		if (pRemoteDataVersion) {
 			env.rm().detach(remoteDataVersionLocalAddr);
 		}
+#endif
 	}
 
 	int Kv_hello() override
@@ -111,17 +115,21 @@ public:
 
 
 	virtual const KvRpcString read(const KvRpcString key) override {
+#ifdef MTSYS_OPTION_CACHE
 		MTSYS_KV_CLIENT_ENSURE_DATA_VERSION();
 
 		if (cacheDB.hasKey(key)) {
-			Genode::log("Data found in cache.");
+			// Genode::log("Data found in cache.");
 			return cacheDB.getData(key);
 		}
+#endif
 		
-		Genode::log("Firing RPC read request.");
+		// Genode::log("Firing RPC read request.");
 		
 		auto result = call<Rpc_read>(key);
+#ifdef MTSYS_OPTION_CACHE
 		cacheDB.setData(key, result);
+#endif
 		return result;
 	}
 
@@ -137,10 +145,12 @@ public:
 	virtual Genode::Ram_dataspace_capability get_data_version_addr() override {
 		auto cap = call<Rpc_get_data_version_addr>();
 
+#ifdef MTSYS_OPTION_CACHE
 		if (!pRemoteDataVersion) {
 			env.rm().attach_at(cap, remoteDataVersionLocalAddr);
 			pRemoteDataVersion = (Genode::uint64_t*) remoteDataVersionLocalAddr;
 		}
+#endif
 
 		return cap;
 	}

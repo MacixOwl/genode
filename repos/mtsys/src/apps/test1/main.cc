@@ -53,10 +53,11 @@ static int runKvBench(MtsysPivot::ServiceHub& hub, int n) {
 	Genode::log("\n\n =================== \n\n");
 	auto start = hub.Time_now_us().value;
 
+	hub.Kv_insert("qqz", "zzl");
 	for (int i = 0; i < n; i++) {
-		hub.Kv_insert("qqz", "zzl");
-		hub.Kv_del("qqz");
+		hub.Kv_read("qqz");
 	}
+	hub.Kv_del("qqz");
 	hub.Kv_insert("qqz", "zzl");
 	auto r = hub.Kv_read("qqz");
 	Genode::log("read result: ", r);

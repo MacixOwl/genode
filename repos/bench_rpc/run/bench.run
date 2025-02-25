@@ -36,13 +36,13 @@ install_config {
 		<resource name="RAM" quantum="256M"/>
 		<provides> <service name="RPCplus"/> </provides>
 	</start>
-<!-- 
+
 	<start name="rpc_client0">
 		<affinity xpos="0" ypos="0" width="1" height="1" />
 		<resource name="RAM" quantum="32M"/>
 	</start>
 
-	<start name="rpc_client1">
+	<!-- <start name="rpc_client1">
 		<affinity xpos="2" ypos="0" width="1" height="1" />
 		<resource name="RAM" quantum="32M"/>
 	</start>
@@ -63,4 +63,4 @@ build_boot_image [build_artifacts]
 
 append qemu_args " -nographic "
 
-run_genode_until "hello test completed.*\n" 20
+run_genode_until "hello test completed.*\n" 60
