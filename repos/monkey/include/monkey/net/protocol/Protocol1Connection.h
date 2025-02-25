@@ -223,7 +223,7 @@ public:
     Status sendTryAlloc(adl::size_t blockSize, adl::size_t nBlocks);
     Status decodeTryAlloc(protocol::Msg* msg, adl::size_t* blockSize, adl::size_t* nBlocks);
     Status replyTryAlloc(adl::ArrayList<adl::int64_t> blockIds);
-    Status tryAlloc(adl::size_t blockSize, adl::size_t nBlocks, adl::ArrayList<adl::int64_t> idOut);
+    Status tryAlloc(adl::size_t blockSize, adl::size_t nBlocks, adl::ArrayList<adl::int64_t>& idOut);
 
     // ------ 0x3002 : Read Block ------
 

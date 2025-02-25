@@ -76,10 +76,6 @@ void Protocol1Connection::LastError::set(
     this->api = api;
 
     adl::ByteArray b;
-    if (!b.resize(msgLen)) {
-        return;
-    }
-
     b.append(msg, msgLen);
     this->msg = b.toString();
 }
@@ -602,7 +598,7 @@ Status Protocol1Connection::replyTryAlloc(adl::ArrayList<adl::int64_t> blockIds)
 Status Protocol1Connection::tryAlloc(
     adl::size_t blockSize, 
     adl::size_t nBlocks, 
-    adl::ArrayList<adl::int64_t> idOut
+    adl::ArrayList<adl::int64_t>& idOut
 ) {
     Status status = sendTryAlloc(blockSize, nBlocks);
     if (status != Status::SUCCESS)
@@ -690,12 +686,12 @@ Status Protocol1Connection::sendWriteBlock(adl::int64_t blockId, const void* dat
     *((adl::int64_t*) msg.data()) = adl::htonq(blockId);
     adl::memcpy(msg.data() + 8, data, size);
 
-    return sendResponse(0, msg);
+    return sendMsg(MsgType::WriteBlock, msg);
 }
 
 
 Status Protocol1Connection::decodeWriteBlock(protocol::Msg* msg, adl::int64_t* id, adl::ByteArray& data) {
-    auto len = adl::ntohq(msg->header.length);
+    auto len = msg->header.length;
     if (len < 8) {  // Block ID
         return Status::PROTOCOL_ERROR;
     }
