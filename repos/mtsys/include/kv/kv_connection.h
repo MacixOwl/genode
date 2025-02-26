@@ -285,7 +285,9 @@ public:
 		int ret;
 		while (true){
 			if (worker.queue_tail - worker.queue_head < SERVICE_IPC_QUEUE_SIZE - 1) {
+#ifndef MTSYS_OPTION_CACHE
 				wait_queue_empty();
+#endif
 				res = 0;
 				while (!res){
 					tail = worker.queue_tail;
@@ -300,7 +302,9 @@ public:
 					tail = worker.queue_tail + 1;
 					res = Genode::cmpxchg(&worker.queue_tail, tail - 1, tail);
 				}
+#ifndef MTSYS_OPTION_CACHE
 				wait_queue_empty();
+#endif
 
 				// Genode::log("returning read result at: ", ret % SERVICE_IPC_QUEUE_SIZE, 
 				// 			" -> ", worker.call_arg2_queue[ret % SERVICE_IPC_QUEUE_SIZE]);
@@ -311,6 +315,10 @@ public:
 
 	int queued_update(KvRpcString key, KvRpcString value)
 	{
+#ifdef MTSYS_OPTION_CACHE
+		// update cacheDB first
+		cacheDB.setData(key, value);
+#endif
 		int head;
 		int tail;
 		int res;
