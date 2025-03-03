@@ -13,6 +13,10 @@
 namespace adl {
 
 
+inline int32_t htonl(int32_t x) {
+    return htobe32(x);
+}
+
 inline uint32_t htonl(uint32_t x) {
     return htobe32(x);
 }
@@ -23,10 +27,19 @@ inline uint16_t htons(uint16_t x) {
 }
 
 
+inline int64_t htonq(int64_t x) {
+    return htobe64(x);
+}
+
+
 inline uint64_t htonq(uint64_t x) {
     return htobe64(x);
 }
 
+
+inline int32_t ntohl(int32_t x) {
+    return htonl(x);
+}
 
 inline uint32_t ntohl(uint32_t x) {
     return htonl(x);
@@ -34,6 +47,10 @@ inline uint32_t ntohl(uint32_t x) {
 
 inline uint16_t ntohs(uint16_t x) {
     return htons(x);
+}
+
+inline int64_t ntohq(int64_t x) {
+    return htonq(x);
 }
 
 inline uint64_t ntohq(uint64_t x) {

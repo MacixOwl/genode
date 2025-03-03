@@ -8,6 +8,9 @@
 namespace adl {
 
 
+template<typename T> class ArrayList;
+
+
 class TString {
 protected:
     char* content;
@@ -33,6 +36,7 @@ public:
 
 
     void freeUp();
+    void clear();
 
     size_t length() const;
     const char* c_str() const;
@@ -80,6 +84,8 @@ public:
     char& at(const int n);
     const char& at(const int n) const;
 
+    void split(const adl::TString&, adl::ArrayList<adl::TString>& out) const;
+
     char& operator[] (size_t i);
     const char& operator[] (size_t i) const;
 
@@ -94,6 +100,12 @@ public:
     friend bool operator < (const char* strA, const TString& strB);
     friend bool operator >= (const char* strA, const TString& strB);
     friend bool operator <= (const char* strA, const TString& strB);
+
+    int64_t toInt64() const;
+
+    static TString to_string(const adl::uint32_t);
+    static TString to_string(const adl::uint64_t);
+    static TString to_string(const unsigned long);
 };
 
 

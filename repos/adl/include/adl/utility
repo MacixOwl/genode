@@ -25,4 +25,19 @@ inline pair<U, V> make_pair(const U& first, const V& second) {
 }
 
 
+template<class U, class V>
+struct ref_pair {
+    U& first;
+    V& second;
+    ref_pair(U& first, V& second) : first(first), second(second) {}
+};
+
+
+template<class U, class V>
+inline ref_pair<U, V> make_ref_pair(U& first, V& second) {
+    return ref_pair {first, second};
+}
+
+
+
 }  // namespace adl

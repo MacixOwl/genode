@@ -16,196 +16,303 @@
 #include "../config.h"
 #include "../sys/types.h"
 #include <base/semaphore.h>
+#include <adl/utility>
 
 namespace adl {
 
+
+template<typename K, typename V>
+class RedBlackTreeIterator;
+
+
 template <typename KeyType, typename DataType>
 class RedBlackTree {
+    friend RedBlackTreeIterator<KeyType, DataType>;
 
 public:
-	/** Object's life-management methods */
-	RedBlackTree(adl::Allocator* = &adl::defaultAllocator);
-	~RedBlackTree();
+    /** Object's life-management methods */
+    RedBlackTree(adl::Allocator* = &adl::defaultAllocator);
+    ~RedBlackTree();
 
-	/**
-	 * Clear all elements in tree.
-	 */
-	void clear();
-
-public:
-	/** Basic query methods */
-
-	/**
-	 * Determine whether a key is in the tree.
-	 * 
-	 * @param queryKey
-	 */
-	bool hasKey(const KeyType&);
-
-	/**
-	 * Get data (ref) by key.
-	 * 
-	 * @param key 
-	 */
-	DataType& getData(const KeyType&);
-
-	/**
-	 * Get data (clone) by key.
-	 */
-	DataType copyData(const KeyType&, const DataType* fallback = nullptr);
-
-	/**
-	 * Set data. If data with same key already exists, it would be overwritten.
-	 * 
-	 * @param key 
-	 * @param data 
-	 */
-	RedBlackTree<KeyType, DataType>& setData(const KeyType&, const DataType&);
-
-	/**
-	 * Delete key.
-	 * 
-	 * @param key
-	 */
-	RedBlackTree<KeyType, DataType>& removeKey(const KeyType&);
-
-	/**
-	 * Range scan. This method will search for keys inside [lhs, rhs],
-	 * and calls collector with data for each node discovered.
-	 * 
-	 * @param lhs inclusive
-	 * @param rhs inclusive
-	 * @param data to be passed to collector
-	 * @param collector 
-	 * @return How many elements collected.
-	 */
-	adl::size_t rangeScan(
-		const KeyType& lhs, 
-		const KeyType& rhs, 
-		void* data,
-		bool (*collector) (void* data, const KeyType&, const DataType&)
-	);
-
+    /**
+     * Clear all elements in tree.
+     */
+    void clear();
 
 public:
-	struct RuntimeError : Genode::Exception {};
+    /** Basic query methods */
+
+    /**
+     * Determine whether a key is in the tree.
+     * 
+     * @param queryKey
+     */
+    bool hasKey(const KeyType&);
+
+    /**
+     * Get data (ref) by key.
+     * 
+     * @param key 
+     */
+    DataType& getData(const KeyType&);
+
+    DataType& operator [] (const KeyType&);
+
+    /**
+     * Get data (clone) by key.
+     */
+    DataType copyData(const KeyType&, const DataType* fallback = nullptr);
+
+    /**
+     * Set data. If data with same key already exists, it would be overwritten.
+     * 
+     * @param key 
+     * @param data 
+     */
+    RedBlackTree<KeyType, DataType>& setData(const KeyType&, const DataType&);
+
+    /**
+     * Delete key.
+     * 
+     * @param key
+     */
+    RedBlackTree<KeyType, DataType>& removeKey(const KeyType&, bool noExcept = true);
+
+    adl::size_t size();
+
+    /**
+     * Range scan. This method will search for keys inside [lhs, rhs],
+     * and calls collector with data for each node discovered.
+     * 
+     * @param lhs inclusive
+     * @param rhs inclusive
+     * @param data to be passed to collector
+     * @param collector 
+     * @return How many elements collected.
+     */
+    adl::size_t rangeScan(
+        const KeyType& lhs, 
+        const KeyType& rhs, 
+        void* data,
+        bool (*collector) (void* data, const KeyType&, const DataType&)
+    );
+
+    
+    /* ------ iteration ------ */
+
+    RedBlackTreeIterator<KeyType, DataType> begin() const {
+        return RedBlackTreeIterator<KeyType, DataType>(this->root);
+    }
+
+
+    RedBlackTreeIterator<KeyType, DataType> end() const {
+        return RedBlackTreeIterator<KeyType, DataType>(nullptr);
+    }
+
+
+public:
+    struct RuntimeError : Genode::Exception {};
 
 
 protected:
-	enum class NodeColor {
-		RED, BLACK
-	};
-	enum class ChildSide {
-		LEFT, RIGHT
-	};
-	struct Node {
-		KeyType key;
-		DataType data;
-		NodeColor color = NodeColor::RED;
-		Node* father = nullptr;
-		Node* leftChild = nullptr;
-		Node* rightChild = nullptr;
-	};
+    enum class NodeColor {
+        RED, BLACK
+    };
+    enum class ChildSide {
+        LEFT, RIGHT
+    };
+    struct Node {
+        KeyType key;
+        DataType data;
+        NodeColor color = NodeColor::RED;
+        Node* parent = nullptr;
+        Node* leftChild = nullptr;
+        Node* rightChild = nullptr;
+    };
 
 protected:
-	/**
-	 * Release one node with all of its children, recursively.
-	 * 
-	 * @param node first node to be released recursively
-	 */
-	void cleanup(Node* node);
+    /**
+     * Release one node with all of its children, recursively.
+     * 
+     * @param node first node to be released recursively
+     */
+    void cleanup(Node* node);
 
 
-	Node* locateNode(const KeyType&);
+    Node* locateNode(const KeyType&);
 
 
-	/**
-	 * Non-locked version of range scan. Designed to be called by public rangeScan method.
-	 */
-	adl::size_t doRangeScan(
-		const Node* node,
-		const KeyType& lhs, 
-		const KeyType& rhs, 
-		void* data,
-		bool (*collector) (void* data, const KeyType&, const DataType&)
-	);
+    /**
+     * Non-locked version of range scan. Designed to be called by public rangeScan method.
+     */
+    adl::size_t doRangeScan(
+        const Node* node,
+        const KeyType& lhs, 
+        const KeyType& rhs, 
+        void* data,
+        bool (*collector) (void* data, const KeyType&, const DataType&)
+    );
 
 
-	/**
-	 * Rotate left.
-	 * 
-	 * @param node 
-	 * @exception If `node` dosen't have right subtree, undefined behaviour occurs.
-	 */
-	void rotateLeft(Node* node);
+    /**
+     * Rotate left.
+     * 
+     * @param node 
+     * @exception If `node` dosen't have right subtree, undefined behaviour occurs.
+     */
+    void rotateLeft(Node* node);
 
-	/**
-	 * Rotate right
-	 * 
-	 * @param node 
-	 * @exception If `node` dosen't have left subtree, undefined behaviour occurs
-	 */
-	void rotateRight(Node* node);
+    /**
+     * Rotate right
+     * 
+     * @param node 
+     * @exception If `node` dosen't have left subtree, undefined behaviour occurs
+     */
+    void rotateRight(Node* node);
 
-	/**
-	 * 
-	 * 
-	 * @param node Child node of the two connected red nodes.
-	 * @exception If node is nullptr, UB would occur.
-	 */
-	void rebalanceRedNode(Node* node);
+    /**
+     * 
+     * 
+     * @param node Child node of the two connected red nodes.
+     * @exception If node is nullptr, UB would occur.
+     */
+    void rebalanceRedNode(Node* node);
 
-	/**
-	 * 
-	 * 
-	 * @param node Lighter node.
-	 * @exception UB if node is not the lighter one.
-	 */
-	void rebalanceChildren(Node* node);
+    /**
+     * 
+     * 
+     * @param node Lighter node.
+     * @exception UB if node is not the lighter one.
+     */
+    void rebalanceChildren(Node* node);
 
 
-	enum class LockType {
-		READ, WRITE
-	};
+    enum class LockType {
+        READ, WRITE
+    };
 
-	void lock(LockType);
-	void unlock(LockType);
+    void lock(LockType);
+    void unlock(LockType);
+    
 
 protected:
-	/**
-	 * Root node.
-	 */
-	Node* root = nullptr;
+    /**
+     * Root node.
+     */
+    Node* root = nullptr;
 
-	adl::Allocator* allocator = nullptr;
-
-
-	/**
-	 * Locking for multi-thread access.
-	 */
-	struct {
-		Genode::Mutex mutex;
-
-		int readerCount = 0;
-
-		Genode::Semaphore access {1};
-		Genode::Semaphore write {1};  
-	} locking;
+    adl::Allocator* allocator = nullptr;
 
 
-	struct ReadGuard {
-		RedBlackTree<KeyType, DataType>* tree;
-		ReadGuard(RedBlackTree<KeyType, DataType>* t) : tree(t) { tree->lock(LockType::READ); }
-		~ReadGuard() { tree->unlock(LockType::READ); }
-	};
+    /**
+     * Locking for multi-thread access.
+     */
+    struct {
+        Genode::Mutex mutex;
+
+        int readerCount = 0;
+
+        Genode::Semaphore access {1};
+        Genode::Semaphore write {1};  
+    } locking;
 
 
-	struct WriteGuard {
-		RedBlackTree<KeyType, DataType>* tree;
-		WriteGuard(RedBlackTree<KeyType, DataType>* t) : tree(t) { tree->lock(LockType::WRITE); }
-		~WriteGuard() { tree->unlock(LockType::WRITE); }
-	};
-	
+    struct ReadGuard {
+        RedBlackTree<KeyType, DataType>* tree;
+        ReadGuard(RedBlackTree<KeyType, DataType>* t) : tree(t) { tree->lock(LockType::READ); }
+        ~ReadGuard() { tree->unlock(LockType::READ); }
+    };
+
+
+    struct WriteGuard {
+        RedBlackTree<KeyType, DataType>* tree;
+        WriteGuard(RedBlackTree<KeyType, DataType>* t) : tree(t) { tree->lock(LockType::WRITE); }
+        ~WriteGuard() { tree->unlock(LockType::WRITE); }
+    };
+    
+
+};
+
+
+/* ---------------- Iterator ---------------- */
+
+
+template<typename K, typename V>
+class RedBlackTreeIterator {
+    typedef RedBlackTreeIterator Self;
+
+protected:
+    RedBlackTree<K, V>::Node* root;  // Set to nullptr to disable this iterator.
+    RedBlackTree<K, V>::Node* curr;
+
+protected:
+    void doOperatorPlusPlus() {
+        if (root == nullptr)
+            return;
+
+        if (curr->rightChild) {
+            curr = curr->rightChild;
+            while (curr->leftChild)
+                curr = curr->leftChild;
+            return;
+        }
+
+
+
+        while (true) {
+
+            if (curr->parent == nullptr) {
+                root = nullptr;
+                return;
+            }
+
+            if (curr->parent->rightChild == curr) {
+                curr = curr->parent;
+                continue;
+            }
+
+            curr = curr->parent;
+            return;
+        
+        }
+
+
+    }  // void doOperatorPlusPlus()
+
+public:
+    RedBlackTreeIterator(RedBlackTree<K, V>::Node* root) {
+        this->root = this->curr = root;
+
+        if (this->root == nullptr)
+            return;
+
+        while (this->curr->leftChild)
+            this->curr = this->curr->leftChild;
+    }
+
+    adl::ref_pair<K, V> operator * () const { 
+        return make_ref_pair(curr->key, curr->data); 
+    }
+
+    Self& operator ++ () {
+        doOperatorPlusPlus();
+        return *this;
+    }
+
+    Self operator ++ (int) {
+        auto tmp = *this;
+        doOperatorPlusPlus();
+        return tmp;
+    }
+
+    friend bool operator == (const Self& a, const Self& b) {
+        return (!a.root && !b.root) || (a.root == b.root && a.curr == b.curr);
+    }
+
+    friend bool operator != (const Self& a, const Self& b) {
+        return !(a == b);
+    }
+
 
 };
 
@@ -266,6 +373,32 @@ DataType& RedBlackTree<KeyType, DataType>::getData(const KeyType& key)
 }
 
 
+
+template<typename KeyType, typename DataType>
+DataType& RedBlackTree<KeyType, DataType>::operator [] (const KeyType& key)
+{
+  
+    {
+        ReadGuard _g {this};
+        auto node = locateNode(key);
+
+        if (node) {
+            return node->data;  // Warning: Race condition here.
+        }
+    }
+
+
+    this->setData(key, DataType {});
+
+    ReadGuard _g {this};
+    return locateNode(key)->data;
+
+}
+
+
+
+
+
 template<typename KeyType, typename DataType>
 DataType RedBlackTree<KeyType, DataType>::copyData(const KeyType& key, const DataType* fallback) {
     ReadGuard _g {this};
@@ -295,7 +428,7 @@ RedBlackTree<KeyType, DataType>& RedBlackTree<KeyType, DataType>::setData(
 
 
     Node* currentNode = root;
-    Node* currentFather = nullptr;
+    Node* currentParent = nullptr;
 
     while (currentNode != nullptr) {
         if (key == currentNode->key) { // key found
@@ -303,7 +436,7 @@ RedBlackTree<KeyType, DataType>& RedBlackTree<KeyType, DataType>::setData(
             return *this; // data updated. exit.
         }
         else {
-            currentFather = currentNode;
+            currentParent = currentNode;
             currentNode = (currentNode->key > key ? currentNode->leftChild : currentNode->rightChild);
         }
     }
@@ -312,20 +445,20 @@ RedBlackTree<KeyType, DataType>& RedBlackTree<KeyType, DataType>::setData(
     // now, we should create new node for data.
 
     /*
-        now, currentNode points to nullptr, currentFather points to the last visited node, probably nullptr.
+        now, currentNode points to nullptr, currentParent points to the last visited node, probably nullptr.
         new node is red, inserted to the end.
     */
 
     // create node
     currentNode = allocator->alloc<Node>();
-    currentNode->father = currentFather;
+    currentNode->parent = currentParent;
     currentNode->leftChild = nullptr;
     currentNode->rightChild = nullptr;
     currentNode->key = key;
     currentNode->data = data;
 
     // If tree is empty, just set new node as root.
-    if (currentFather == nullptr) {
+    if (currentParent == nullptr) {
         currentNode->color = NodeColor::BLACK;
         this->root = currentNode;
         return *this;
@@ -336,11 +469,11 @@ RedBlackTree<KeyType, DataType>& RedBlackTree<KeyType, DataType>::setData(
     
     currentNode->color = NodeColor::RED;
     // bind new node to parent.
-    if (currentFather->key > key) {
-        currentFather->leftChild = currentNode;
+    if (currentParent->key > key) {
+        currentParent->leftChild = currentNode;
     }
     else {
-        currentFather->rightChild = currentNode;
+        currentParent->rightChild = currentNode;
     }
 
     this->rebalanceRedNode(currentNode);
@@ -350,7 +483,8 @@ RedBlackTree<KeyType, DataType>& RedBlackTree<KeyType, DataType>::setData(
 
 template<typename KeyType, typename DataType>
 RedBlackTree<KeyType, DataType>& RedBlackTree<KeyType, DataType>::removeKey(
-    const KeyType& key
+    const KeyType& key,
+    bool noExcept
 )
 {
     WriteGuard _g {this};
@@ -369,12 +503,15 @@ RedBlackTree<KeyType, DataType>& RedBlackTree<KeyType, DataType>::removeKey(
 
     if (currentNode == nullptr) {
 
+        if (noExcept)
+            return *this;
+        else {
 #if 0
-        throw std::runtime_error("could not find your key in the object."); // key not found.
+            throw std::runtime_error("could not find your key in the object."); // key not found.
 #else
-        throw RuntimeError {};
+            throw RuntimeError {};
 #endif
-    
+        }
     }
 
 
@@ -394,13 +531,13 @@ RedBlackTree<KeyType, DataType>& RedBlackTree<KeyType, DataType>::removeKey(
                 Node* leftChild;
                 Node* rightChild;
                 NodeColor color;
-                Node* father;
+                Node* parent;
             } currentNodeInfo = {
                     currentNode->leftChild, currentNode->rightChild,
-                    currentNode->color, currentNode->father
+                    currentNode->color, currentNode->parent
             }, replacementNodeInfo = {
                     replacementNode->leftChild, replacementNode->rightChild,
-                    replacementNode->color, replacementNode->father
+                    replacementNode->color, replacementNode->parent
             };
 
             // exchange color.
@@ -408,12 +545,12 @@ RedBlackTree<KeyType, DataType>& RedBlackTree<KeyType, DataType>::removeKey(
             replacementNode->color = currentNodeInfo.color;
 
             // edit parent node.
-            if (currentNodeInfo.father != nullptr) {
-                if (currentNodeInfo.father->leftChild == currentNode) {
-                    currentNodeInfo.father->leftChild = replacementNode;
+            if (currentNodeInfo.parent != nullptr) {
+                if (currentNodeInfo.parent->leftChild == currentNode) {
+                    currentNodeInfo.parent->leftChild = replacementNode;
                 }
                 else {
-                    currentNodeInfo.father->rightChild = replacementNode;
+                    currentNodeInfo.parent->rightChild = replacementNode;
                 }
             }
             else {
@@ -422,25 +559,25 @@ RedBlackTree<KeyType, DataType>& RedBlackTree<KeyType, DataType>::removeKey(
 
             // edit currentNode's left child's data.
             if (currentNodeInfo.leftChild != nullptr) {
-                currentNodeInfo.leftChild->father = replacementNode;
+                currentNodeInfo.leftChild->parent = replacementNode;
             }
 
             // edit replacementNode's right child's data (if has)
             if (replacementNodeInfo.rightChild != nullptr) {
-                replacementNodeInfo.rightChild->father = currentNode;
+                replacementNodeInfo.rightChild->parent = currentNode;
             }
             
             currentNode->leftChild = nullptr; 
             currentNode->rightChild = replacementNodeInfo.rightChild;
-            if (replacementNodeInfo.father == currentNode) {
-                currentNode->father = replacementNode;
+            if (replacementNodeInfo.parent == currentNode) {
+                currentNode->parent = replacementNode;
             }
             else {
-                currentNode->father = replacementNodeInfo.father;
+                currentNode->parent = replacementNodeInfo.parent;
             }
 
             replacementNode->leftChild = currentNodeInfo.leftChild;
-            replacementNode->father = currentNodeInfo.father;
+            replacementNode->parent = currentNodeInfo.parent;
             if (currentNodeInfo.rightChild == replacementNode) {
                 replacementNode->rightChild = currentNode;
             }
@@ -449,8 +586,8 @@ RedBlackTree<KeyType, DataType>& RedBlackTree<KeyType, DataType>::removeKey(
             }
 
             if (currentNodeInfo.rightChild != replacementNode) {
-                currentNodeInfo.rightChild->father = replacementNode;
-                replacementNodeInfo.father->leftChild = currentNode;
+                currentNodeInfo.rightChild->parent = replacementNode;
+                replacementNodeInfo.parent->leftChild = currentNode;
             }
         } // if (currnode has right child)
         else { // curr child only have left child
@@ -465,13 +602,13 @@ RedBlackTree<KeyType, DataType>& RedBlackTree<KeyType, DataType>::removeKey(
                 Node* leftChild;
                 Node* rightChild;
                 NodeColor color;
-                Node* father;
+                Node* parent;
             } currentNodeInfo = {
                     currentNode->leftChild, currentNode->rightChild,
-                    currentNode->color, currentNode->father
+                    currentNode->color, currentNode->parent
             }, replacementNodeInfo = {
                     replacementNode->leftChild, replacementNode->rightChild,
-                    replacementNode->color, replacementNode->father
+                    replacementNode->color, replacementNode->parent
             };
 
             // exchange color
@@ -479,12 +616,12 @@ RedBlackTree<KeyType, DataType>& RedBlackTree<KeyType, DataType>::removeKey(
             replacementNode->color = currentNodeInfo.color;
 
             // edit parent node
-            if (currentNodeInfo.father != nullptr) {
-                if (currentNodeInfo.father->leftChild == currentNode) {
-                    currentNodeInfo.father->leftChild = replacementNode;
+            if (currentNodeInfo.parent != nullptr) {
+                if (currentNodeInfo.parent->leftChild == currentNode) {
+                    currentNodeInfo.parent->leftChild = replacementNode;
                 }
                 else {
-                    currentNodeInfo.father->rightChild = replacementNode;
+                    currentNodeInfo.parent->rightChild = replacementNode;
                 }
             }
             else {
@@ -493,24 +630,24 @@ RedBlackTree<KeyType, DataType>& RedBlackTree<KeyType, DataType>::removeKey(
 
 
             if (currentNodeInfo.rightChild != nullptr) {
-                currentNodeInfo.rightChild->father = replacementNode;
+                currentNodeInfo.rightChild->parent = replacementNode;
             }
 
             if (replacementNodeInfo.leftChild != nullptr) {
-                replacementNodeInfo.leftChild->father = currentNode;
+                replacementNodeInfo.leftChild->parent = currentNode;
             }
 
             currentNode->rightChild = nullptr;
             currentNode->leftChild = replacementNodeInfo.leftChild;
-            if (replacementNodeInfo.father == currentNode) {
-                currentNode->father = replacementNode;
+            if (replacementNodeInfo.parent == currentNode) {
+                currentNode->parent = replacementNode;
             }
             else {
-                currentNode->father = replacementNodeInfo.father;
+                currentNode->parent = replacementNodeInfo.parent;
             }
 
             replacementNode->rightChild = currentNodeInfo.rightChild;
-            replacementNode->father = currentNodeInfo.father;
+            replacementNode->parent = currentNodeInfo.parent;
             if (currentNodeInfo.leftChild == replacementNode) {
                 replacementNode->leftChild = currentNode;
             }
@@ -519,8 +656,8 @@ RedBlackTree<KeyType, DataType>& RedBlackTree<KeyType, DataType>::removeKey(
             }
 
             if (currentNodeInfo.leftChild != replacementNode) {
-                currentNodeInfo.leftChild->father = replacementNode;
-                replacementNodeInfo.father->rightChild = currentNode;
+                currentNodeInfo.leftChild->parent = replacementNode;
+                replacementNodeInfo.parent->rightChild = currentNode;
             }
         } 
     } // while (currentNode->leftChild != nullptr || currentNode->rightChild != nullptr)
@@ -533,31 +670,31 @@ RedBlackTree<KeyType, DataType>& RedBlackTree<KeyType, DataType>::removeKey(
         allocator->free(currentNode);
     } 
     else if (currentNode->color == NodeColor::RED) {
-        if (currentNode == currentNode->father->leftChild) {
-            currentNode->father->leftChild = nullptr;
+        if (currentNode == currentNode->parent->leftChild) {
+            currentNode->parent->leftChild = nullptr;
         }
         else {
-            currentNode->father->rightChild = nullptr;
+            currentNode->parent->rightChild = nullptr;
         }
         allocator->free(currentNode);
     } 
     else { 
         // target node's parent must exists.
         // because target is black, it must have sibling.
-        Node* sibling = (currentNode->father->leftChild != currentNode ?
-            currentNode->father->leftChild : currentNode->father->rightChild);
+        Node* sibling = (currentNode->parent->leftChild != currentNode ?
+            currentNode->parent->leftChild : currentNode->parent->rightChild);
 
-        Node* currentFather = currentNode->father;
+        Node* currentparentParent = currentNode->parent;
 
-        ChildSide siblingSideToFather = 
-            (sibling == currentFather->leftChild ? ChildSide::LEFT : ChildSide::RIGHT);
+        ChildSide siblingSideToparentParent = 
+            (sibling == currentparentParent->leftChild ? ChildSide::LEFT : ChildSide::RIGHT);
 
         // now we can delete the node.
-        if (currentFather->leftChild == currentNode) {
-            currentFather->leftChild = nullptr;
+        if (currentparentParent->leftChild == currentNode) {
+            currentparentParent->leftChild = nullptr;
         }
         else {
-            currentFather->rightChild = nullptr;
+            currentparentParent->rightChild = nullptr;
         }
         
         allocator->free(currentNode);
@@ -565,7 +702,7 @@ RedBlackTree<KeyType, DataType>& RedBlackTree<KeyType, DataType>::removeKey(
 
         // Next, let's consider different scenarios.
 
-        if (currentFather->color == NodeColor::RED) {
+        if (currentparentParent->color == NodeColor::RED) {
             // when parent is red, sibling must be red.
 
             if (sibling->leftChild != nullptr && sibling->rightChild != nullptr)
@@ -582,18 +719,18 @@ RedBlackTree<KeyType, DataType>& RedBlackTree<KeyType, DataType>::removeKey(
                 // note: If her black uncle has child, his child must be red
                 // operation: rotate sibling, and rotate parent. set parent to black, sibling to red.
                 sibling->color = NodeColor::RED;
-                currentFather->color = NodeColor::BLACK;
+                currentparentParent->color = NodeColor::BLACK;
 
-                if (siblingSideToFather == ChildSide::RIGHT) {
+                if (siblingSideToparentParent == ChildSide::RIGHT) {
                     sibling->rightChild->color = NodeColor::BLACK;
-                    this->rotateLeft(currentFather);
+                    this->rotateLeft(currentparentParent);
                 }
                 else {
                     sibling->leftChild->color = NodeColor::BLACK;
-                    this->rotateRight(currentFather);
+                    this->rotateRight(currentparentParent);
                 }
             }
-            else if (siblingSideToFather == ChildSide::RIGHT && sibling->leftChild != nullptr)
+            else if (siblingSideToparentParent == ChildSide::RIGHT && sibling->leftChild != nullptr)
             {
                 /*
                     X: Remove; R: Red; B: Black
@@ -604,11 +741,11 @@ RedBlackTree<KeyType, DataType>& RedBlackTree<KeyType, DataType>::removeKey(
                       R
                 */
 
-                currentFather->color = NodeColor::BLACK;
+                currentparentParent->color = NodeColor::BLACK;
                 this->rotateRight(sibling);
-                this->rotateLeft(currentFather);
+                this->rotateLeft(currentparentParent);
             }
-            else if (siblingSideToFather == ChildSide::LEFT && sibling->rightChild != nullptr)
+            else if (siblingSideToparentParent == ChildSide::LEFT && sibling->rightChild != nullptr)
             {
                 /*
                     X: Remove; R: Red; B: Black
@@ -619,11 +756,11 @@ RedBlackTree<KeyType, DataType>& RedBlackTree<KeyType, DataType>::removeKey(
                       R
                 */
 
-                currentFather->color = NodeColor::BLACK;
+                currentparentParent->color = NodeColor::BLACK;
                 this->rotateLeft(sibling);
-                this->rotateRight(currentFather);
+                this->rotateRight(currentparentParent);
             }
-            else if (siblingSideToFather == ChildSide::RIGHT && sibling->rightChild != nullptr) {
+            else if (siblingSideToparentParent == ChildSide::RIGHT && sibling->rightChild != nullptr) {
                 /*
                     X: Remove; R: Red; B: Black
                       R
@@ -632,12 +769,12 @@ RedBlackTree<KeyType, DataType>& RedBlackTree<KeyType, DataType>::removeKey(
                          \
                           R
                 */
-                currentFather->color = NodeColor::BLACK;
+                currentparentParent->color = NodeColor::BLACK;
                 sibling->color = NodeColor::RED;
                 sibling->rightChild->color = NodeColor::BLACK;
-                this->rotateLeft(currentFather);
+                this->rotateLeft(currentparentParent);
             }
-            else if (siblingSideToFather == ChildSide::LEFT && sibling->leftChild != nullptr)
+            else if (siblingSideToparentParent == ChildSide::LEFT && sibling->leftChild != nullptr)
             {
                 /*
                     X: Remove; R: Red; B: Black
@@ -647,23 +784,23 @@ RedBlackTree<KeyType, DataType>& RedBlackTree<KeyType, DataType>::removeKey(
                      /
                     R
                 */
-                currentFather->color = NodeColor::BLACK;
+                currentparentParent->color = NodeColor::BLACK;
                 sibling->color = NodeColor::RED;
                 sibling->leftChild->color = NodeColor::BLACK;
-                this->rotateRight(currentFather);
+                this->rotateRight(currentparentParent);
             }
             else { // sibling has no child
                 sibling->color = NodeColor::RED;
-                currentFather->color = NodeColor::BLACK;
+                currentparentParent->color = NodeColor::BLACK;
             }
 
-        } // currentFather->color == NodeColor::RED
-        else { // currentFather->color == NodeColor::BLACK
+        } // currentparentParent->color == NodeColor::RED
+        else { // currentparentParent->color == NodeColor::BLACK
             if (sibling->color == NodeColor::BLACK
                 && sibling->leftChild != nullptr && sibling->rightChild != nullptr)
             {
                 // sibling is black, and it has two children. then these children must be red.
-                if (siblingSideToFather == ChildSide::RIGHT) {
+                if (siblingSideToparentParent == ChildSide::RIGHT) {
                     /*
                         X: Remove; R: Red; B: Black
                             B
@@ -674,7 +811,7 @@ RedBlackTree<KeyType, DataType>& RedBlackTree<KeyType, DataType>::removeKey(
                     */
                     sibling->leftChild->color = NodeColor::BLACK;
                     this->rotateRight(sibling);
-                    this->rotateLeft(currentFather);
+                    this->rotateLeft(currentparentParent);
                 }
                 else {
                     /*
@@ -687,14 +824,14 @@ RedBlackTree<KeyType, DataType>& RedBlackTree<KeyType, DataType>::removeKey(
                     */
                     sibling->rightChild->color = NodeColor::BLACK;
                     this->rotateLeft(sibling);
-                    this->rotateRight(currentFather);
+                    this->rotateRight(currentparentParent);
                 }
             } 
             else if (sibling->color == NodeColor::BLACK &&
                 (sibling->leftChild != nullptr || sibling->rightChild != nullptr))
             {
                 // sibling is black, and has one red child.
-                if (siblingSideToFather == ChildSide::RIGHT && sibling->rightChild != nullptr) {
+                if (siblingSideToparentParent == ChildSide::RIGHT && sibling->rightChild != nullptr) {
                     /*
                         X: Remove; R: Red; B: Black
                             B
@@ -704,9 +841,9 @@ RedBlackTree<KeyType, DataType>& RedBlackTree<KeyType, DataType>::removeKey(
                                 R
                     */
                     sibling->rightChild->color = NodeColor::BLACK;
-                    this->rotateLeft(currentFather);
+                    this->rotateLeft(currentparentParent);
                 }
-                else if (siblingSideToFather == ChildSide::RIGHT && sibling->leftChild != nullptr)
+                else if (siblingSideToparentParent == ChildSide::RIGHT && sibling->leftChild != nullptr)
                 {
                     /*
                         X: Remove; R: Red; B: Black
@@ -718,9 +855,9 @@ RedBlackTree<KeyType, DataType>& RedBlackTree<KeyType, DataType>::removeKey(
                     */
                     sibling->leftChild->color = NodeColor::BLACK;
                     this->rotateRight(sibling);
-                    this->rotateLeft(currentFather);
+                    this->rotateLeft(currentparentParent);
                 }
-                else if (siblingSideToFather == ChildSide::LEFT && sibling->leftChild != nullptr)
+                else if (siblingSideToparentParent == ChildSide::LEFT && sibling->leftChild != nullptr)
                 {
                     /*
                         X: Remove; R: Red; B: Black
@@ -731,7 +868,7 @@ RedBlackTree<KeyType, DataType>& RedBlackTree<KeyType, DataType>::removeKey(
                         R
                     */
                     sibling->leftChild->color = NodeColor::BLACK;
-                    this->rotateRight(currentFather);
+                    this->rotateRight(currentparentParent);
                 }
                 else {
                     /*
@@ -744,7 +881,7 @@ RedBlackTree<KeyType, DataType>& RedBlackTree<KeyType, DataType>::removeKey(
                     */
                     sibling->rightChild->color = NodeColor::BLACK;
                     this->rotateLeft(sibling);
-                    this->rotateRight(currentFather);
+                    this->rotateRight(currentparentParent);
                 }
             } 
             else if (sibling->color == NodeColor::BLACK) {
@@ -754,20 +891,20 @@ RedBlackTree<KeyType, DataType>& RedBlackTree<KeyType, DataType>::removeKey(
                       / \   ->   / \
                      X   B      X   R
                 */
-                if (currentFather->leftChild == nullptr) {
-                    currentFather->rightChild->color = NodeColor::RED;
-                    this->rebalanceChildren(currentFather);
+                if (currentparentParent->leftChild == nullptr) {
+                    currentparentParent->rightChild->color = NodeColor::RED;
+                    this->rebalanceChildren(currentparentParent);
                 }
                 else {
-                    currentFather->leftChild->color = NodeColor::RED;
-                    this->rebalanceChildren(currentFather);
+                    currentparentParent->leftChild->color = NodeColor::RED;
+                    this->rebalanceChildren(currentparentParent);
                 }
             } 
             else {
                 // sibling is red. then it must has two black children.
                 sibling->color = NodeColor::BLACK;
-                currentFather->color = NodeColor::RED;
-                if (siblingSideToFather == ChildSide::RIGHT) {
+                currentparentParent->color = NodeColor::RED;
+                if (siblingSideToparentParent == ChildSide::RIGHT) {
                     /*
                            B
                           / \
@@ -775,10 +912,10 @@ RedBlackTree<KeyType, DataType>& RedBlackTree<KeyType, DataType>::removeKey(
                             / \
                            B   B
                     */
-                    this->rotateLeft(currentFather);
-                    this->rotateLeft(currentFather);
-                    if (currentFather->rightChild != nullptr) {
-                        this->rebalanceRedNode(currentFather->rightChild);
+                    this->rotateLeft(currentparentParent);
+                    this->rotateLeft(currentparentParent);
+                    if (currentparentParent->rightChild != nullptr) {
+                        this->rebalanceRedNode(currentparentParent->rightChild);
                     }
                 }
                 else {
@@ -789,10 +926,10 @@ RedBlackTree<KeyType, DataType>& RedBlackTree<KeyType, DataType>::removeKey(
                         / \
                        B   B
                     */
-                    this->rotateRight(currentFather);
-                    this->rotateRight(currentFather);
-                    if (currentFather->leftChild != nullptr) {
-                        this->rebalanceRedNode(currentFather->leftChild);
+                    this->rotateRight(currentparentParent);
+                    this->rotateRight(currentparentParent);
+                    if (currentparentParent->leftChild != nullptr) {
+                        this->rebalanceRedNode(currentparentParent->leftChild);
                     }
                 }
             }
@@ -800,6 +937,20 @@ RedBlackTree<KeyType, DataType>& RedBlackTree<KeyType, DataType>::removeKey(
     }
 
     return *this;
+}
+
+
+
+template<typename KeyType, typename DataType>
+adl::size_t RedBlackTree<KeyType, DataType>::size() {
+    ReadGuard _g {this};
+
+    adl::size_t count = 0;
+    for (auto& it : *this) {
+        count++;
+    }
+    
+    return count;
 }
 
 
@@ -881,57 +1032,57 @@ adl::size_t RedBlackTree<KeyType, DataType>::doRangeScan(
 template<typename KeyType, typename DataType>
 void RedBlackTree<KeyType, DataType>::rotateLeft(Node* node)
 {
-    Node* father = node->father;
+    Node* parent = node->parent;
     Node* targetRoot = node->rightChild;
 
     // rebind root.
-    if (father == nullptr) {
+    if (parent == nullptr) {
         this->root = targetRoot;
     }
     else {
-        if (node == father->leftChild) {
-            father->leftChild = targetRoot;
+        if (node == parent->leftChild) {
+            parent->leftChild = targetRoot;
         }
         else {
-            father->rightChild = targetRoot;
+            parent->rightChild = targetRoot;
         }
     }
-    targetRoot->father = father;
+    targetRoot->parent = parent;
 
     node->rightChild = targetRoot->leftChild; // child might be nullptr
     if (node->rightChild != nullptr) { // only when child is not null then we can bind parent node.
-        node->rightChild->father = node;
+        node->rightChild->parent = node;
     }
     targetRoot->leftChild = node;
-    node->father = targetRoot;
+    node->parent = targetRoot;
 }
 
 
 template<typename KeyType, typename DataType>
 void RedBlackTree<KeyType, DataType>::rotateRight(Node* node)
 {
-    Node* father = node->father;
+    Node* parent = node->parent;
     Node* targetRoot = node->leftChild;
 
-    if (father == nullptr) {
+    if (parent == nullptr) {
         this->root = targetRoot;
     }
     else {
-        if (node == father->leftChild) {
-            father->leftChild = targetRoot;
+        if (node == parent->leftChild) {
+            parent->leftChild = targetRoot;
         }
         else {
-            father->rightChild = targetRoot;
+            parent->rightChild = targetRoot;
         }
     }
-    targetRoot->father = father;
+    targetRoot->parent = parent;
 
     node->leftChild = targetRoot->rightChild; // child might be nullptr
     if (node->leftChild != nullptr) { 
-        node->leftChild->father = node;
+        node->leftChild->parent = node;
     }
     targetRoot->rightChild = node;
-    node->father = targetRoot;
+    node->parent = targetRoot;
 }
 
 
@@ -943,13 +1094,13 @@ void RedBlackTree<KeyType, DataType>::rebalanceRedNode(Node* node)
     // Only when the current node is red is it possible to violate the red-black tree rule 
     // when the parent node is also red, thus requiring a repair operation.
     while (currentNode->color == NodeColor::RED) {
-        Node* currentFather = currentNode->father;
-        if (currentFather == nullptr) {
+        Node* currentparentParent = currentNode->parent;
+        if (currentparentParent == nullptr) {
             // currentNode is root
             currentNode->color = NodeColor::BLACK;
             break;
         }
-        else if (currentFather->color == NodeColor::BLACK) {
+        else if (currentparentParent->color == NodeColor::BLACK) {
             // parent is black. no problem!
             break;
         }
@@ -959,54 +1110,54 @@ void RedBlackTree<KeyType, DataType>::rebalanceRedNode(Node* node)
 
         // If a parent node is red, then it cannot be the root, so a grandparent must exist.
 
-        Node* currentGrandpa = currentFather->father;
+        Node* currentGrandpa = currentparentParent->parent;
 
         // find uncle (might be null)
         Node* uncle =
-            (currentGrandpa->leftChild != currentFather ?
+            (currentGrandpa->leftChild != currentparentParent ?
                 currentGrandpa->leftChild : currentGrandpa->rightChild);
 
         if (uncle != nullptr && uncle->color == NodeColor::RED) {
             
             uncle->color = NodeColor::BLACK;
-            currentFather->color = NodeColor::BLACK;
+            currentparentParent->color = NodeColor::BLACK;
             currentGrandpa->color = NodeColor::RED;
 
             currentNode = currentGrandpa;
         }
         else {
             
-            if (currentFather == currentGrandpa->leftChild) {
-                if (currentNode == currentFather->leftChild) {
+            if (currentparentParent == currentGrandpa->leftChild) {
+                if (currentNode == currentparentParent->leftChild) {
                     this->rotateRight(currentGrandpa);
                     // recolor
-                    currentFather->color = NodeColor::BLACK;
+                    currentparentParent->color = NodeColor::BLACK;
                     currentGrandpa->color = NodeColor::RED;
                 }
                 else {
-                    this->rotateLeft(currentFather);
+                    this->rotateLeft(currentparentParent);
                     this->rotateRight(currentGrandpa);
                     // recolor
                     currentGrandpa->color = NodeColor::RED;
                     currentNode->color = NodeColor::BLACK;
                 }
-            } // if (currentFather == currentGrandpa->leftChild)
+            } // if (currentparentParent == currentGrandpa->leftChild)
             else {
 
-                if (currentNode == currentFather->rightChild) {
+                if (currentNode == currentparentParent->rightChild) {
                     this->rotateLeft(currentGrandpa);
                     // recolor
-                    currentFather->color = NodeColor::BLACK;
+                    currentparentParent->color = NodeColor::BLACK;
                     currentGrandpa->color = NodeColor::RED;
                 }
                 else {
-                    this->rotateRight(currentFather);
+                    this->rotateRight(currentparentParent);
                     this->rotateLeft(currentGrandpa);
                     // recolor
                     currentGrandpa->color = NodeColor::RED;
                     currentNode->color = NodeColor::BLACK;
                 }
-            } // if (currentFather != currentGrandpa->leftChild)
+            } // if (currentparentParent != currentGrandpa->leftChild)
 
             return;
         }
@@ -1020,16 +1171,16 @@ void RedBlackTree<KeyType, DataType>::rebalanceChildren(Node* node)
     Node* currentNode = node;
 
     while (currentNode != this->root) {
-        Node* currentFather = currentNode->father;
-        Node* sibling = (currentFather->leftChild != currentNode ?
-            currentFather->leftChild : currentFather->rightChild);
-        ChildSide siblingSideToFather = 
-            (sibling == currentFather->leftChild ? ChildSide::LEFT : ChildSide::RIGHT);
+        Node* currentparentParent = currentNode->parent;
+        Node* sibling = (currentparentParent->leftChild != currentNode ?
+            currentparentParent->leftChild : currentparentParent->rightChild);
+        ChildSide siblingSideToparentParent = 
+            (sibling == currentparentParent->leftChild ? ChildSide::LEFT : ChildSide::RIGHT);
 
-        if (currentFather->color == NodeColor::RED) {
+        if (currentparentParent->color == NodeColor::RED) {
             
             
-            if (siblingSideToFather == ChildSide::RIGHT
+            if (siblingSideToparentParent == ChildSide::RIGHT
                 && sibling->leftChild->color == NodeColor::BLACK)
             {
                 /*
@@ -1039,10 +1190,10 @@ void RedBlackTree<KeyType, DataType>::rebalanceChildren(Node* node)
                         / \
                        B   ?
                 */
-                this->rotateLeft(currentFather);
+                this->rotateLeft(currentparentParent);
                 break; 
             }
-            else if (siblingSideToFather == ChildSide::LEFT
+            else if (siblingSideToparentParent == ChildSide::LEFT
                 && sibling->rightChild->color == NodeColor::BLACK)
             {
                 /*
@@ -1052,10 +1203,10 @@ void RedBlackTree<KeyType, DataType>::rebalanceChildren(Node* node)
                      / \
                     ?   B
                 */
-                this->rotateRight(currentFather);
+                this->rotateRight(currentparentParent);
                 break;
             }
-            else if (siblingSideToFather == ChildSide::RIGHT
+            else if (siblingSideToparentParent == ChildSide::RIGHT
                 && sibling->rightChild->color == NodeColor::BLACK)
             {
                 /*
@@ -1065,12 +1216,12 @@ void RedBlackTree<KeyType, DataType>::rebalanceChildren(Node* node)
                         / \
                        R   B
                 */
-                currentFather->color = NodeColor::BLACK;
+                currentparentParent->color = NodeColor::BLACK;
                 sibling->color = NodeColor::RED;
                 this->rebalanceRedNode(sibling->leftChild);
                 break;
             }
-            else if (siblingSideToFather == ChildSide::LEFT
+            else if (siblingSideToparentParent == ChildSide::LEFT
                 && sibling->leftChild->color == NodeColor::BLACK)
             {
                 /*
@@ -1080,21 +1231,21 @@ void RedBlackTree<KeyType, DataType>::rebalanceChildren(Node* node)
                      / \
                     B   R
                 */
-                currentFather->color = NodeColor::BLACK;
+                currentparentParent->color = NodeColor::BLACK;
                 sibling->color = NodeColor::RED;
                 this->rebalanceRedNode(sibling->rightChild);
                 break;
             }
             else { // sibling has two red child
-                currentFather->color = NodeColor::BLACK;
+                currentparentParent->color = NodeColor::BLACK;
                 sibling->color = NodeColor::RED;
-                if (siblingSideToFather == ChildSide::RIGHT) {
+                if (siblingSideToparentParent == ChildSide::RIGHT) {
                     sibling->rightChild->color = NodeColor::BLACK;
-                    this->rotateLeft(currentFather);
+                    this->rotateLeft(currentparentParent);
                 }
                 else {
                     sibling->leftChild->color = NodeColor::BLACK;
-                    this->rotateRight(currentFather);
+                    this->rotateRight(currentparentParent);
                 }
                 break;
             }
@@ -1110,14 +1261,14 @@ void RedBlackTree<KeyType, DataType>::rebalanceChildren(Node* node)
 
                     or her symmatrical counterpart
                 */
-                currentFather->color = NodeColor::RED;
+                currentparentParent->color = NodeColor::RED;
                 sibling->color = NodeColor::BLACK;
-                if (siblingSideToFather == ChildSide::RIGHT) {
+                if (siblingSideToparentParent == ChildSide::RIGHT) {
                     
-                    this->rotateLeft(currentFather);
+                    this->rotateLeft(currentparentParent);
                 }
                 else {
-                    this->rotateRight(currentFather);
+                    this->rotateRight(currentparentParent);
                 }
             } 
             else { // sibling is black
@@ -1134,9 +1285,9 @@ void RedBlackTree<KeyType, DataType>::rebalanceChildren(Node* node)
                         or her symmatrical counterpart
                     */
                     sibling->color = NodeColor::RED;
-                    currentNode = currentFather;
+                    currentNode = currentparentParent;
                 }
-                else if (siblingSideToFather == ChildSide::RIGHT 
+                else if (siblingSideToparentParent == ChildSide::RIGHT 
                     && sibling->rightChild->color == NodeColor::RED) 
                 {
                     /*
@@ -1148,10 +1299,10 @@ void RedBlackTree<KeyType, DataType>::rebalanceChildren(Node* node)
 
                     */
                     sibling->rightChild->color = NodeColor::BLACK;
-                    this->rotateLeft(currentFather);
+                    this->rotateLeft(currentparentParent);
                     break;
                 }
-                else if (siblingSideToFather == ChildSide::LEFT
+                else if (siblingSideToparentParent == ChildSide::LEFT
                     && sibling->leftChild->color == NodeColor::RED)
                 {
                     /*
@@ -1163,10 +1314,10 @@ void RedBlackTree<KeyType, DataType>::rebalanceChildren(Node* node)
 
                     */
                     sibling->leftChild->color = NodeColor::BLACK;
-                    this->rotateRight(currentFather);
+                    this->rotateRight(currentparentParent);
                     break;
                 }
-                else if (siblingSideToFather == ChildSide::RIGHT) 
+                else if (siblingSideToparentParent == ChildSide::RIGHT) 
                 {
                     /*
                           B
@@ -1178,7 +1329,7 @@ void RedBlackTree<KeyType, DataType>::rebalanceChildren(Node* node)
                     */
                     sibling->leftChild->color = NodeColor::BLACK;
                     this->rotateRight(sibling);
-                    this->rotateLeft(currentFather);
+                    this->rotateLeft(currentparentParent);
                     break;
                 }
                 else 
@@ -1193,7 +1344,7 @@ void RedBlackTree<KeyType, DataType>::rebalanceChildren(Node* node)
                     */
                     sibling->rightChild->color = NodeColor::BLACK;
                     this->rotateLeft(sibling);
-                    this->rotateRight(currentFather);
+                    this->rotateRight(currentparentParent);
                     break;
                 }
             } 
