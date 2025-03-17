@@ -17,6 +17,8 @@
 #include <adl/collections/ArrayList.hpp>
 #include <adl/Allocator.h>
 
+// #include <adl/stdint.h>
+
 
 namespace MtsysKv {
 	struct Component_state;
@@ -30,7 +32,7 @@ struct MtsysKv::Component_state
 {
 	Genode::Ram_dataspace_capability ds_cap;
 
-	uint64_t *pDataVersion = nullptr;
+	genode_uint64_t *pDataVersion = nullptr;
 	Genode::Attached_ram_dataspace dataVersion;
 
 	int cid_in4service[MAX_SERVICE] = { 0 };
@@ -57,7 +59,7 @@ struct MtsysKv::Component_state
 		// fake implementation for now
 		if (!ds_cap.valid())
         	ds_cap = env.ram().alloc(0x1000);
-		pDataVersion = dataVersion.local_addr<uint64_t>();
+		pDataVersion = dataVersion.local_addr<genode_uint64_t>();
 		*pDataVersion = 65472;
     }
 };

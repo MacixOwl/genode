@@ -20,6 +20,8 @@
 #include <rpc_session/connection.h>
 #include <cpu/atomic.h>
 
+#include <timer_session/connection.h>
+
 namespace Pipeline {
 	struct Session_component;
 	struct Root_component;
@@ -68,12 +70,23 @@ struct Pipeline_Thread : Genode::Thread
 struct Pipeline::Session_component : Genode::Rpc_object<SessionB>
 {	
 	Pipeline::Connection2C call2C;
-	Pipeline_Thread call_worker;
+	Pipeline_Thread *call_worker;
+	Genode::Heap heap;
+	Timer::Connection timer;
 
 	Session_component(Genode::Env &env)
 	:	call2C(env),
-		call_worker(env, 17)
-	{ }
+		call_worker(nullptr),
+		heap(env.ram(), env.rm()),
+		timer(env)
+	{ 
+		call_worker = new (heap) Pipeline_Thread(env, 17);
+		Genode::log("Session component created");
+		timer.msleep(3000);
+		Genode::log("Session component created #2");
+		timer.msleep(6000);
+		Genode::log("Session component created #3");
+	}
 
 	void say_hello() override {
 		Genode::log("I am here... Hello."); 
@@ -126,6 +139,7 @@ class Pipeline::Root_component
 {
 	private:
 		Genode::Env &env;
+		Timer::Connection timer;
 	
 	protected:
 
@@ -141,9 +155,14 @@ class Pipeline::Root_component
 					Genode::Entrypoint &ep,
 		            Genode::Allocator &alloc) 
 		:	Genode::Root_component<Session_component>(ep, alloc),
-			env(env) 
+			env(env),
+			timer(env)
 		{
 			Genode::log("creating root component");
+			timer.msleep(3000);
+			Genode::log("creating root component #2");
+			timer.msleep(6000);
+			Genode::log("creating root component #3");
 		}
 };
 
@@ -167,6 +186,12 @@ struct Pipeline::Main
 		 * announce the service to our parent.
 		 */
 		env.parent().announce(env.ep().manage(root));
+		Timer::Connection timer(env);
+		Genode::log("Start from pipeline main");
+		timer.msleep(3000);
+		Genode::log("Start from pipeline main #2");
+		timer.msleep(6000);
+		Genode::log("Start from pipeline main #3");
 	}
 };
 
@@ -174,4 +199,10 @@ struct Pipeline::Main
 void Component::construct(Genode::Env &env)
 {
 	static Pipeline::Main main(env);
+	Timer::Connection timer(env);
+	Genode::log("Start from pipeline component");
+	timer.msleep(3000);
+	Genode::log("Start from pipeline component #2");
+	timer.msleep(6000);
+	Genode::log("Start from pipeline component #3");
 }

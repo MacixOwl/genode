@@ -19,13 +19,13 @@
 #include <base/rpc_server.h>
 
 namespace Pipeline {
-	struct Session_component;
+	struct Session_componentC;
 	struct Root_component;
 	struct Main;
 }
 
 
-struct Pipeline::Session_component : Genode::Rpc_object<SessionC>
+struct Pipeline::Session_componentC : Genode::Rpc_object<SessionC>
 {
 	void say_hello() override {
 		Genode::log("I am here... Hello.");
@@ -43,14 +43,14 @@ struct Pipeline::Session_component : Genode::Rpc_object<SessionC>
 
 class Pipeline::Root_component
 :
-	public Genode::Root_component<Session_component>
+	public Genode::Root_component<Session_componentC>
 {
 	protected:
 
-		Session_component *_create_session(const char *) override
+		Session_componentC *_create_session(const char *) override
 		{
 			Genode::log("creating session");
-			return new (md_alloc()) Session_component();
+			return new (md_alloc()) Session_componentC();
 		}
 
 	public:
@@ -58,7 +58,7 @@ class Pipeline::Root_component
 		Root_component(Genode::Entrypoint &ep,
 		               Genode::Allocator &alloc)
 		:
-			Genode::Root_component<Session_component>(ep, alloc)
+			Genode::Root_component<Session_componentC>(ep, alloc)
 		{
 			Genode::log("creating root component");
 		}

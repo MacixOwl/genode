@@ -11,6 +11,8 @@
 #include <fs/fs_connection.h>
 #include <cpu/atomic.h>
 
+#include <fs_memory/fs_memory_connection.h>
+
 
 #include <base/heap.h>
 
