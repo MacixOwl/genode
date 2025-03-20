@@ -74,6 +74,20 @@ export CONTRIB_DIR
 export BOARD
 export KERNEL
 
+# 根据 KERNEL 变量设置编译选项
+ifeq ($(KERNEL), sel4)
+    export CC_OPT += -DGENODE_SEL4
+else ifeq ($(KERNEL), nova)
+    export CC_OPT += -DGENODE_NOVA
+else ifeq ($(KERNEL), hw)
+    export CC_OPT += -DGENODE_HW
+else
+    export CC_OPT += -DGENODE_UNKNOWN
+endif
+
+export CXXFLAGS += $(CC_OPT)
+
+
 #
 # Convert user-defined directories to absolute directories
 #

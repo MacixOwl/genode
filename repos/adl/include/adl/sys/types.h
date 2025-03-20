@@ -24,6 +24,7 @@
     #define NULL 0
 #endif
 
+#if 0
 /** 结构体紧凑。 */
 #ifndef __packed
     #define __packed __attribute__((packed))
@@ -52,7 +53,7 @@
 #ifndef __section
     #define __section(name) __attribute__((section(name)))
 #endif
-
+#endif
 namespace adl {
 
 typedef unsigned long size_t;

@@ -41,10 +41,11 @@ Status getMemoryMap(
     
     // determine large prober size
 
-    const adl::size_t LARGE_PROBE_SIZE_MAX = 64ull * 1024 * 1024;
+    const adl::size_t PROBE_SIZE_MAX = 128 * 1024 * 1024; // 64MB
+    const adl::size_t PROBE_SIZE_MIN = 4096;                // 4K
+    adl::size_t proberSize = PROBE_SIZE_MAX;
 
-    adl::size_t largeProberSize = LARGE_PROBE_SIZE_MAX;
-    if (availMem < LARGE_PROBE_SIZE_MAX * 2) {
+    if (availMem < PROBE_SIZE_MAX * 2) { // To prevent the maximum prober from being too large
         auto size = availMem / 2;
         if (size < 4096)
             return Status::OUT_OF_RESOURCE;
@@ -63,19 +64,16 @@ Status getMemoryMap(
         }
 #endif
 
-        largeProberSize = size;
+        proberSize = size;
     }
 
 
-    if (largeProberSize > until - from)
-        largeProberSize = until - from;
-
+    if (proberSize > until - from)
+        proberSize = until - from;
 
     // allocate probers
 
-    auto largeProber = env.ram().alloc(largeProberSize);
-    auto smallProber = env.ram().alloc(4096);
-
+    auto dynamicProber = env.ram().alloc(proberSize);
 
     // probe memory
 
@@ -95,44 +93,49 @@ Status getMemoryMap(
     };
 
     adl::uintptr_t curr = from;
-    bool carefulMode = false;  // whether using 4K prober.
+    int freeSuccessNum = 0;
+    int ocpSuccessNum = 0;
+    int i = 0;
+
     while (curr < until) {
-        if (curr >= until - largeProberSize && !carefulMode) {
-            carefulMode = true;
-            continue;
-        }
-
-        auto& prober = carefulMode ? smallProber : largeProber;
-        adl::size_t proberSize = carefulMode ? 4096 : largeProberSize;
-
+        i++;
         try {
-            env.rm().attach_at(prober, curr);
+            env.rm().attach_at(dynamicProber, curr);
             env.rm().detach(curr);
-            // vaddr free (seems)
+            freeSuccessNum++;
+            ocpSuccessNum = 0;
             addRecord(curr, proberSize, MemoryMapEntry::Type::FREE);
+            Genode::log("addRecord: ", curr, " - ", curr + proberSize, " FREE");
         } catch (...) {
-            if (carefulMode) {
-                // vaddr occupied.
+            freeSuccessNum = 0;
+            if (ocpSuccessNum >= 3 || proberSize == PROBE_SIZE_MIN) {
+                ocpSuccessNum++;
                 addRecord(curr, proberSize, MemoryMapEntry::Type::OCCUPIED);
-            } 
-            else {  // retry in careful mode.
-                carefulMode = true;
+                Genode::log("addRecord: ", curr, " - ", curr + proberSize, " OCCUPIED");
+            } else {
+                proberSize = PROBE_SIZE_MIN; // vaddr occupied.
+                env.ram().free(dynamicProber);
+                dynamicProber = env.ram().alloc(proberSize);
+                Genode::log("Prober down to ", proberSize);
                 continue;
             }
         }
 
         curr += proberSize;
 
-        if (carefulMode && (curr & (largeProberSize - 1)) == 0) {
-            carefulMode = false;
+        if (proberSize < PROBE_SIZE_MAX && (freeSuccessNum >= 3 || ocpSuccessNum >= 3)) {
+            proberSize *= 2;
+            env.ram().free(dynamicProber);
+            dynamicProber = env.ram().alloc(proberSize);
+            Genode::log("Prober doubled to ", proberSize);
         }
     }
 
-
+    Genode::log("Memory map probed.");
+    Genode::log("Probed ", i, " times.");
     // cleanup
     
-    env.ram().free(largeProber);
-    env.ram().free(smallProber);
+    env.ram().free(dynamicProber);
     return status;
 }
 
