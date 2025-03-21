@@ -190,7 +190,7 @@ void Tycoon::handlePageFaultSignal() {
     Genode::Region_map& rm = env.rm();
     Genode::Region_map::State state = rm.state();
     auto addr = state.addr;
-    if (addr < memSpace.vaddr && addr >= memSpace.vaddr + memSpace.size) {
+    if (addr < memSpace.vaddr || addr >= memSpace.vaddr + memSpace.size) {
         // address not managed by Tycoon.
         return;
     }
