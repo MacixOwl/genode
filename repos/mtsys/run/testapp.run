@@ -2,7 +2,7 @@
 # Build
 #
 
-build { core init timer pivot 
+build { core init timer pivot fs_memory
 	memory fs kv apps/test1 apps/test2 }
 
 create_boot_directory
@@ -55,6 +55,12 @@ install_config {
 		<provides> <service name="MtsysFs"/> </provides>
 	</start>
 
+	<start name="fsmemory_server">
+		<affinity xpos="0" width="2"/>
+		<resource name="RAM" quantum="16M"/>
+		<provides> <service name="MtsysFsMemory"/> </provides>
+	</start>
+
 	<start name="mtsys_pivot">
 		<affinity xpos="0" width="2"/>
 		<resource name="RAM" quantum="16M"/>
@@ -77,7 +83,7 @@ install_config {
 # Boot image
 #
 
-build_boot_image { core ld.lib.so init mtsys_pivot timer 
+build_boot_image { core ld.lib.so init mtsys_pivot timer  fsmemory_server
 	memory_server kv_server mfs_server testapp1 testapp2 }
 
 append qemu_args " -nographic "
