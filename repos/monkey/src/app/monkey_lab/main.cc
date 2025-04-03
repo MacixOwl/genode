@@ -25,16 +25,6 @@
 using namespace Genode;
 using namespace monkey;
 
-#ifdef GENODE_SEL4
-    #pragma message "Compiling for seL4"
-#elif defined(GENODE_NOVA)
-    #pragma message "Compiling for NOVA"
-#elif defined(GENODE_HW)
-    #pragma message "Compiling for HW"
-#else
-    #pragma message "Compiling for UNKNOWN KERNEL"
-#endif
-
 
 struct AppMain {
     Genode::Env& env;
@@ -112,22 +102,23 @@ params.nbuf = 1;  // for testing.
             {
                 adl::uintptr_t addr = 0;
                 adl::size_t size = 0;
-            #ifdef GENODE_SEL4
+
+#ifdef GENODE_SEL4
                 Genode::log("Running on seL4");
                 addr = 0x170002000;
                 size = 0x3e8fffe000;
-            #elif defined(GENODE_NOVA)
+#elif defined(GENODE_NOVA)
                 Genode::log("Running on NOVA");
                 addr = 0x170002000;
                 size = 0x7ffe4fffe000;
-            #elif defined(GENODE_HW)
+#elif defined(GENODE_HW)
                 Genode::log("Running on HW");
                 addr = 0x170002000;
                 size = 0x3e8fffe000;
-            #else
-                Genode::log("Unknown kernel\n");
-                #error "bad kernel"
-            #endif
+#else
+                Genode::error("Unknown kernel\n");
+                return;
+#endif
                 tycoon.start(addr, size); // sel4/hw
                 adl::size_t tycoonRam = 0;
                 tycoon.checkAvailableMem(&tycoonRam);
