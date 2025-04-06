@@ -24,7 +24,7 @@
     #define NULL 0
 #endif
 
-#if 0
+#ifdef ADL_DEFINE_GCC_SHORT_MACROS
 /** 结构体紧凑。 */
 #ifndef __packed
     #define __packed __attribute__((packed))

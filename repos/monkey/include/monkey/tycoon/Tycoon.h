@@ -178,6 +178,9 @@ public:
     monkey::Status checkAvailableMem(adl::size_t* res);
 
 
+    void* alloc(adl::size_t size);
+    void free(void* addr);
+
 public:
     friend PageFaultSignalBridge;
 };

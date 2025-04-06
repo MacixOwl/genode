@@ -10,6 +10,9 @@
 
 #include <monkey/tycoon/Tycoon.h>
 
+#include "./yros/MemoryManager.h"
+#include "./yros/KernelMemoryAllocator.h"
+
 using namespace monkey;
 
 
@@ -472,6 +475,18 @@ monkey::Status Tycoon::sync() {
 monkey::Status Tycoon::start(adl::uintptr_t vaddr, adl::size_t size) {
     stop();
 
+
+    static bool yrosMemoryStarted = false;
+
+    if (yrosMemoryStarted) {
+        Genode::error("Monkey Tycoon: Restart is not supported.");
+        return Status::INVALID_PARAMETERS;
+    }
+
+    void* pageLinkNodes = adl::defaultAllocator.alloc<char>(2, false, 4096);
+    yros::memory::MemoryManager::init(pageLinkNodes, (void*) vaddr, size);
+
+
     Genode::log(
         "Tycoon: Starting... Addr to be managed: [", 
         Genode::Hex(vaddr), ", ", Genode::Hex(vaddr + size), ") (", size, " bytes)."
@@ -578,3 +593,14 @@ monkey::Status Tycoon::checkAvailableMem(adl::size_t* res) {
 
     return Status::SUCCESS;
 }
+
+
+void* Tycoon::alloc(adl::size_t size) {
+    return yros::memory::KernelMemoryAllocator::malloc(size);
+}
+
+
+void Tycoon::free(void* addr) {
+    yros::memory::KernelMemoryAllocator::free(addr);
+}
+

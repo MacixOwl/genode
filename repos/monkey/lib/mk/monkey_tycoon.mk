@@ -10,5 +10,6 @@ vpath %.cc $(REP_DIR)/src/lib/tycoon
 vpath %.cpp $(REP_DIR)/src/lib/tycoon
 
 SRC_CC += Tycoon.cc Protocol1ConnectionDock.cc
+SRC_CC += yros/ArenaMemoryManager.cpp yros/FreeMemoryManager.cpp yros/KernelMemoryAllocator.cpp yros/MemoryManager.cpp
 
 LIBS = base adl monkey_crypto monkey_net monkey_genode_utils libc vfs
