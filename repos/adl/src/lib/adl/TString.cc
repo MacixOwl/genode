@@ -17,20 +17,17 @@ using namespace std;
 
 namespace adl {
 
-adl::Allocator* tstring_alloc = &defaultAllocator;
 
-
-TString::TString()
+TString::TString(adl::Allocator* alloc)
 {
+    this->allocator = alloc;
     content = nullptr;
     len = 0;
 }
 
-TString::TString(const char* str)
+TString::TString(const char* str, adl::Allocator* alloc)
 {
-    if (tstring_alloc == nullptr) {
-        Genode::error("ops... allocator not availabel!\n");
-    }
+    this->allocator = alloc;
 
     if (str == nullptr || str[0] == '\0') {
         content = nullptr;
@@ -39,7 +36,7 @@ TString::TString(const char* str)
     else {
         len = adl::strlen(str);
 
-        content = tstring_alloc->alloc<char>(len + 1, false);
+        content = alloc->alloc<char>(len + 1, false);
 
         if (content == nullptr) {
             throw Genode::Exception{};
@@ -66,15 +63,17 @@ TString::TString(const int x)
 }
 #endif
 
-TString::TString(const TString& str)
+TString::TString(const TString& str, adl::Allocator* alloc)
 {
+    this->allocator = alloc;
+
     if (str.length() == 0) {
         content = nullptr;
         len = 0;
     }
     else {
         len = str.length();
-        content = tstring_alloc->alloc<char>(len + 1, false);
+        content = alloc->alloc<char>(len + 1, false);
         if (content == nullptr) {
             throw Genode::Exception{};
         }
@@ -105,7 +104,7 @@ void TString::clear() {
 void TString::freeUpContent()
 {
     if (content != nullptr) {
-        tstring_alloc->free(content);
+        allocator->free(content);
         content = nullptr;
     }
 }
@@ -132,7 +131,7 @@ TString& TString::operator=(const TString& str)
         return *this;
     }
     else {
-        content = tstring_alloc->alloc<char>(str.length() + 1, false);
+        content = allocator->alloc<char>(str.length() + 1, false);
         if (content == nullptr) {
             throw Genode::Exception{};
         }
@@ -156,7 +155,7 @@ TString& TString::operator=(const char* str)
     }
     else {
         len = strlen(str);
-        content = tstring_alloc->alloc<char>(len + 1, false);
+        content = allocator->alloc<char>(len + 1, false);
         if (content == nullptr) {
             throw Genode::Exception{};
         }
@@ -176,7 +175,7 @@ const TString TString::operator+(const TString& str) const
         return ret;
     }
 
-    ret.content = tstring_alloc->alloc<char>(ret.len + 1, false);
+    ret.content = allocator->alloc<char>(ret.len + 1, false);
     if (ret.content == nullptr) {
         throw Genode::Exception{};
     }
@@ -205,7 +204,7 @@ const TString TString::operator+(const char* str) const
         return ret;
     }
 
-    ret.content = tstring_alloc->alloc<char>(ret.len + 1, false);
+    ret.content = allocator->alloc<char>(ret.len + 1, false);
     if (ret.content == nullptr) {
         throw Genode::Exception{};
     }
@@ -222,7 +221,7 @@ const TString TString::operator+(const char* str) const
 
 const TString operator+(const char* strA, const TString& strB)
 {
-    TString ret;
+    TString ret {strB.allocator};
 
     auto lengthOfStrA = (strA == nullptr ? 0 : adl::strlen(strA));
     ret.len = lengthOfStrA + strB.length();
@@ -231,7 +230,7 @@ const TString operator+(const char* strA, const TString& strB)
         return ret;
     }
 
-    ret.content = tstring_alloc->alloc<char>(ret.len + 1, false);
+    ret.content = ret.allocator->alloc<char>(ret.len + 1, false);
     if (ret.content == nullptr) {
         throw Genode::Exception{};
     }
@@ -276,14 +275,14 @@ const TString TString::operator-(const TString& str) const
             return *this;
         }
         else if (len == str.length()) {
-            return TString();
+            return TString(this->allocator);
         }
         else {
-            char* p = tstring_alloc->alloc<char>(len - str.length() + 1, false);
+            char* p = allocator->alloc<char>(len - str.length() + 1, false);
             if (p == nullptr) {
                 throw Genode::Exception{};
             }
-            TString ret;
+            TString ret {this->allocator};
             ret.len = len - str.length();
             ret.content = p;
 
@@ -313,10 +312,10 @@ const TString TString::operator-(const char* str) const
             return *this;
         }
         else if (len == lengthOfStr) {
-            return TString();
+            return TString(this->allocator);
         }
         else {
-            char* p = tstring_alloc->alloc<char>(len - lengthOfStr + 1);
+            char* p = allocator->alloc<char>(len - lengthOfStr + 1);
             if (p == nullptr) {
                 throw Genode::Exception{};
             }
@@ -345,9 +344,9 @@ const TString TString::operator - (const char c) const
     else {
         for (size_t i = 0; i < len; i++) {
             if (c == content[i]) {
-                TString ret;
+                TString ret{this->allocator};
                 ret.len = len - 1;
-                ret.content = tstring_alloc->alloc<char>(len, false);
+                ret.content = allocator->alloc<char>(len, false);
                 if (ret.content == nullptr) {
                     throw Genode::Exception{};
                 }
@@ -372,7 +371,7 @@ TString& TString::operator+=(const TString& str)
         char* p;
         auto resLen = len + str.len;
 
-        p = tstring_alloc->alloc<char>(resLen + 1, false);
+        p = allocator->alloc<char>(resLen + 1, false);
         if (p == nullptr) {
             throw Genode::Exception{};
         }
@@ -402,7 +401,7 @@ TString& TString::operator+=(const char* str)
 
         char* p;
 
-        p = tstring_alloc->alloc<char>(resLen + 1, false);
+        p = allocator->alloc<char>(resLen + 1, false);
         if (p == nullptr) {
             throw Genode::Exception{};
         }
@@ -429,7 +428,7 @@ TString& TString::operator+=(const char c)
         auto resLen = len + 1;
         char* p;
 
-        p = tstring_alloc->alloc<char>(resLen + 1, false);
+        p = allocator->alloc<char>(resLen + 1, false);
         if (p == nullptr) {
             throw Genode::Exception{};
         }
@@ -481,7 +480,7 @@ const TString TString::operator*(int x) const
     }
     else {
         // x >= 1
-        char* p = tstring_alloc->alloc<char>(len * adl::size_t(x) + 1, false);
+        char* p = allocator->alloc<char>(len * adl::size_t(x) + 1, false);
         if (p == nullptr) {
             throw Genode::Exception{};
         }
@@ -617,11 +616,6 @@ bool TString::operator>(const char* str) const
 }
 
 
-
-
-
-
-
 bool TString::operator<(const TString& str) const
 {
     if (this->len + str.len == 0 || str.len == 0) {
@@ -700,7 +694,7 @@ TString TString::substr(const size_t pos, const size_t len) const {
     }
 
     ret.len = endIdx - pos;
-    ret.content = tstring_alloc->alloc<char>(ret.len + 1, false);
+    ret.content = allocator->alloc<char>(ret.len + 1, false);
     if (ret.content == nullptr) {
         throw Genode::Exception{};
     }
@@ -720,7 +714,7 @@ void TString::split(const TString& key, ArrayList<TString>& out) const {
         return;
     }
 
-    adl::TString tmp;
+    adl::TString tmp{this->allocator};
     adl::size_t i = 0;
     while (i < length()) {
         if (adl::strncmp(key.c_str(), content + i, key.length()) == 0) {

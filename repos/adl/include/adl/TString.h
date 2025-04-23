@@ -4,6 +4,7 @@
 #pragma once
 
 #include "./Allocator.h"
+#include "./config.h"
 
 namespace adl {
 
@@ -15,6 +16,7 @@ class TString {
 protected:
     char* content;
     size_t   len;
+    adl::Allocator* allocator = nullptr;
 
     inline void freeUpContent();
 
@@ -22,9 +24,9 @@ protected:
 public:
     static const size_t npos = -1;
 
-    TString();
-    TString(const char* str);
-    TString(const TString& str);
+    TString(adl::Allocator* alloc = &defaultAllocator);
+    TString(const char* str, adl::Allocator* alloc = &defaultAllocator);
+    TString(const TString& str, adl::Allocator* alloc = &defaultAllocator);
 
 #if defined(__GNUC__)
 
