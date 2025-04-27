@@ -102,6 +102,9 @@ void* malloc(size_t size) {
         }
 
         newStage->getBlock(newStage->count - 1)->next = nullptr;
+
+
+        newStage->count --;  // We will detach one block to malloc caller.
     }
 
     if (list->next) {
@@ -146,8 +149,14 @@ void free(void* addr) {
 
     block->prev = nullptr;
 
-    // 暂不考虑释放 arena 页。
-    // todo
+
+    // See whether the arena page is all recycled.
+    if (stage->count == stage->descriptor->blocksPerPage) {
+        // So all blocks inside this page is recycled. Maybe we can free the whole page?
+        // TODO
+    }
+
+
 }
 
 

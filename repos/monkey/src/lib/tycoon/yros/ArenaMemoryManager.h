@@ -32,12 +32,12 @@ struct ArenaDescriptor {
     /**
      * 内存块大小。
      */
-    adl::uint32_t blockSize;
+    adl::uint32_t blockSize;  // Set once.
 
     /**
      * 每页能容纳的内存块数量。
      */
-    adl::uint32_t blocksPerPage;
+    adl::uint32_t blocksPerPage;  // Set once.
 
     ArenaBlockNode* firstFreeBlock;
 };
