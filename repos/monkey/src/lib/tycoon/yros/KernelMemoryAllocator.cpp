@@ -154,6 +154,7 @@ void free(void* addr) {
     if (stage->count == stage->descriptor->blocksPerPage) {
         // So all blocks inside this page is recycled. Maybe we can free the whole page?
         // TODO
+        // Maybe: unlinkAndFreeArenaPage(stage);
     }
 
 
@@ -184,6 +185,34 @@ void* allocPage(uint64_t count) {
     
     }
 }
+
+
+/**
+ * @param stage Must have all blocks recycled. Or, this method would cause UB. 
+ *              Also, stage must NOT holds large page.
+ */
+static void unlinkAndFreeArenaPage(ArenaStage* stage) {
+    // assert stage->count == stage->descriptor->blocksPerPage;
+
+    auto descriptor = stage->descriptor;
+    
+    for (uint32_t idx = 0; idx < descriptor->blocksPerPage; idx ++) {
+        auto block = stage->getBlock(idx);
+
+        if (!block->prev) {  // block is descriptor's first block.
+            descriptor->firstFreeBlock = block->next;
+        }
+        else {
+            block->prev->next = block->next;
+        }
+
+        if (block->next)
+            block->next->prev = block->prev;
+    }
+
+    freePage(stage, 1);
+}  // TODO: Haven't tested.
+
 
 void freePage(void* addr, uint64_t count) {
     uint64_t realAddr = (uint64_t) addr;
