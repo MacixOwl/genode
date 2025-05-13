@@ -20,7 +20,7 @@
 
 #include <monkey/tycoon/Protocol1ConnectionDock.h>
 
-#include <libc/component.h>
+#include <monkey/tycoon/MaintenanceThread.h>
 
 
 namespace monkey {
@@ -101,6 +101,8 @@ protected:
     
     dock::Connection dock;
 
+    tycoon::MaintenanceThread maintenanceThread;
+
 protected:
 
     /**
@@ -149,7 +151,8 @@ public:
     : 
     pageFaultSignalBridge(*this, env),
     env(env),
-    dock(env)
+    dock(env),
+    maintenanceThread(env, *this)
     {
         dock.makeBuffer(2);
         dock.getBuffer();
@@ -183,6 +186,7 @@ public:
 
 public:
     friend PageFaultSignalBridge;
+    friend tycoon::MaintenanceThread;
 };
 
 

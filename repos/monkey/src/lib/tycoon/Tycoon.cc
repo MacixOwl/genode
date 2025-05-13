@@ -517,6 +517,8 @@ monkey::Status Tycoon::start(adl::uintptr_t vaddr, adl::size_t size) {
     memSpace.size = size;
     Genode::log("Tycoon: Started.");
 
+    maintenanceThread.start();
+
 ERROR:
     disconnectConcierge();
     return status;
@@ -562,6 +564,8 @@ void Tycoon::stop() {
 
 
     memSpace.manage = false;
+
+    maintenanceThread.stopAndJoin();
 }
 
 
