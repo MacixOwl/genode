@@ -55,7 +55,15 @@ static int runKvBench(MtsysPivot::ServiceHub& hub, int n) {
 
 	hub.Kv_insert("qqz", "zzl");
 	for (int i = 0; i < n; i++) {
-		hub.Kv_read("qqz");
+		if (i % 9 == 0 && i % 2 == 0){
+			hub.Kv_insert("qqz", "zzl");
+		}
+		else if (i % 9 == 0 && i % 2 == 1){
+			hub.Kv_insert("qqz", "zzh");
+		}
+		else{
+			hub.Kv_read("qqz");
+		}
 	}
 	hub.Kv_del("qqz");
 	hub.Kv_insert("qqz", "zzl");

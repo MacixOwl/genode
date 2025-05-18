@@ -14,6 +14,7 @@
 #include <memory/memory_connection.h>
 #include <kv/kv_connection.h>
 #include <fs/fs_connection.h>
+#include <fs_memory/fs_memory_connection.h>
 
 namespace MtsysPivot {
 	struct Component_state;
@@ -43,6 +44,7 @@ struct MtsysPivot::Component_state
 	MtsysMemory::Connection mem_obj;
 	MtsysKv::Connection kv_obj;
 	MtsysFs::Connection fs_obj;
+	MtsysFsMemory::Connection fs_memory_obj;
 
 	Timer::Periodic_timeout<MtsysPivot::Component_state> timeout;
 
@@ -127,6 +129,7 @@ struct MtsysPivot::Component_state
 	mem_obj(env),
 	kv_obj(env),
 	fs_obj(env),
+	fs_memory_obj(env),
 	timeout(timer, *this, &Component_state::update_ipc_stats, 
 		Genode::Microseconds{IPC_UPDATE_INTERVAL * 1000})
     {

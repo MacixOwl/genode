@@ -247,7 +247,7 @@ struct MtsysFs::Session_component : Genode::Rpc_object<Session>
         Genode::Const_byte_range_ptr buff(ds->local_addr<char>() + buf_off, count);
         a = state.ramfs.write(state.fd_array[fd], buff, count);
         if (a == MtfWriteResult::WRITE_OK) {
-            Genode::log("Wrote to fd ", fd, " for client ", client_id);
+            // Genode::log("Wrote to fd ", fd, " for client ", client_id);
             return count;
         }
         else {
@@ -267,7 +267,7 @@ struct MtsysFs::Session_component : Genode::Rpc_object<Session>
         int a = -1;
         a = state.ramfs.ftruncate(state.fd_array[fd], (Vfs::file_size)length);
         if (a == MtfTrunResult::FTRUNCATE_OK) {
-            Genode::log("Truncated fd ", fd, " for client ", client_id);
+            // Genode::log("Truncated fd ", fd, " for client ", client_id);
             return 0;
         }
         else {

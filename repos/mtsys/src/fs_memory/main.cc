@@ -49,6 +49,7 @@ struct MtsysFsMemory::Component_state
 {   
     Genode::Env &env;
     Genode::Sliced_heap sliced_heap { env.ram(), env.rm() };
+    Genode::Heap heap { env.ram(), env.rm() };
     MfsHandle* fd_array[MAX_FDNUM];
     int fd_tail = 0;
     int fd_head = 0;
@@ -90,7 +91,7 @@ struct MtsysFsMemory::Component_state
     memory_ipc_fAPP(),
     memory_ipc_fSERVICE(),
     fd_array(),
-    ramfs(env, sliced_heap)
+    ramfs(env, heap)
     {
         Genode::log("Memory server state initializing");
         ds_list = new (sliced_heap) Genode::Attached_ram_dataspace*[MAX_MEM_CAP];
@@ -190,7 +191,7 @@ struct MtsysFsMemory::Session_component : Genode::Rpc_object<Session>
         a = state.ramfs.open(path.string(), flags, &(state.fd_array[fd_target]), 
             state.sliced_heap);
         if (a == MtfOpenResult::OPEN_OK) {
-            Genode::log("Opened file ", path, " for client ", client_id);
+            // Genode::log("Opened file ", path, " for client ", client_id);
             return fd_server2user(fd_target);
         }
         else {
@@ -334,7 +335,7 @@ struct MtsysFsMemory::Session_component : Genode::Rpc_object<Session>
         Genode::Const_byte_range_ptr buff(ds->local_addr<char>() + buf_off, count);
         a = state.ramfs.write(state.fd_array[fd], buff, count);
         if (a == MtfWriteResult::WRITE_OK) {
-            Genode::log("Wrote to fd ", fd, " for client ", client_id);
+            // Genode::log("Wrote to fd ", fd, " for client ", client_id);
             return count;
         }
         else {
@@ -354,7 +355,7 @@ struct MtsysFsMemory::Session_component : Genode::Rpc_object<Session>
         int a = -1;
         a = state.ramfs.ftruncate(state.fd_array[fd], (Vfs::file_size)length);
         if (a == MtfTrunResult::FTRUNCATE_OK) {
-            Genode::log("Truncated fd ", fd, " for client ", client_id);
+            // Genode::log("Truncated fd ", fd, " for client ", client_id);
             return 0;
         }
         else {

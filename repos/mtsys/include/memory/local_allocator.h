@@ -9,6 +9,7 @@
 #include <base/attached_ram_dataspace.h>
 #include <base/mutex.h>
 #include <base/env.h>
+#include <timer_session/connection.h>
 
 #include <util/interface.h>
 #include <base/stdint.h>
@@ -206,6 +207,7 @@ private:
     int ring_tail[RING_LEVEL] = {0};
 
     Genode::size_t _quota_used {0};
+    Timer::Connection timer_obj;
 
     MtsysMemory::LocalMemobj* alloc_ds(int size);
     int free_atds(void* addr);
@@ -306,7 +308,8 @@ namespace MtsysMemory {
     Local_allocator::Local_allocator(Genode::Env &env, MtsysMemory::Connection &mem_obj)
     :
     env(env),
-    mem_obj(mem_obj)
+    mem_obj(mem_obj),
+    timer_obj(env)
     {
         // Genode::log("hash of 640: ", hash_bucket(640));
         hash_keys = new(sliced_heap) unsigned long[HASH_SIZE * HASH_CAPACITY];
@@ -439,6 +442,7 @@ namespace MtsysMemory {
             MtsysMemory::LocalMemobj *capaddr = new(sliced_heap) MtsysMemory::LocalMemobj();
             Genode::log("allocating remote dataspace size: ", slab_size);
             Genode::Ram_dataspace_capability cap;
+            timer_obj.usleep(1);
             if (slab_size > 0)
                 cap = mem_obj.Memory_alloc(slab_size, capaddr->addr);
             else

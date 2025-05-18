@@ -53,11 +53,13 @@ struct MtsysPivot::ServiceHub {
 
 	MtsysKv::Connection kv_obj;
 	int kvrpc_dataspace_prepared = 0;
-	static const Genode::addr_t Kvrpc_Addr = 0xa0000000; // TODO: really this address?
+	static const Genode::addr_t Kvrpc_Addr = 0xD0000000; // TODO: really this address?
 
 	MtsysFs::Connection fs_obj;
 	int fsIO_dataspace_prepared = 0;
-	Genode::addr_t fsIO_Addr = 0xa4000000;
+	Genode::addr_t fsIO_Addr = 0xD4000000;
+
+	MtsysFsMemory::Connection fs_memory_obj;
 
 	ServiceHub(Genode::Env &env)
 	: env(env), 
@@ -67,7 +69,8 @@ struct MtsysPivot::ServiceHub {
 	mem_obj(env), 
 	alloc_obj(env, mem_obj),
 	kv_obj(env),
-	fs_obj(env)
+	fs_obj(env),
+	fs_memory_obj(env)
 	{ 
 		// get and attach dataspace for fsIO
 		auto fsIO_ds = fs_obj.get_ds_cap();
@@ -241,7 +244,10 @@ struct MtsysPivot::ServiceHub {
 			switch (service_main_id_cache[SID_FS_SERVICE])
 			{
 			case 8: // only fs service
-				res = fs_obj.Fs_hello(); 
+				if (MTSYS_OPTION_COMBINE == 0)
+					res = fs_obj.Fs_hello(); 
+				else
+					res = fs_memory_obj.Fs_hello();
 				break;
 			default:
 				break;
@@ -258,31 +264,52 @@ struct MtsysPivot::ServiceHub {
 	}
 
 	int Fs_open(const MtsysFs::FsPathString path, unsigned flags, unsigned mode) {
-		return fs_obj.open(path, flags, mode);
+		if (MTSYS_OPTION_COMBINE == 0)
+			return fs_obj.open(path, flags, mode);
+		else
+			;return fs_memory_obj.open(path, flags, mode);
 	}
 
 	int Fs_close(int fd) {
-		return fs_obj.close(fd);
+		if (MTSYS_OPTION_COMBINE == 0)
+			return fs_obj.close(fd);
+		else
+			return fs_memory_obj.close(fd);
 	}
 
 	int Fs_mkdir(const MtsysFs::FsPathString path, unsigned mode) {
-		return fs_obj.mkdir(path, mode);
+		if (MTSYS_OPTION_COMBINE == 0)
+			return fs_obj.mkdir(path, mode);
+		else
+			return fs_memory_obj.mkdir(path, mode);
 	}
 
 	int Fs_rmdir(const MtsysFs::FsPathString path) {
-		return fs_obj.rmdir(path);
+		if (MTSYS_OPTION_COMBINE == 0)
+			return fs_obj.rmdir(path);
+		else
+			return fs_memory_obj.rmdir(path);
 	}
 
 	int Fs_unlink(const MtsysFs::FsPathString path) {
-		return fs_obj.unlink(path);
+		if (MTSYS_OPTION_COMBINE == 0)
+			return fs_obj.unlink(path);
+		else
+			return fs_memory_obj.unlink(path);
 	}
 
 	int Fs_rename(const MtsysFs::FsPathString from, const MtsysFs::FsPathString to) {
-		return fs_obj.rename(from, to);
+		if (MTSYS_OPTION_COMBINE == 0)
+			return fs_obj.rename(from, to);
+		else
+			return fs_memory_obj.rename(from, to);
 	}
 
 	int Fs_fstat(const MtsysFs::FsPathString path, MtfStat &stat) {
-		return fs_obj.fstat(path, stat);
+		if (MTSYS_OPTION_COMBINE == 0)
+			return fs_obj.fstat(path, stat);
+		else
+			return fs_memory_obj.fstat(path, stat);
 	}
 
 	int Fs_read(int fd, char *buf, Genode::size_t count) {
@@ -293,7 +320,11 @@ struct MtsysPivot::ServiceHub {
 			if (read_size > FILEIO_DSSIZE) {
 				read_size = FILEIO_DSSIZE;
 			}
-			int res = fs_obj.read(fd, 0, read_size);
+			int res = -1;
+			if (MTSYS_OPTION_COMBINE == 0)
+				res = fs_obj.read(fd, 0, read_size);
+			else
+				res = fs_memory_obj.read(fd, 0, read_size);
 			if (res == -1) {
 				return -1;
 			}
@@ -315,7 +346,11 @@ struct MtsysPivot::ServiceHub {
 			}
 			// copy data to fsIO dataspace
 			Genode::memcpy((void*)fsIO_Addr, buf + write_count, write_size);
-			int res = fs_obj.write(fd, 0, write_size);
+			int res = -1;
+			if (MTSYS_OPTION_COMBINE == 0)
+				res = fs_obj.write(fd, 0, write_size);
+			else
+				res = fs_memory_obj.write(fd, 0, write_size);
 			if (res == -1) {
 				return -1;
 			}
@@ -325,9 +360,11 @@ struct MtsysPivot::ServiceHub {
 	}
 
 	int Fs_ftruncate(int fd, Genode::size_t length) {
-		return fs_obj.ftruncate(fd, length);
+		if (MTSYS_OPTION_COMBINE == 0)
+			return fs_obj.ftruncate(fd, length);
+		else
+			return fs_memory_obj.ftruncate(fd, length);
 	}
 
 };
-
 

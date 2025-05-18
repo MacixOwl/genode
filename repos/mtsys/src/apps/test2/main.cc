@@ -100,6 +100,8 @@ static int runFsBench(MtsysPivot::ServiceHub& hub, int n) {
 	hub.Fs_close(fd1);
 	for (int i = 0; i < n; i++) {
 		fd1 = hub.Fs_open("/testfile", MtfOpenMode::OPEN_MODE_RDWR, 666);
+		hub.Fs_write(fd1, "Hello, world!", 14);
+		hub.Fs_ftruncate(fd1, 8);
 		hub.Fs_close(fd1);
 	}
 	fd1 = hub.Fs_open("/testfile", MtfOpenMode::OPEN_MODE_RDWR, 666);
@@ -114,7 +116,7 @@ static int runFsBench(MtsysPivot::ServiceHub& hub, int n) {
 	auto end = hub.Time_now_us().value;
 	Genode::log("\n\n =================== \n\n");
 	Genode::log("FS bench: ", n, " ops, time: ", end - start, " us");
-	Genode::log("FS bench throughput: ", (float)n * 1000000 / (end - start), " ops/s");
+	Genode::log("FS bench throughput: ", (float)n * 1000000 * 4 / (end - start), " ops/s");
 	Genode::log("\n\n =================== \n\n");
 	return 0;
 }

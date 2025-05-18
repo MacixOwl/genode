@@ -57,24 +57,24 @@ install_config {
 
 	<start name="fsmemory_server">
 		<affinity xpos="0" width="2"/>
-		<resource name="RAM" quantum="16M"/>
+		<resource name="RAM" quantum="512M"/>
 		<provides> <service name="MtsysFsMemory"/> </provides>
 	</start>
 
 	<start name="mtsys_pivot">
-		<affinity xpos="0" width="2"/>
+		<affinity xpos="0" width="8"/>
 		<resource name="RAM" quantum="16M"/>
 		<provides> <service name="MtsysPivot"/> </provides>
 	</start>
 
     <start name="testapp1">
 		<affinity xpos="0" width="8"/>
-        <resource name="RAM" quantum="16M"/>
+        <resource name="RAM" quantum="128M"/>
 	</start>
 
 	<start name="testapp2">
 		<affinity xpos="0" width="8"/>
-        <resource name="RAM" quantum="160M"/>
+        <resource name="RAM" quantum="512M"/>
 	</start>
 	
 </config>}
