@@ -214,6 +214,9 @@ void Tycoon::handlePageFaultSignal() {
     }
 
 
+    Genode::Mutex::Guard _g {this->pageMaintenanceLock};
+
+
     auto pageAddr = state.addr & ~0xffful;
     bool isNewPage = false;
     if (pages.hasKey(pageAddr)) {

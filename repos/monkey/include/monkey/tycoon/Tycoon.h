@@ -14,6 +14,9 @@
     #include <monkey/tycoon/Page.h>
 #undef MONKEY_TYCOON_INCLUDE_INTERNALS
 
+
+#include <base/mutex.h>
+
 #include <monkey/net/protocol.h>
 #include <monkey/genodeutils/config.h>
 #include <monkey/dock/Connection.h>
@@ -102,6 +105,9 @@ protected:
     dock::Connection dock;
 
     tycoon::MaintenanceThread maintenanceThread;
+
+
+    Genode::Mutex pageMaintenanceLock;
 
 protected:
 

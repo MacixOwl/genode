@@ -7,6 +7,7 @@
 
 */
 
+#include <monkey/tycoon/Tycoon.h>
 #include <monkey/tycoon/MaintenanceThread.h>
 
 using namespace monkey;
@@ -25,6 +26,9 @@ tycoon::MaintenanceThread::MaintenanceThread(
 
 
 void tycoon::MaintenanceThread::doMaintenance() {
+
+    Genode::Mutex::Guard _g {tycoon.pageMaintenanceLock};
+
     // TODO
 }
 
