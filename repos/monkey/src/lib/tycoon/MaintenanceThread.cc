@@ -17,7 +17,8 @@ tycoon::MaintenanceThread::MaintenanceThread(
     Tycoon& tycoon
 ) :
     Genode::Thread(env, "Tycoon Maintenance Thread", 16 * 1024),
-    tycoon(tycoon)
+    tycoon(tycoon),
+    timer(env)
 {
 
 }
@@ -30,21 +31,20 @@ void tycoon::MaintenanceThread::doMaintenance() {
 
 void tycoon::MaintenanceThread::entry() {
     Genode::log("[Tycoon Maintenance Thread] Started.");
+
+    running = true;
     
-    while (true) {
+    while (running) {
         doMaintenance();
+        timer.msleep(1000);
     }
-
-    // TODO 1: how to stop this loop?
-    // TODO 2: how to sleep during each maintenance?
-
 
     Genode::log("[Tycoon Maintenance Thread] Stopped.");
 }
 
 
 void tycoon::MaintenanceThread::stop() {
-    // TODO
+    running = false;
 }
 
 

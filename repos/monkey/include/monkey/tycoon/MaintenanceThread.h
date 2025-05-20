@@ -10,6 +10,7 @@
 #pragma once 
 
 #include <base/thread.h>
+#include <timer_session/connection.h>
 
 namespace monkey { class Tycoon; }
 
@@ -20,6 +21,8 @@ namespace monkey::tycoon {
 class MaintenanceThread : public Genode::Thread {
 protected:
     Tycoon& tycoon;
+    Timer::Connection timer;
+    bool running = false;
 
     void doMaintenance();
 
