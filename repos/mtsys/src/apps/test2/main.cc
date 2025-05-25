@@ -162,7 +162,7 @@ void Component::construct(Genode::Env &env)
 
 	runFsTest(hub);
 
-	runFsBench(hub, 10000);
+	runFsBench(hub, 30000);
 
 
 	Genode::log("testapp completed");

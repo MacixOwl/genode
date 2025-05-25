@@ -55,10 +55,10 @@ static int runKvBench(MtsysPivot::ServiceHub& hub, int n) {
 
 	hub.Kv_insert("qqz", "zzl");
 	for (int i = 0; i < n; i++) {
-		if (i % 9 == 0 && i % 2 == 0){
+		if (i % 17 == 0 && i % 2 == 0){
 			hub.Kv_insert("qqz", "zzl");
 		}
-		else if (i % 9 == 0 && i % 2 == 1){
+		else if (i % 17 == 0 && i % 2 == 1){
 			hub.Kv_insert("qqz", "zzh");
 		}
 		else{
@@ -97,7 +97,7 @@ void Component::construct(Genode::Env &env)
 
 	runKvTest(hub);
 
-	runKvBench(hub, 10000);
+	runKvBench(hub, 100000);
 
 
 	Genode::log("testapp completed");
