@@ -25,6 +25,18 @@ Every message begins with a header like this:
 * type (uint32): Command identifier. Continue reading to learn more.
 * length (uint64): Size of the message without header.
 
+## Versions
+
+### Stable: V1
+
+### Developing: V2
+
+* Document ✅
+* Monkey UUID Support (Monkey Net Lib) ❌
+* Monkey Protocol Lib ❌
+* Monkey Tycoon Driver ❌
+* Basic Testing ❌
+
 ## Protocol Magic
 
 Protocol magic is set to `mkOS`
@@ -361,6 +373,8 @@ struct {
 
 From: Protocol Version 1
 
+Until: Protocol Version 1
+
 For:
 
 * App to Memory Nodes
@@ -406,6 +420,37 @@ If success, Response shall be like:
 +-------------------+
 
 ```
+
+### 0x3001: Try Alloc
+
+From: Protocol Version 2
+
+For:
+
+* App to Memory Nodes
+
+No payload required. Page size can only be 4KB. Only 1 page can be allocated once.
+
+On success, Response shall be like:
+
+```
+  8 Bytes
++---------+---------+
+|      Block ID     |
++---------+---------+
+|                   |
++     read key      +
+|                   |
++---------+---------+
+|                   |
++     write key     +
+|                   |
++---------+---------+
+```
+
+You can ignore `read key` and `write key` if you want to use the page exclusively.
+
+You can deliver `read key` to clients you'd like to have read-obly access to the page, or a `write key` to clients you'd like to have both read and write access.
 
 ### 0x3002: Read Block
 
@@ -486,6 +531,58 @@ For:
 ```
 
 On success, Response's msg is empty.
+
+### 0x3006: Ref Block
+
+From: Protocol Version 2
+
+For:
+
+* App to Memory Nodes
+
+```
+  8 Bytes
++-------------------+
+|                   |
++       header      +
+|                   |
++---------+---------+
+| UUID (Access Key) |
++---------+---------+
+```
+
+Grant self access to a shared page.
+
+If `write key` is provided, node would have read-write access to page.
+
+If `read key` is provided, whether node have or have no access to page, permission would be added or downgraded to read-only.
+
+On success, `BlockID` is returned to client.
+
+Once referenced, remember to call `0x3007: Unref Block` before leaving your program.
+
+### 0x3007: Unref Block
+
+From: Protocol Version 2
+
+For:
+
+* App to Memory Nodes
+
+```
+  8 Bytes
++-------------------+
+|                   |
++       header      +
+|                   |
++---------+---------+
+|      Block ID     |
++---------+---------+
+```
+
+Detach node's access from a shared page.
+
+On success, common response with no message payload returned.
 
 ### 0x4001: Ping Pong
 
