@@ -28,6 +28,20 @@
 
 namespace monkey {
 
+class Tycoon;
+
+
+class UserAllocator {
+protected:
+    Tycoon& tycoon;
+public:
+    UserAllocator(Tycoon& tycoon) : tycoon(tycoon) {}
+
+    void* alloc(adl::size_t size);
+    void* allocPage(adl::size_t nPages = 1);
+    void free(void* addr);
+    void freePage(void* addr, adl::size_t nPages = 1);
+};
 
     
 /**
@@ -108,6 +122,8 @@ protected:
 
 
     Genode::Mutex pageMaintenanceLock;
+    
+    UserAllocator userAllocator;
 
 protected:
 
@@ -158,7 +174,8 @@ public:
     pageFaultSignalBridge(*this, env),
     env(env),
     dock(env),
-    maintenanceThread(env, *this)
+    maintenanceThread(env, *this),
+    userAllocator(*this)
     {
         dock.makeBuffer(2);
         dock.getBuffer();
@@ -186,13 +203,12 @@ public:
 
     monkey::Status checkAvailableMem(adl::size_t* res);
 
-
-    void* alloc(adl::size_t size);
-    void free(void* addr);
+    UserAllocator& getUserAllocator() { return this->userAllocator; }
 
 public:
     friend PageFaultSignalBridge;
     friend tycoon::MaintenanceThread;
+    friend UserAllocator;
 };
 
 

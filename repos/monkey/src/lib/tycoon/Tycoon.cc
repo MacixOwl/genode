@@ -15,6 +15,31 @@
 
 using namespace monkey;
 
+/* ---------------- UserAllocator ---------------- */
+
+
+void* UserAllocator::alloc(adl::size_t size) {
+    return yros::memory::KernelMemoryAllocator::malloc(size);
+}
+
+
+void* UserAllocator::allocPage(adl::size_t nPages) {
+    return yros::memory::KernelMemoryAllocator::allocPage(nPages);
+}
+
+
+void UserAllocator::free(void* addr) {
+    yros::memory::KernelMemoryAllocator::free(addr);
+}
+
+
+void UserAllocator::freePage(void* addr, adl::size_t nPages) {
+    yros::memory::KernelMemoryAllocator::freePage(addr, nPages);
+}
+
+
+/* ---------------- Tycoon ---------------- */
+
 
 Tycoon::~Tycoon() {
     stop();
@@ -599,15 +624,5 @@ monkey::Status Tycoon::checkAvailableMem(adl::size_t* res) {
     *res = sum;
 
     return Status::SUCCESS;
-}
-
-
-void* Tycoon::alloc(adl::size_t size) {
-    return yros::memory::KernelMemoryAllocator::malloc(size);
-}
-
-
-void Tycoon::free(void* addr) {
-    yros::memory::KernelMemoryAllocator::free(addr);
 }
 
