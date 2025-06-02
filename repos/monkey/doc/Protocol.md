@@ -2,11 +2,15 @@
 
 <center>feng.yt [at] sjtu [dot] edu [dot] cn</center>
 
-<center>gongty [at] tongji [dot] edu [dot] cn</center>
+<center>gongty [at] alumni [dot] tongji [dot] edu [dot] cn</center>
 
 ## Protocol Model
 
 Distribute KV Network Protocol is a special type of Vesper Control Protocol. You can check the design of [Vesper Control Protocol](https://github.com/FlowerBlackG/vesper/blob/main/doc/vesper-control-protocol.md).
+
+## Endianness
+
+Network byte order defined by TCP/IP is used. So all multi-byte integers in the protocol is in big-endian. Note that integers in binary data blocks, or where explicitly specified, may not follow this general rule.
 
 ## Header
 
@@ -42,6 +46,8 @@ Every message begins with a header like this:
 Protocol magic is set to `mkOS`
 
 ## Protocol Messages
+
+Messages marked with `(D)` means deprecated.
 
 ### 0xA001: Common Response
 
@@ -369,7 +375,7 @@ struct {
 } __packed
 ```
 
-### 0x3001: Try Alloc
+### (D) 0x3001: Try Alloc
 
 From: Protocol Version 1
 
@@ -438,6 +444,8 @@ On success, Response shall be like:
 +---------+---------+
 |      Block ID     |
 +---------+---------+
+|     data version  |
++---------+---------+
 |                   |
 +     read key      +
 |                   |
@@ -452,9 +460,13 @@ You can ignore `read key` and `write key` if you want to use the page exclusivel
 
 You can deliver `read key` to clients you'd like to have read-obly access to the page, or a `write key` to clients you'd like to have both read and write access.
 
-### 0x3002: Read Block
+`data version` is an 8-byte integer used for syncing this block across multiple clients. You can ignore it if using the block exclusively.
+
+### (D) 0x3002: Read Block
 
 From: Protocol Version 1
+
+Until: Protocol Version 1
 
 For:
 
@@ -474,9 +486,44 @@ For:
 
 Response's msg is Block data.
 
-### 0x3003: Write Block
+### 0x3002: Read Block
+
+From: Protocol Version 2
+
+For:
+
+* App to Memory Nodes
+
+```
+  8 Bytes
++-------------------+
+|                   |
++       header      +
+|                   |
++---------+---------+
+|      Block ID     |
++---------+---------+
+
+```
+
+Response's msg:
+
+```
+  8 Bytes
++---------+---------+
+|    data version   |
++-------------------+
+|                   |
++       header      +
+|                   |
++---------+---------+
+```
+
+### (D) 0x3003: Write Block
 
 From: Protocol Version 1
+
+Until: Protocol Version 1
 
 For:
 
@@ -497,6 +544,32 @@ For:
 |      ......       |
 |                   |
 ```
+
+### 0x3003: Write Block
+
+From: Protocol Version 2
+
+For:
+
+* App to Memory Nodes
+
+```
+  8 Bytes
++-------------------+
+|                   |
++       header      +
+|                   |
++---------+---------+
+|      Block ID     |
++---------+---------+
+|                   |
+|   data (binary)   |
+|                   |
+|      ......       |
+|                   |
+```
+
+On success, response msg is latest data version (8 bytes).
 
 ### 0x3004: Check Avail Mem
 
@@ -583,6 +656,29 @@ For:
 Detach node's access from a shared page.
 
 On success, common response with no message payload returned.
+
+### 0x3008: Get Block Data Version
+
+From: Protocol Version 2
+
+For:
+
+* App to Memory Nodes
+
+```
+  8 Bytes
++-------------------+
+|                   |
++       header      +
+|                   |
++---------+---------+
+|      Block ID     |
++---------+---------+
+```
+
+You must make sure you have permission to access the block (read-only or read-write both ok), or memory nodes could reject this request and reply an error code.
+
+On success, response message is block's data version (8 bytes).
 
 ### 0x4001: Ping Pong
 
