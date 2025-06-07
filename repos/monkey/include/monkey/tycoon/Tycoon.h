@@ -21,8 +21,6 @@
 #include <monkey/genodeutils/config.h>
 #include <monkey/dock/Connection.h>
 
-#include <monkey/tycoon/Protocol1ConnectionDock.h>
-
 #include <monkey/tycoon/MaintenanceThread.h>
 
 
@@ -104,8 +102,8 @@ protected:
 
 
     struct {
-        tycoon::Protocol1ConnectionDock concierge;
-        adl::HashMap<adl::int64_t, tycoon::Protocol1ConnectionDock*> mnemosynes;
+        net::Protocol1ConnectionDock concierge;
+        adl::HashMap<adl::int64_t, net::Protocol1ConnectionDock*> mnemosynes;
     } connections;
 
     adl::ArrayList<net::Protocol1Connection::MemoryNodeInfo> memoryNodesInfo;

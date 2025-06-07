@@ -49,7 +49,7 @@ struct Socket4 : public monkey::net::PromisedSocketIo {
 
 
     // For server mode.
-    monkey::Status start(adl::size_t maxClients = 32);
+    virtual monkey::Status start(adl::size_t maxClients = 32);
 
 
     /**

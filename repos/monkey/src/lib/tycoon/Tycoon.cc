@@ -141,7 +141,7 @@ monkey::Status Tycoon::openConnection(bool concierge, adl::int64_t id, bool forc
     // ------ open new connection. ------
 
     Status status = Status::SUCCESS;
-    tycoon::Protocol1ConnectionDock conn;
+    net::Protocol1ConnectionDock conn;
     conn.dock = &dock;
 
     // determine ip and port.
@@ -186,12 +186,12 @@ monkey::Status Tycoon::openConnection(bool concierge, adl::int64_t id, bool forc
     }
 
     // save this connection
-    tycoon::Protocol1ConnectionDock* pConn = nullptr;
+    net::Protocol1ConnectionDock* pConn = nullptr;
     if (concierge) {
         pConn = &connections.concierge;
     }
     else {
-        auto newConn = adl::defaultAllocator.alloc<tycoon::Protocol1ConnectionDock>();
+        auto newConn = adl::defaultAllocator.alloc<net::Protocol1ConnectionDock>();
         if (!newConn) {
             conn.close();
             return Status::OUT_OF_RESOURCE;
