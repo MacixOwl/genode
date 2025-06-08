@@ -51,6 +51,9 @@ enum class MsgType : adl::uint32_t {
     WriteBlock = 0x3003,
     CheckAvailMem = 0x3004,
     FreeBlock = 0x3005,
+    RefBlock = 0x3006,
+    UnrefBlock = 0x3007,
+    GetBlockDataVersion = 0x3008,
 
     PingPong = 0x4001
 };

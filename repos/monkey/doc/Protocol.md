@@ -446,15 +446,13 @@ On success, Response shall be like:
 +---------+---------+
 |     data version  |
 +---------+---------+
-|                   |
-+     read key      +
-|                   |
+|     read key      |
 +---------+---------+
-|                   |
-+     write key     +
-|                   |
+|     write key     |
 +---------+---------+
 ```
+
+`read key` and `write key` should be treated as pure bytes, which means no need to convert endian.
 
 You can ignore `read key` and `write key` if you want to use the page exclusively.
 
@@ -514,7 +512,7 @@ Response's msg:
 |    data version   |
 +-------------------+
 |                   |
-+       header      +
++       data        +
 |                   |
 +---------+---------+
 ```
@@ -620,7 +618,7 @@ For:
 +       header      +
 |                   |
 +---------+---------+
-| UUID (Access Key) |
+|    Access Key     |
 +---------+---------+
 ```
 

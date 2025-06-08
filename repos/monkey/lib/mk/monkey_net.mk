@@ -13,5 +13,6 @@ SRC_CC += protocol/defines.cc IP4Addr.cc TcpIo.cc Socket4.cc
 
 SRC_CC += protocol/ProtocolConnection.cc 
 SRC_CC += protocol/Protocol1Connection.cc 
+SRC_CC += protocol/Protocol2Connection.cc 
 
 LIBS = base adl monkey_crypto libc vfs
