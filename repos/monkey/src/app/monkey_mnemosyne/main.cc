@@ -30,6 +30,9 @@
 using namespace monkey;
 
 
+using HelloMode = net::ProtocolConnection::HelloMode;
+
+
 static const adl::TString memSizeToHumanReadable(adl::size_t size) {
     const char* levels[] = {
         " B", " KB", " MB", " GB", " TB"
@@ -192,7 +195,7 @@ Status MnemosyneMain::clockIn() {
 
     net::protocol::Response* response = nullptr;
 
-    net::Protocol1Connection client;
+    net::Protocol2Connection client;
     client.ip = config.concierge.ip;
     client.port = config.concierge.port;
     
@@ -203,9 +206,9 @@ Status MnemosyneMain::clockIn() {
 
     Status status;
 
-    // Open protocol v1 connection.
+    // Open connection using latest protocol.
 
-    if ((status = client.hello(1, false)) != Status::SUCCESS) {
+    if ((status = client.hello(net::protocol::LATEST_VERSION, HelloMode::CLIENT)) != Status::SUCCESS) {
         Genode::error("(Clock In) Failed on [Hello].");
         goto END;
     }
@@ -343,7 +346,7 @@ void MnemosyneMain::serveClient(net::Socket4& conn) {
     client.port = conn.port;
 
     // Force use protocol v1.
-    if (client.hello(1, true) != Status::SUCCESS)
+    if (client.hello(1, HelloMode::SERVER) != Status::SUCCESS)
         return;
     Genode::log("> Using protocol version 1.");
 

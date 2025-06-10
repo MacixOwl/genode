@@ -41,7 +41,7 @@ Status Protocol2Connection::replyTryAlloc(adl::int64_t blockId, adl::int64_t dat
 }
 
 
-Status Protocol2Connection::tryAlloc(adl::int64_t& blockId, adl::int64_t& dataVer, adl::int64_t& readKey, adl::int64_t& writeKey) {
+Status Protocol2Connection::tryAlloc(adl::int64_t* blockId, adl::int64_t* dataVer, adl::int64_t* readKey, adl::int64_t* writeKey) {
     
     Status status = sendTryAlloc();
     if (status != Status::SUCCESS)
@@ -66,10 +66,14 @@ Status Protocol2Connection::tryAlloc(adl::int64_t& blockId, adl::int64_t& dataVe
 
         Payload* pPayload = (Payload*) r->msg;
         Payload& payload = *pPayload;
-        blockId = adl::ntohq(payload.blockId);
-        dataVer = adl::ntohq(payload.dataVer);
-        readKey = payload.rdkey;
-        writeKey = payload.wrkey;
+        if (blockId)
+            *blockId = adl::ntohq(payload.blockId);
+        if (dataVer)
+            *dataVer = adl::ntohq(payload.dataVer);
+        if (readKey)
+            *readKey = payload.rdkey;
+        if (writeKey)
+            *writeKey = payload.wrkey;
     );
 
     return status;
@@ -94,7 +98,7 @@ Status Protocol2Connection::replyReadBlock(adl::int64_t dataVer, const void* dat
 }
 
 
-Status Protocol2Connection::readBlock(adl::int64_t blockId, adl::int64_t* dataVer, void* buf) {
+Status Protocol2Connection::readBlock(adl::int64_t blockId, void* buf, adl::int64_t* dataVer) {
     Status status = sendReadBlock(blockId);
 
     if (status != Status::SUCCESS)

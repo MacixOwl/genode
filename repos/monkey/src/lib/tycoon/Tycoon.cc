@@ -15,6 +15,8 @@
 
 using namespace monkey;
 
+using HelloMode = net::ProtocolConnection::HelloMode;
+
 /* ---------------- UserAllocator ---------------- */
 
 
@@ -141,7 +143,7 @@ monkey::Status Tycoon::openConnection(bool concierge, adl::int64_t id, bool forc
     // ------ open new connection. ------
 
     Status status = Status::SUCCESS;
-    net::Protocol1ConnectionDock conn;
+    net::Protocol2ConnectionDock conn;
     conn.dock = &dock;
 
     // determine ip and port.
@@ -171,7 +173,7 @@ monkey::Status Tycoon::openConnection(bool concierge, adl::int64_t id, bool forc
     }
 
     // hello
-    if ((status = conn.hello(net::Protocol1Connection::VERSION, false)) != Status::SUCCESS) {
+    if ((status = conn.hello(net::protocol::LATEST_VERSION, HelloMode::CLIENT)) != Status::SUCCESS) {
         Genode::error("Failed on Hello.");
         conn.close();
         return status;
@@ -186,12 +188,12 @@ monkey::Status Tycoon::openConnection(bool concierge, adl::int64_t id, bool forc
     }
 
     // save this connection
-    net::Protocol1ConnectionDock* pConn = nullptr;
+    net::Protocol2ConnectionDock* pConn = nullptr;
     if (concierge) {
         pConn = &connections.concierge;
     }
     else {
-        auto newConn = adl::defaultAllocator.alloc<net::Protocol1ConnectionDock>();
+        auto newConn = adl::defaultAllocator.alloc<net::Protocol2ConnectionDock>();
         if (!newConn) {
             conn.close();
             return Status::OUT_OF_RESOURCE;
@@ -306,8 +308,7 @@ void Tycoon::handlePageFaultSignal() {
     env.rm().attach_at(page.buf, tmpAddr);
     status = connections.mnemosynes[page.mnemosyneId]->readBlock(
         page.blockId,
-        (void*) tmpAddr,
-        4096
+        (void*) tmpAddr
     );
 
     env.rm().detach(tmpAddr);
@@ -338,10 +339,9 @@ monkey::Status Tycoon::allocPage(adl::uintptr_t addr) {
         if (status != Status::SUCCESS)
             continue;
 
-        adl::ArrayList<adl::int64_t> idOut;
         auto conn = connections.mnemosynes[it.id];
 
-        status = conn->tryAlloc(4096, 1, idOut);
+        status = conn->tryAlloc(&blockId);
         if (status != Status::SUCCESS) {
             Genode::log("Tycoon: Failed to alloc on ", it.ip.toString().c_str(), ":", it.port);
             Genode::log(
@@ -352,7 +352,6 @@ monkey::Status Tycoon::allocPage(adl::uintptr_t addr) {
             continue;
         }
 
-        blockId = idOut[0];
         mnemosyneId = it.id;
         break;
     }
@@ -469,8 +468,7 @@ monkey::Status Tycoon::sync(tycoon::Page& page) {
 
     status = connections.mnemosynes[page.mnemosyneId]->writeBlock(
         page.blockId, 
-        (void*) page.addr, 
-        4096
+        (void*) page.addr
     );
 
     if (!page.mapped) {

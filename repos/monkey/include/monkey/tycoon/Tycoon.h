@@ -102,11 +102,11 @@ protected:
 
 
     struct {
-        net::Protocol1ConnectionDock concierge;
-        adl::HashMap<adl::int64_t, net::Protocol1ConnectionDock*> mnemosynes;
+        net::Protocol2ConnectionDock concierge;
+        adl::HashMap<adl::int64_t, net::Protocol2ConnectionDock*> mnemosynes;
     } connections;
 
-    adl::ArrayList<net::Protocol1Connection::MemoryNodeInfo> memoryNodesInfo;
+    adl::ArrayList<net::Protocol2Connection::MemoryNodeInfo> memoryNodesInfo;
 
     // addr (4KB aligned) to Page struct.
     adl::HashMap<adl::uintptr_t, tycoon::Page> pages;

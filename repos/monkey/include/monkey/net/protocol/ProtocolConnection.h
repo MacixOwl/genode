@@ -179,9 +179,13 @@ public:
 
     // ------ 0x1000 : Hello ------
 
+    enum class HelloMode : bool {
+        SERVER, CLIENT
+    };
+
     virtual Status hello(
         const adl::ArrayList<adl::int64_t>& protocolVersions,
-        bool serverMode,
+        HelloMode,
         adl::int64_t* finalVersion
     ) final;
 
@@ -193,7 +197,7 @@ public:
      *
      * @return Status If SUCCESS, negotiation success.
      */
-    virtual Status hello(adl::int64_t version, bool serverMode) final;
+    virtual Status hello(adl::int64_t version, HelloMode) final;
 
     virtual Status sendHello(const adl::ArrayList<adl::int64_t>& protocolVersions) final;
     virtual Status recvHello(adl::ArrayList<adl::int64_t>& out) final;

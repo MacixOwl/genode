@@ -17,6 +17,9 @@
 namespace monkey::net {
 
 
+/**
+ * @deprecated Use latest protocol version is suggested.
+ */
 class Protocol1Connection : public ProtocolConnection {
 public:
     struct MemoryNodeInfo {
