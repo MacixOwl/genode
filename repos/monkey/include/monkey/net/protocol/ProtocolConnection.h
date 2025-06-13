@@ -20,6 +20,47 @@
 #define VESPER_PROTOCOL_DEBUG 1
 
 
+/**
+ * This macro is designed for simple "ping-pong" like requests.
+ *
+ * This macro should be used after sending request to server.
+ *
+ * The macro do follows:
+ * 1. recv response (return if error).
+ * 2. if response code is not 0, record and set `status` to error type.
+ * 3. if response code is 0, run code in `onSuccess`. `response` is used for raw msg.
+ * 4. free up response message.
+ */
+#define MONKEY_PROTOCOL_RECV_AND_HANDLE_RESPONSE(onSuccess) \
+    do { \
+        Response* response = nullptr; \
+        if ((status = recvResponse(&response)) != Status::SUCCESS) { \
+            return status; \
+        } \
+        if (response->code != 0) { \
+            Genode::error( \
+                "VesperProtocol: Response code is ", \
+                (response->code + 0), \
+                " in api ", \
+                __FUNCTION__ \
+            ); \
+            lastError.set(response, __FUNCTION__); \
+            Genode::error( \
+                "> Error message is: ", \
+                (lastError.msg.c_str() ? lastError.msg.c_str() : "<EMPTY>") \
+            ); \
+            status = Status::PROTOCOL_ERROR; \
+        } \
+        else { \
+            onSuccess \
+        } \
+        if (response) { \
+            adl::defaultAllocator.free(response); \
+            response = nullptr; \
+        } \
+    } while (0)
+
+
 namespace monkey::net {
 
 /**
@@ -138,9 +179,13 @@ public:
 
     // ------ 0x1000 : Hello ------
 
+    enum class HelloMode : bool {
+        SERVER, CLIENT
+    };
+
     virtual Status hello(
         const adl::ArrayList<adl::int64_t>& protocolVersions,
-        bool serverMode,
+        HelloMode,
         adl::int64_t* finalVersion
     ) final;
 
@@ -152,7 +197,7 @@ public:
      *
      * @return Status If SUCCESS, negotiation success.
      */
-    virtual Status hello(adl::int64_t version, bool serverMode) final;
+    virtual Status hello(adl::int64_t version, HelloMode) final;
 
     virtual Status sendHello(const adl::ArrayList<adl::int64_t>& protocolVersions) final;
     virtual Status recvHello(adl::ArrayList<adl::int64_t>& out) final;

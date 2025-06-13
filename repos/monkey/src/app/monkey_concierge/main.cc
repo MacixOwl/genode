@@ -39,6 +39,8 @@
 
 using namespace monkey;
 
+using HelloMode = net::ProtocolConnection::HelloMode;
+
 
 void ConciergeMain::initAdlAlloc() {
     adl::defaultAllocator.init({
@@ -161,17 +163,18 @@ Status ConciergeMain::init() {
 void ConciergeMain::serveClient(net::Socket4& conn) {
     Genode::log("Client connected: ", conn.ip.toString().c_str(), " [", conn.port, "]");
 
-    net::Protocol1Connection client;
+    net::Protocol2Connection client;
     client.socketFd = conn.socketFd;
     client.port = conn.port;
     client.ip = conn.ip;
 
 
-    // Determine protocol version. Force use version 1.
-    if (client.hello(1, true) != Status::SUCCESS) {
+    // Determine protocol version. Allow only latest version for convenience.
+
+    if (client.hello(net::protocol::LATEST_VERSION, HelloMode::SERVER) != Status::SUCCESS) {
         return;
     }
-    Genode::log("> Using protocol Version: ", 1);
+    Genode::log("> Using protocol Version: ", net::protocol::LATEST_VERSION);
 
 
     // Auth

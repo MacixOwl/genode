@@ -11,11 +11,15 @@
 #pragma once
 
 #include <monkey/net/protocol/ProtocolConnection.h>
+#include <monkey/net/protocol/ProtocolConnectionDock.h>
 #include <adl/collections/HashMap.hpp>
 
 namespace monkey::net {
 
 
+/**
+ * @deprecated Use latest protocol version is suggested.
+ */
 class Protocol1Connection : public ProtocolConnection {
 public:
     struct MemoryNodeInfo {
@@ -262,6 +266,10 @@ public:
     Status freeBlock(adl::int64_t blockId);
 
 };
+
+
+
+MONKEY_NET_IMPL_DOCK_PROTOCOL(Protocol1Connection);
 
 
 }

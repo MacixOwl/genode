@@ -35,10 +35,9 @@ struct MemoryMapEntry {
 Status getMemoryMap(
     Genode::Env&, 
     adl::ArrayList<MemoryMapEntry>& out,
-    // inclusive
-    adl::uintptr_t from = 0x100000000000ull,  
-    // exclusive
-    adl::uintptr_t until = 0x100000000000ull + 128ull * 1024 * 1024 * 1024
+
+    adl::uintptr_t from = 0x170002000ull,
+    adl::uintptr_t until = 0x4000000000ull 
 );
 
 

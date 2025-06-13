@@ -281,18 +281,19 @@ static Status clientModeHello(
 
 Status ProtocolConnection::hello(
     const adl::ArrayList<adl::int64_t>& protocolVersions,
-    bool serverMode,
+    HelloMode mode,
     adl::int64_t* finalVersion
 ) {
-    return (serverMode ? serverModeHello : clientModeHello) (*this, protocolVersions, finalVersion);
+    auto handler = (mode == HelloMode::SERVER ? serverModeHello : clientModeHello);
+    return handler(*this, protocolVersions, finalVersion);
 }
 
 
-Status ProtocolConnection::hello(adl::int64_t version, bool serverMode) {
+Status ProtocolConnection::hello(adl::int64_t version, HelloMode mode) {
     adl::ArrayList<adl::int64_t> arr;
     arr.append(version);
     adl::int64_t finalVer;
-    return hello(arr, serverMode, &finalVer);
+    return hello(arr, mode, &finalVer);
 }
 
 

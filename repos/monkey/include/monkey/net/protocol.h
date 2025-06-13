@@ -12,6 +12,13 @@
 
 #pragma once
 
+#include <adl/stdint.h>
+
+namespace monkey::net::protocol {
+    const adl::int32_t LATEST_VERSION = 2;
+}
+
 #include <monkey/net/protocol/defines.h>
 
 #include <monkey/net/protocol/Protocol1Connection.h>
+#include <monkey/net/protocol/Protocol2Connection.h>

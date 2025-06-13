@@ -14,17 +14,32 @@
     #include <monkey/tycoon/Page.h>
 #undef MONKEY_TYCOON_INCLUDE_INTERNALS
 
+
+#include <base/mutex.h>
+
 #include <monkey/net/protocol.h>
 #include <monkey/genodeutils/config.h>
 #include <monkey/dock/Connection.h>
 
-#include <monkey/tycoon/Protocol1ConnectionDock.h>
-
-#include <libc/component.h>
+#include <monkey/tycoon/MaintenanceThread.h>
 
 
 namespace monkey {
 
+class Tycoon;
+
+
+class UserAllocator {
+protected:
+    Tycoon& tycoon;
+public:
+    UserAllocator(Tycoon& tycoon) : tycoon(tycoon) {}
+
+    void* alloc(adl::size_t size);
+    void* allocPage(adl::size_t nPages = 1);
+    void free(void* addr);
+    void freePage(void* addr, adl::size_t nPages = 1);
+};
 
     
 /**
@@ -87,11 +102,11 @@ protected:
 
 
     struct {
-        tycoon::Protocol1ConnectionDock concierge;
-        adl::HashMap<adl::int64_t, tycoon::Protocol1ConnectionDock*> mnemosynes;
+        net::Protocol2ConnectionDock concierge;
+        adl::HashMap<adl::int64_t, net::Protocol2ConnectionDock*> mnemosynes;
     } connections;
 
-    adl::ArrayList<net::Protocol1Connection::MemoryNodeInfo> memoryNodesInfo;
+    adl::ArrayList<net::Protocol2Connection::MemoryNodeInfo> memoryNodesInfo;
 
     // addr (4KB aligned) to Page struct.
     adl::HashMap<adl::uintptr_t, tycoon::Page> pages;
@@ -100,6 +115,13 @@ protected:
     adl::ArrayList<Genode::Ram_dataspace_capability> buffers;
     
     dock::Connection dock;
+
+    tycoon::MaintenanceThread maintenanceThread;
+
+
+    Genode::Mutex pageMaintenanceLock;
+    
+    UserAllocator userAllocator;
 
 protected:
 
@@ -149,7 +171,9 @@ public:
     : 
     pageFaultSignalBridge(*this, env),
     env(env),
-    dock(env)
+    dock(env),
+    maintenanceThread(env, *this),
+    userAllocator(*this)
     {
         dock.makeBuffer(2);
         dock.getBuffer();
@@ -177,9 +201,12 @@ public:
 
     monkey::Status checkAvailableMem(adl::size_t* res);
 
+    UserAllocator& getUserAllocator() { return this->userAllocator; }
 
 public:
     friend PageFaultSignalBridge;
+    friend tycoon::MaintenanceThread;
+    friend UserAllocator;
 };
 
 

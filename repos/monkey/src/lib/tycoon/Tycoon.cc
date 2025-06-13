@@ -10,7 +10,37 @@
 
 #include <monkey/tycoon/Tycoon.h>
 
+#include "./yros/MemoryManager.h"
+#include "./yros/KernelMemoryAllocator.h"
+
 using namespace monkey;
+
+using HelloMode = net::ProtocolConnection::HelloMode;
+
+/* ---------------- UserAllocator ---------------- */
+
+
+void* UserAllocator::alloc(adl::size_t size) {
+    return yros::memory::KernelMemoryAllocator::malloc(size);
+}
+
+
+void* UserAllocator::allocPage(adl::size_t nPages) {
+    return yros::memory::KernelMemoryAllocator::allocPage(nPages);
+}
+
+
+void UserAllocator::free(void* addr) {
+    yros::memory::KernelMemoryAllocator::free(addr);
+}
+
+
+void UserAllocator::freePage(void* addr, adl::size_t nPages) {
+    yros::memory::KernelMemoryAllocator::freePage(addr, nPages);
+}
+
+
+/* ---------------- Tycoon ---------------- */
 
 
 Tycoon::~Tycoon() {
@@ -113,7 +143,7 @@ monkey::Status Tycoon::openConnection(bool concierge, adl::int64_t id, bool forc
     // ------ open new connection. ------
 
     Status status = Status::SUCCESS;
-    tycoon::Protocol1ConnectionDock conn;
+    net::Protocol2ConnectionDock conn;
     conn.dock = &dock;
 
     // determine ip and port.
@@ -143,7 +173,7 @@ monkey::Status Tycoon::openConnection(bool concierge, adl::int64_t id, bool forc
     }
 
     // hello
-    if ((status = conn.hello(net::Protocol1Connection::VERSION, false)) != Status::SUCCESS) {
+    if ((status = conn.hello(net::protocol::LATEST_VERSION, HelloMode::CLIENT)) != Status::SUCCESS) {
         Genode::error("Failed on Hello.");
         conn.close();
         return status;
@@ -158,12 +188,12 @@ monkey::Status Tycoon::openConnection(bool concierge, adl::int64_t id, bool forc
     }
 
     // save this connection
-    tycoon::Protocol1ConnectionDock* pConn = nullptr;
+    net::Protocol2ConnectionDock* pConn = nullptr;
     if (concierge) {
         pConn = &connections.concierge;
     }
     else {
-        auto newConn = adl::defaultAllocator.alloc<tycoon::Protocol1ConnectionDock>();
+        auto newConn = adl::defaultAllocator.alloc<net::Protocol2ConnectionDock>();
         if (!newConn) {
             conn.close();
             return Status::OUT_OF_RESOURCE;
@@ -190,7 +220,7 @@ void Tycoon::handlePageFaultSignal() {
     Genode::Region_map& rm = env.rm();
     Genode::Region_map::State state = rm.state();
     auto addr = state.addr;
-    if (addr < memSpace.vaddr && addr >= memSpace.vaddr + memSpace.size) {
+    if (addr < memSpace.vaddr || addr >= memSpace.vaddr + memSpace.size) {
         // address not managed by Tycoon.
         return;
     }
@@ -209,6 +239,9 @@ void Tycoon::handlePageFaultSignal() {
         Genode::error("EXEC_FAULT not supported by Tycoon.");
         return;
     }
+
+
+    Genode::Mutex::Guard _g {this->pageMaintenanceLock};
 
 
     auto pageAddr = state.addr & ~0xffful;
@@ -275,8 +308,7 @@ void Tycoon::handlePageFaultSignal() {
     env.rm().attach_at(page.buf, tmpAddr);
     status = connections.mnemosynes[page.mnemosyneId]->readBlock(
         page.blockId,
-        (void*) tmpAddr,
-        4096
+        (void*) tmpAddr
     );
 
     env.rm().detach(tmpAddr);
@@ -307,10 +339,9 @@ monkey::Status Tycoon::allocPage(adl::uintptr_t addr) {
         if (status != Status::SUCCESS)
             continue;
 
-        adl::ArrayList<adl::int64_t> idOut;
         auto conn = connections.mnemosynes[it.id];
 
-        status = conn->tryAlloc(4096, 1, idOut);
+        status = conn->tryAlloc(&blockId);
         if (status != Status::SUCCESS) {
             Genode::log("Tycoon: Failed to alloc on ", it.ip.toString().c_str(), ":", it.port);
             Genode::log(
@@ -321,7 +352,6 @@ monkey::Status Tycoon::allocPage(adl::uintptr_t addr) {
             continue;
         }
 
-        blockId = idOut[0];
         mnemosyneId = it.id;
         break;
     }
@@ -438,8 +468,7 @@ monkey::Status Tycoon::sync(tycoon::Page& page) {
 
     status = connections.mnemosynes[page.mnemosyneId]->writeBlock(
         page.blockId, 
-        (void*) page.addr, 
-        4096
+        (void*) page.addr
     );
 
     if (!page.mapped) {
@@ -472,6 +501,18 @@ monkey::Status Tycoon::sync() {
 monkey::Status Tycoon::start(adl::uintptr_t vaddr, adl::size_t size) {
     stop();
 
+
+    static bool yrosMemoryStarted = false;
+
+    if (yrosMemoryStarted) {
+        Genode::error("Monkey Tycoon: Restart is not supported.");
+        return Status::INVALID_PARAMETERS;
+    }
+
+    void* pageLinkNodes = adl::defaultAllocator.alloc<char>(2, false, 4096);
+    yros::memory::MemoryManager::init(pageLinkNodes, (void*) vaddr, size);
+
+
     Genode::log(
         "Tycoon: Starting... Addr to be managed: [", 
         Genode::Hex(vaddr), ", ", Genode::Hex(vaddr + size), ") (", size, " bytes)."
@@ -501,6 +542,8 @@ monkey::Status Tycoon::start(adl::uintptr_t vaddr, adl::size_t size) {
     memSpace.vaddr = vaddr;
     memSpace.size = size;
     Genode::log("Tycoon: Started.");
+
+    maintenanceThread.start();
 
 ERROR:
     disconnectConcierge();
@@ -547,6 +590,8 @@ void Tycoon::stop() {
 
 
     memSpace.manage = false;
+
+    maintenanceThread.stopAndJoin();
 }
 
 
@@ -578,3 +623,4 @@ monkey::Status Tycoon::checkAvailableMem(adl::size_t* res) {
 
     return Status::SUCCESS;
 }
+

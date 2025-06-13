@@ -100,39 +100,26 @@ params.nbuf = 1;  // for testing.
 
             // probe vaddr for Tycoon
             {
-                adl::ArrayList<monkey::genodeutils::MemoryMapEntry> list;
-                monkey::genodeutils::getMemoryMap(env, list);
+                adl::uintptr_t addr = 0;
+                adl::size_t size = 0;
 
-                bool found = false;
-                adl::uintptr_t addr;
-                adl::size_t size;
-                for (auto& it : list) {
-                    auto type = it.type == decltype(it.type)::FREE ? 
-                        "FREE" : (it.type == decltype(it.type)::OCCUPIED ? "OCCU" : "UNKNOWN");
-                    Genode::log(
-                        "Mem Probe: ",
-                        "addr: ", 
-                        Genode::Hex(it.addr), 
-                        ", size: ", 
-                        Genode::Hex(it.size), 
-                        ", type: ", 
-                        type
-                    );
-
-                    if (!found && it.size >= 8ull * 1024 * 1024 * 1024 && it.type == decltype(it.type)::FREE) {
-                        Genode::log("> Selected.");
-                        found = true;
-                        size = it.size;
-                        addr = it.addr;
-                    }
-                }
-
-                if (!found) {
-                    Genode::error("No place for Tycoon to manage.");
-                    return;
-                }
-                
-                tycoon.start(addr, size);
+#ifdef GENODE_SEL4
+                Genode::log("Running on seL4");
+                addr = 0x170002000;
+                size = 0x3e8fffe000;
+#elif defined(GENODE_NOVA)
+                Genode::log("Running on NOVA");
+                addr = 0x170002000;
+                size = 0x7ffe4fffe000;
+#elif defined(GENODE_HW)
+                Genode::log("Running on HW");
+                addr = 0x170002000;
+                size = 0x3e8fffe000;
+#else
+                Genode::error("Unknown kernel\n");
+                return;
+#endif
+                tycoon.start(addr, size); // sel4/hw
                 adl::size_t tycoonRam = 0;
                 tycoon.checkAvailableMem(&tycoonRam);
                 Genode::log("There are ", tycoonRam, " bytes ram on monkey memory network.");
