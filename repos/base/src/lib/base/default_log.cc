@@ -60,7 +60,7 @@ Log &Log::log()
 	if (log_ptr)
 		return *log_ptr;
 
-	raw("Error: Missing call of init_log");
+	raw("Error: Missing call of init_log log");
 	sleep_forever();
 }
 
@@ -72,7 +72,7 @@ Trace_output &Trace_output::trace_output()
 	if (trace_ptr)
 		return *trace_ptr;
 
-	raw("Error: Missing call of init_log");
+	raw("Error: Missing call of init_log trace");
 	sleep_forever();
 }
 

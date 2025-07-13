@@ -34,7 +34,7 @@ struct Terminal::Session : Genode::Session
 	 * session-object allocation, its session capability, and a dataspace
 	 * capability for the communication buffer.
 	 */
-	static constexpr unsigned CAP_QUOTA = 3;
+	static constexpr unsigned CAP_QUOTA = 4;
 
 	class Size
 	{

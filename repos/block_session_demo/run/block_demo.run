@@ -1,0 +1,119 @@
+#
+# Build
+#
+
+proc usb_device_label {} { return "usb-1-2" }
+
+create_boot_directory
+import_from_depot [depot_user]/src/[base_src] \
+                  [depot_user]/pkg/test_usb_host_drv-[board] \
+                  [depot_user]/src/report_rom \
+                  [depot_user]/src/usb_block_drv \
+                  [depot_user]/src/init
+
+build { timer block_demo/client }
+
+
+#
+# Generate config
+#
+
+install_config {
+<config>
+	<parent-provides>
+		<service name="ROM"/>
+		<service name="IRQ"/>
+		<service name="IO_MEM"/>
+		<service name="IO_PORT"/>
+		<service name="PD"/>
+		<service name="RM"/>
+		<service name="CPU"/>
+		<service name="LOG"/>
+	</parent-provides>
+	<default-route>
+		<any-service> <parent/> <any-child/> </any-service>
+	</default-route>
+	<default caps="7000"/>
+
+	<start name="timer">
+		<resource name="RAM" quantum="1M"/>
+		<provides> <service name="Timer"/> </provides>
+	</start>
+
+	<start name="report_rom">
+		<resource name="RAM" quantum="1M"/>
+		<provides> <service name="Report"/> <service name="ROM"/> </provides>
+		<config verbose="yes">
+			<default-policy report="usb_drv -> usb_drv -> devices"/>
+		</config>
+	</start>
+	
+	<start name="usb_drv" caps="1500" managing_system="yes">
+		<binary name="init"/>
+		<resource name="RAM" quantum="32M"/>
+		<provides> <service name="Usb"/> </provides>
+		<route>
+			<service name="ROM" label="config">
+				<parent label="drivers.config"/> </service>
+			<service name="Report"> <child name="report_rom"/> </service>
+			<service name="Timer">  <child name="timer"/> </service>
+			<any-service> <parent/> </any-service>
+		</route>
+	</start>
+
+	<start name="usb_block_drv">
+		<resource name="RAM" quantum="64M"/>
+		<provides> <service name="Block"/> </provides>
+		<config label="usb_stick" report="yes" writeable="yes" interface="0" alt_setting="0" lun="0" reset_device="no" verbose_scsi="no"/>
+		<route>
+			<service name="Usb"> <child name="usb_drv" label="} [usb_device_label] {"/> </service>
+			<service name="Report"> <child name="report_rom"/> </service>
+			<any-service> <parent/> <any-child/> </any-service>
+		</route>
+	</start>
+
+	<start name="block_client">
+		<resource name="RAM" quantum="64M"/>
+		<route>
+			<service name="Block"> <child name="usb_block_drv"/> </service>
+			<any-service> <parent/> <any-child/> </any-service>
+		</route>
+	</start>
+</config>}
+
+#
+# Boot image
+#
+
+# build_boot_image { core ld.lib.so init timer block_client block_server }
+
+# append qemu_args " -nographic "
+
+# run_genode_until "rpc test completed.*\n" 90
+
+
+
+set fd [open [run_dir]/genode/usb_host_drv.config w]
+puts $fd { <config> <default-policy class="0x8"/> </config> }
+close $fd
+
+build_boot_image [build_artifacts]
+
+#
+# Execute test case
+#
+set disk_image "bin/test.img"
+set cmd "dd if=/dev/zero of=$disk_image bs=1M count=16"
+if {[have_include "power_on/qemu"]} {
+	puts "creating disk image:\n$cmd"
+	catch { exec sh -c $cmd }
+}
+
+#
+# Qemu opts for EHCI
+#
+append qemu_args " -nographic -M pc -boot order=d "
+append qemu_args " -drive if=none,id=disk,file=$disk_image,format=raw "
+append qemu_args " -device usb-ehci,id=ehci -device usb-storage,bus=ehci.0,drive=disk "
+
+run_genode_until "mission completed.*\n" 90

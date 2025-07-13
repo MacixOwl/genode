@@ -14,3 +14,9 @@
 /repos/world
 /repos/zynq
 
+.vscode/
+.cache/
+
+hash
+
+/repos/mtsys/log

@@ -1,0 +1,92 @@
+#
+# Build
+#
+
+build { core init timer pivot fs_memory
+	memory fs kv apps/test1 apps/test2 }
+
+create_boot_directory
+
+#
+# Generate config
+#
+
+install_config {
+<config>
+
+	<affinity-space width="8" height="1"/>
+
+	<default-route>
+		<any-service> <parent/> <any-child/> </any-service>
+	</default-route>
+
+	<parent-provides>
+		<service name="LOG"/>
+		<service name="PD"/>
+		<service name="CPU"/>
+		<service name="ROM"/>
+		<service name="IRQ"/>
+		<service name="IO_PORT"/>
+	</parent-provides>
+
+	<default caps="200"/>
+
+	<start name="timer">
+		<affinity xpos="0" width="8"/>
+		<resource name="RAM" quantum="1M"/>
+		<provides> <service name="Timer"/> </provides>
+	</start>
+
+	<start name="memory_server" caps="40000">
+		<affinity xpos="2" width="2"/>
+		<resource name="RAM" quantum="4096M"/>
+		<provides> <service name="MtsysMemory"/> </provides>
+	</start>
+
+	<start name="kv_server">
+		<affinity xpos="4" width="2"/>
+		<resource name="RAM" quantum="64M"/>
+		<provides> <service name="MtsysKv"/> </provides>
+	</start>
+
+	<start name="mfs_server">
+		<affinity xpos="6" width="2"/>
+		<resource name="RAM" quantum="1024M"/>
+		<provides> <service name="MtsysFs"/> </provides>
+	</start>
+
+	<start name="fsmemory_server">
+		<affinity xpos="0" width="2"/>
+		<resource name="RAM" quantum="512M"/>
+		<provides> <service name="MtsysFsMemory"/> </provides>
+	</start>
+
+	<start name="mtsys_pivot">
+		<affinity xpos="0" width="8"/>
+		<resource name="RAM" quantum="16M"/>
+		<provides> <service name="MtsysPivot"/> </provides>
+	</start>
+
+    <start name="testapp1">
+		<affinity xpos="0" width="8"/>
+        <resource name="RAM" quantum="128M"/>
+	</start>
+
+	<start name="testapp2">
+		<affinity xpos="0" width="8"/>
+        <resource name="RAM" quantum="512M"/>
+	</start>
+	
+</config>}
+
+#
+# Boot image
+#
+
+build_boot_image { core ld.lib.so init mtsys_pivot timer  fsmemory_server
+	memory_server kv_server mfs_server testapp1 testapp2 }
+
+append qemu_args " -nographic "
+
+run_genode_until forever
+# run_genode_until "testapp completed.*\n" 300

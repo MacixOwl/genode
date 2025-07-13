@@ -131,9 +131,9 @@ append config {
 
 			</domain>
 
-			<domain name="downlink" interface="10.0.3.1/24">
+			<domain name="downlink" interface="10.0.2.1/24">
 
-				<dhcp-server ip_first="10.0.3.100" ip_last="10.0.3.200"/>
+				<dhcp-server ip_first="10.0.2.1" ip_last="10.0.2.200"/>
 				<icmp dst="} [dst_ip] {/24" domain="uplink"/>
 				<udp dst="} [dst_ip] {/24">
 					<permit port="12345" domain="uplink"/>
@@ -149,7 +149,7 @@ append_if $second_ping_via_udp config {
 	<start name="ping_2" ram="8M">
 		<binary name="ping"/>
 		<config period_sec="1"
-		        verbose="no"
+		        verbose="yes"
 		        count="1"
 		        protocol="udp"
 		        dst_ip="} [dst_ip] {"
@@ -166,8 +166,7 @@ append config {
 		<binary name="ping"/>
 		<config dst_ip="} [dst_ip] {"
 		        period_sec="1"
-		        report="yes"
-		        verbose="no"
+		        verbose="yes"
 		        count="3"/>
 		<route>
 			<service name="Report"> <child name="report_rom"/> </service>

@@ -1,0 +1,50 @@
+#
+# Build
+#
+
+build { core init timer rpc }
+
+create_boot_directory
+
+#
+# Generate config
+#
+
+install_config {
+<config>
+	<parent-provides>
+		<service name="LOG"/>
+		<service name="PD"/>
+		<service name="CPU"/>
+		<service name="ROM"/>
+		<service name="IRQ"/>
+		<service name="IO_PORT"/>
+	</parent-provides>
+	<default-route>
+		<any-service> <parent/> <any-child/> </any-service>
+	</default-route>
+	<default caps="1000"/>
+
+	<start name="timer">
+		<resource name="RAM" quantum="1M"/>
+		<provides> <service name="Timer"/> </provides>
+	</start>
+	
+	<start name="rpc_server">
+		<resource name="RAM" quantum="128M"/>
+		<provides> <service name="RPCplus"/> </provides>
+	</start>
+	<start name="rpc_client">
+		<resource name="RAM" quantum="8M"/>
+	</start>
+</config>}
+
+#
+# Boot image
+#
+
+build_boot_image { core ld.lib.so init timer rpc_client rpc_server }
+
+append qemu_args " -nographic "
+
+run_genode_until "rpc test completed.*\n" 30

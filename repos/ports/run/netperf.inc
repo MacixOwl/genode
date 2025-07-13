@@ -21,7 +21,11 @@
 #
 # 2) Now, start the test:
 #    ! cd build/x86_64
-#    ! make run/netperf_$FLAVOR KERNEL=linux BOARD=linux
+#    ! make run/netperf_$FLAVOR KERNEL=linux BOARD=linux\
+#
+#    e.g.
+#    sudo make run/netperf_lwip KERNEL=linux BOARD=linux
+#    sudo make run/netperf_lxip KERNEL=linux BOARD=linux
 #
 # 3) Clean up your Linux when done testing:
 #    ! sudo ip tuntap delete $TAP_DEV mode tap
@@ -501,8 +505,8 @@ foreach netperf_test $netperf_tests {
 	puts "[format %8.0f $recvs_second] recv()/s"
 
 	# format output parseable for post proccessing scripts
-	puts -nonewline "! PERF: $netperf_test"
+	puts -nonewline "BANDWIDTH PERF: $netperf_test"
 	if {$use_nic_bridge} { puts -nonewline "_bridge" }
 	if {$use_usb_driver} { puts -nonewline "_xhci"   }
-	puts "              $throughput $units ok"
+	puts "              $throughput $units"
 }

@@ -112,6 +112,8 @@ class Uplink_client : public Uplink_client_base
 				throw Exception();
 			}
 
+			log("_init_tap_fd return ", fd);
+
 			return fd;
 		}
 
@@ -179,7 +181,9 @@ class Uplink_client : public Uplink_client_base
 			_tap_fd { _init_tap_fd(tap_name) }
 		{
 			_drv_handle_link_state(true);
+			log("_rx_thread will start");
 			_rx_thread.start();
+			log("_rx_thread has finish");
 		}
 };
 

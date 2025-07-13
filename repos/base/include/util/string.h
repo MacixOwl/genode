@@ -135,9 +135,41 @@ namespace Genode {
 	__attribute((optimize("no-tree-loop-distribute-patterns")))
 	inline size_t strlen(const char *s)
 	{
-		size_t res = 0;
-		for (; s && *s; s++, res++);
-		return res;
+		// learnt from glibc
+
+		const char*& str = s;
+		const char* charPtr = str;
+		while (((long) charPtr & (sizeof(long) - 1)) != 0) {
+			if (*charPtr == '\0') {
+				return charPtr - str;
+			} else {
+				++charPtr;
+			}
+		}
+
+		const unsigned long* longPtr = (const unsigned long*) charPtr;
+
+		unsigned long highMagic = 0x80808080L;
+		unsigned long lowMagic = 0x01010101L;
+		if (sizeof(long) > 4) {
+			highMagic = ((highMagic << 16) << 16) | highMagic;
+			lowMagic = ((lowMagic << 16) << 16) | lowMagic;
+		}
+
+		while (true) {
+			const unsigned long& longWords = *longPtr++;
+			if (((longWords - lowMagic) & ~longWords & highMagic) != 0) {
+				auto prevLongPtr = longPtr - 1;
+				const char* p = (const char*) prevLongPtr;
+				while (p < ((const char*) prevLongPtr) + sizeof(long)) {
+					if (*p == '\0') {
+						return p - str;
+					} else {
+						++p;
+					}
+				}
+			}
+		}
 	}
 
 
@@ -855,6 +887,26 @@ class Genode::String
 		bool operator > (String<N> const &other) const
 		{
 			return strcmp(string(), other.string()) > 0;
+		}
+
+		template <size_t N>
+		bool operator >= (String<N> const &other) const
+		{
+			return strcmp(string(), other.string()) >= 0;
+		}
+
+
+		template <size_t N>
+		bool operator < (String<N> const &other) const
+		{
+			return strcmp(string(), other.string()) < 0;
+		}
+
+
+		template <size_t N>
+		bool operator <= (String<N> const &other) const
+		{
+			return strcmp(string(), other.string()) <= 0;
 		}
 
 		void print(Output &out) const { Genode::print(out, string()); }

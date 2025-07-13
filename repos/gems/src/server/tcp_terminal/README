@@ -14,3 +14,43 @@ it connects to the IP address using the given port.
 
 For an example of how to use the TCP terminal, please refer to the run script
 at 'gems/run/tcp_terminal.run'.
+
+
+For test, just make the "run/tcp_terminal", and wait for the execution to 
+"DNS server" print out.
+In anther terminal, use "telnet localhost 5555" to link in and write strings.
+
+
++++++++++++++++++++++++++++++++++++++++++++++
+
+TCP client-server transmission rate test
+
++++++++++++++++++++++++++++++++++++++++++++++
+
+Tx=Rx Throughput(round trip per second) 
+[On Foc Kernel, with KVM]
+
+The first buffering strategy:
+consume once when buffer is about full
+
+| Buffer\Payload | 64B | 128B | 256B | 512B |
+| :-----: | :-----: | :-----: | :-----: | :-----: |
+| 4K |  3223.134  |  3064.004  |  2303.388  |  -  |
+| 8K |  5817.665  |  4559.026  |  2706.309  |  -  |
+| 16K  |  8894.026  |  5595.150  |  3525.715  |  1869.146 |
+| 32K  |  11309.059  |  7406.871  |  5230.327  |  2904.379  |
+
+The second buffering strategy:
+consume to half when buffer is about full
+
+| Buffer\Payload | 64B | 128B | 256B | 512B |
+| :-----: | :-----: | :-----: | :-----: | :-----: |
+| 4K |  -  |  3206.262  |  -  |  -  |
+| 8K |  -  |  4596.437  |  -  |  -  |
+| 16K  |  -  |  5899.360  |  -  |  -  |
+| 32K  |  -  |  7923.588  |  -  |  -  |
+
+
+#### Change the host network host from ethernet to ib card
+
+This **does not** change the overall performance

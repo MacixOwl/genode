@@ -239,6 +239,7 @@ class Genode::Uplink_client_base : Noncopyable
 			if (_drv_link_state == drv_link_state) {
 				return;
 			}
+			log("_drv_handle_link_state");
 			_drv_link_state = drv_link_state;
 			if (drv_link_state) {
 

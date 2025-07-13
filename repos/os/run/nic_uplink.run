@@ -71,7 +71,7 @@ append config {
 				<service name="Uplink"/>
 				<service name="Nic"/>
 			</provides>
-			<config verbose="yes"/>
+			<config verbose="no"/>
 			<route>
 				<service name="Timer">  <child name="timer"/> </service>
 				<service name="PD"> <parent/> </service>

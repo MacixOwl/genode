@@ -1,0 +1,233 @@
+if {[have_spec linux]} {
+	puts "Run script does not support Linux."; exit 0 }
+
+# perform write tests when requested
+if {[info exists env(GENODE_TEST_WRITE)]} {
+set test_write 1
+} else {
+set test_write 0
+}
+
+set is_qemu         [have_include power_on/qemu]
+set is_old          [expr [have_spec fiasco] || [have_spec okl4] || [have_spec pistachio]]
+set is_32bit_x86_hw [expr !$is_qemu && [have_spec 32bit]]
+
+if {[expr [have_spec linux] || $is_32bit_x86_hw || [expr $is_qemu && $is_old]]} {
+	puts "This run script is not supported on this platform."
+	exit 0
+}
+
+set small_test [expr $is_qemu || [have_spec foc] || [have_spec sel4]]
+
+set dd [installed_command dd]
+
+set build_components {
+	core init timer lib/ld
+	server/report_rom
+	app/pci_decode
+	drivers/acpi
+	drivers/platform
+	drivers/nvme
+    server/tcp_terminal
+    test/terminal_echo
+    block_server
+}
+
+build $build_components
+
+catch { exec $dd if=/dev/zero of=/dev/shm/testblk bs=1M count=0 seek=1024 }
+
+create_boot_directory
+
+import_from_depot [depot_user]/src/[base_src] \
+                  [depot_user]/pkg/[drivers_nic_pkg] \
+                  [depot_user]/src/init \
+                  [depot_user]/src/libc \
+                  [depot_user]/src/nic_router \
+                  [depot_user]/src/vfs \
+                  [depot_user]/src/vfs_lwip \
+                  [depot_user]/src/vfs_pipe
+
+install_config {
+<config verbose="yes">
+	<parent-provides>
+		<service name="ROM"/>
+		<service name="IRQ"/>
+		<service name="IO_MEM"/>
+		<service name="IO_PORT"/>
+		<service name="PD"/>
+		<service name="RM"/>
+		<service name="CPU"/>
+		<service name="LOG"/>
+	</parent-provides>
+	<default-route>
+		<any-service> <parent/> <any-child/> </any-service>
+	</default-route>
+	<default caps="8000"/>
+
+	<start name="timer">
+		<resource name="RAM" quantum="1M"/>
+		<provides> <service name="Timer"/> </provides>
+	</start>
+
+    <start name="report_rom">
+		<resource name="RAM" quantum="2M"/>
+		<provides> <service name="Report"/> <service name="ROM"/> </provides>
+		<config>
+			<policy label="pci_decode -> system"    report="acpi_drv -> acpi"/>
+			<policy label="platform_drv -> devices" report="pci_decode -> devices"/>
+		</config>
+	</start>
+
+    <start name="acpi_drv" caps="350">
+		<resource name="RAM" quantum="4M"/>
+		<route>
+			<service name="Report"> <child name="report_rom"/> </service>
+			<service name="IO_MEM"> <parent/> </service>
+			<service name="LOG">    <parent/> </service>
+			<service name="PD">     <parent/> </service>
+			<service name="RM">     <parent/> </service>
+			<service name="CPU">    <parent/> </service>
+			<service name="ROM">    <parent/> </service>
+		</route>
+	</start>
+
+    <start name="pci_decode" caps="350">
+		<resource name="RAM" quantum="2M"/>
+		<route>
+			<service name="Report">             <child name="report_rom"/> </service>
+			<service name="ROM" label="system"> <child name="report_rom"/> </service>
+			<service name="IO_MEM"> <parent/> </service>
+			<service name="LOG">    <parent/> </service>
+			<service name="PD">     <parent/> </service>
+			<service name="RM">     <parent/> </service>
+			<service name="CPU">    <parent/> </service>
+			<service name="ROM">    <parent/> </service>
+		</route>
+	</start>
+
+    <start name="platform_drv" caps="100" managing_system="yes">
+		<resource name="RAM" quantum="2M"/>
+		<provides>
+			<service name="Platform"/>
+		</provides>
+		<route>
+			<service name="ROM" label="devices"> <child name="report_rom"/> </service>
+			<service name="Report"> <child name="report_rom"/> </service>
+			<service name="IRQ">     <parent/> </service>
+			<service name="IO_MEM">  <parent/> </service>
+			<service name="IO_PORT"> <parent/> </service>
+			<service name="ROM">     <parent/> </service>
+			<service name="PD">      <parent/> </service>
+			<service name="CPU">     <parent/> </service>
+			<service name="LOG">     <parent/> </service>
+			<service name="Timer"> <child name="timer"/> </service>
+		</route>
+		<config>
+			<report devices="yes"/>
+			<policy label="nvme_drv -> " info="yes"> <pci class="NVME"/> </policy>
+		</config>
+	</start>
+
+	<start name="nvme_drv" caps="1200">
+		<resource name="RAM" quantum="24M"/>
+		<provides> <service name="Block"/> </provides>
+		<config max_hmb_size="16M" verbose_regs="yes" verbose_identify="yes">
+			<policy label_prefix="block_server" writeable="yes"/>
+		</config>
+		<route>
+			<service name="Platform"><child name="platform_drv"/> </service>
+			<service name="Timer">   <child name="timer"/>        </service>
+			<service name="CPU">     <parent/>                    </service>
+			<service name="ROM">     <parent/>                    </service>
+			<service name="PD">      <parent/>                    </service>
+			<service name="LOG">     <parent/>                    </service>
+		</route>
+	</start>
+
+	<start name="drivers" caps="1000" managing_system="yes">
+		<resource name="RAM" quantum="32M"/>
+		<binary name="init"/>
+		<route>
+			<service name="ROM" label="config"> <parent label="drivers.config"/> </service>
+			<service name="Timer"> <child name="timer"/> </service>
+			<service name="Uplink"> <child name="nic_router"/> </service>
+			<any-service> <parent/> </any-service>
+		</route>
+	</start>
+
+	<start name="nic_router" caps="200">
+		<resource name="RAM" quantum="10M"/>
+		<provides>
+			<service name="Nic"/>
+			<service name="Uplink"/>
+		</provides>
+		<config verbose_domain_state="yes">
+
+			<policy label_prefix="tcp_terminal" domain="downlink"/>
+			<policy label_prefix="drivers"      domain="uplink"/>
+
+			<domain name="uplink">
+
+				<nat domain="downlink"
+				     tcp-ports="16384"
+				     udp-ports="16384"
+				     icmp-ids="16384"/>
+
+				<tcp-forward port="8888" domain="downlink" to="10.0.3.2"/>
+
+			</domain>
+
+			<domain name="downlink" interface="10.0.3.1/24">
+
+				<dhcp-server ip_first="10.0.3.2" ip_last="10.0.3.2">
+					<dns-server ip="8.8.8.8"/>
+					<dns-server ip="1.1.1.1"/>
+				</dhcp-server>
+
+				<tcp dst="0.0.0.0/0"><permit-any domain="uplink" /></tcp>
+				<udp dst="0.0.0.0/0"><permit-any domain="uplink" /></udp>
+				<icmp dst="0.0.0.0/0" domain="uplink"/>
+
+			</domain>
+
+		</config>
+	</start>
+
+	<start name="tcp_terminal" caps="200">
+		<resource name="RAM" quantum="128M"/>
+		<provides> <service name="Terminal"/> </provides>
+		<config>
+			<policy label_prefix="block_server" port="8888"/>
+			<vfs>
+				<dir name="dev"> <log/> </dir>
+				<dir name="socket"> <lwip dhcp="yes"/> </dir>
+				<dir name="pipe"> <pipe/> </dir>
+			</vfs>
+			<libc stdout="/dev/log" socket="/socket" pipe="/pipe"/>
+		</config>
+		<route>
+			<service name="Nic"> <child name="nic_router"/> </service>
+			<any-service> <parent/> <any-child/> </any-service>
+		</route>
+	</start>
+
+    <start name="block_server" caps="1000">
+		<resource name="RAM" quantum="256M"/>
+	</start>
+
+</config>
+}
+
+build_boot_image [build_artifacts]
+
+
+# qemu config
+
+append qemu_args " -nographic "
+append qemu_args " -device pcie-root-port,id=root_port1 "
+append qemu_args " -drive id=nvme0,file=/dev/shm/testblk,format=raw,if=none "
+append qemu_args " -device nvme,drive=nvme0,serial=fnord,id=nvme0n1,bus=root_port1 "
+append_qemu_nic_args "hostfwd=tcp:10.0.0.50:5555-:8888"
+
+run_genode_until forever

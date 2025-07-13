@@ -20,6 +20,7 @@
 #include <base/stdint.h>
 #include <base/exception.h>
 #include <base/quota_guard.h>
+#include <base/allocator.h>
 #include <base/ram_allocator.h>
 
 namespace Genode {

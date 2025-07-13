@@ -207,6 +207,8 @@ void Main::_handle_ip(Ethernet_frame &eth,
 	    ip.dst() != Ipv4_packet::broadcast())
 	{
 		if (_verbose) {
+			log(ip.dst(), " not equal ", ip_config().interface.address);
+			log(ip.dst(), " not equal ", Ipv4_packet::broadcast());
 			log("bad IP destination"); }
 		return;
 	}
@@ -231,7 +233,7 @@ void Main::_handle_icmp_echo_reply(Ipv4_packet &ip,
 	/* drop packet if our request was no ICMP */
 	if (_protocol != Protocol::ICMP) {
 		if (_verbose) {
-			log("bad IP protocol"); }
+			log("bad IP protocol, ICMP"); }
 		return;
 	}
 	/* check IP source */
@@ -411,7 +413,7 @@ void Main::_handle_udp(Ipv4_packet &ip,
 	/* drop packet if our request was no UDP */
 	if (_protocol != Protocol::UDP) {
 		if (_verbose) {
-			log("bad IP protocol"); }
+			log("bad IP protocol, UDP"); }
 		return;
 	}
 	/* drop packet if UDP checksum is invalid */

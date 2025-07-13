@@ -29,7 +29,8 @@ namespace Hello {
 struct Hello::Session_component : Genode::Rpc_object<Session>
 {
 	void say_hello() override {
-		Genode::log("I am here... Hello."); }
+		Genode::log("I am here... Hello."); 
+	}
 
 	int add(int a, int b) override {
 		return a + b; }

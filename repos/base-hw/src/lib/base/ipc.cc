@@ -35,6 +35,8 @@ namespace Hw { extern Genode::Untyped_capability _main_thread_cap; }
 
 using namespace Genode;
 
+static int IPC_COUNT = 0;
+
 
 /**
  * Copy data from the message buffer to UTCB
@@ -96,6 +98,11 @@ Rpc_exception_code Genode::ipc_call(Native_capability dst,
                                     size_t rcv_caps)
 {
 	Native_utcb &utcb = *Thread::myself()->utcb();
+
+	IPC_COUNT += 1;
+	if (IPC_COUNT % 10000 == 9999) {
+		Genode::log("HW core IPC count: ", IPC_COUNT);
+	}
 
 	/*
 	 * Issue IPC call, upgrade the PD's capability slab on demand.
