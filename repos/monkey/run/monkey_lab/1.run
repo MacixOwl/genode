@@ -23,7 +23,8 @@ import_from_depot [depot_user]/src/[base_src] \
                   [depot_user]/src/nic_router \
                   [depot_user]/src/vfs \
                   [depot_user]/src/vfs_lwip \
-                  [depot_user]/src/vfs_pipe
+                  [depot_user]/src/vfs_pipe \
+                  [depot_user]/src/rtc_drv
 
 
 build {
@@ -72,6 +73,14 @@ install_config {
             <any-service> <parent/> </any-service>
         </route>
     </start>
+    
+
+    <start name="rtc_drv">
+		<resource name="RAM" quantum="8M"/>
+		<provides>
+			<service name="Rtc"/>
+		</provides>
+	</start>
 
     <start name="nic_router" caps="200">
         <resource name="RAM" quantum="32M"/>
@@ -138,6 +147,11 @@ install_config {
         <resource name="RAM" quantum="256M"/>
 
         <config>
+            <vfs>
+                <dir name="dev"> <log/> <rtc/> </dir>
+                <dir name="pipe"> <pipe/> </dir>
+            </vfs>
+            <libc stdout="/dev/log" pipe="/pipe" rtc="/dev/rtc"/>
 
             <monkey-lab>
             
@@ -149,6 +163,7 @@ install_config {
 
                     <app>
                         <key>f578bd06-6f8e-42b3-8be9-860c7c645549</key>
+                        <id>1</id>  <!-- just a hint. not used by app itself. -->
                     </app>
 
                 </monkey-tycoon>
@@ -156,6 +171,11 @@ install_config {
             </monkey-lab>
 
         </config>
+        
+        <route>
+            <service name="Rtc"> <any-child /> </service>
+            <any-service> <parent/> <any-child/> </any-service>
+        </route>
 
     </start>
 

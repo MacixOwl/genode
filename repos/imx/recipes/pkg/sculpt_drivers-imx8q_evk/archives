@@ -1,0 +1,10 @@
+_/raw/imx8q_evk-devices
+_/src/fec_nic
+_/src/imx8mq_fb
+_/src/imx8mq_platform
+_/src/imx8mq_sd_card
+_/src/imx8m_usb_host
+_/src/rom_filter
+_/src/rom_reporter
+_/src/usb_block
+_/src/usb_hid

@@ -1,0 +1,151 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "step1",
+            "type": "shell",
+            "command": "make",
+            "args": [
+                "run/monkey_concierge",
+                // "KERNEL=nova",
+                // "BOARD=pc"
+            ],
+            "isBackground": true, 
+            "options": {
+                "cwd": "${workspaceFolder}/build/x86_64"
+            },
+            "problemMatcher": {
+                "pattern": [
+                    {
+                        "regexp": ".",
+                        "file": 1,
+                        "location": 2,
+                        "message": 3
+                    }
+                ],
+                "background": {
+                    "activeOnStart": true,
+                    "beginsPattern": ".",
+                    "endsPattern": "Waiting for connection..." // 👈 这里告诉 VSCode，看到这些关键字，就算"启动成功"
+                }
+            },
+            "presentation": {
+                "reveal": "always", // 启动时自动切换到新终端
+                "close": false,
+                "panel": "new" // 每个任务用新的Terminal
+            }
+        },
+        {
+            "label": "step2",
+            "type": "shell",
+            "command": "make",
+            "args": [
+                "run/monkey_mnemosyne/node_8000",
+                // "KERNEL=nova",
+                // "BOARD=pc"
+            ],
+            "isBackground": true, 
+            "options": {
+                "cwd": "${workspaceFolder}/build/x86_64"
+            },
+            "problemMatcher": {
+                "pattern": [
+                    {
+                        "regexp": ".",
+                        "file": 1,
+                        "location": 2,
+                        "message": 3
+                    }
+                ],
+                "background": {
+                    "activeOnStart": true,
+                    "beginsPattern": ".",
+                    "endsPattern": "Waiting for connection..." // 👈 这里告诉 VSCode，看到这些关键字，就算"启动成功"
+                }
+            },
+            "presentation": {
+                "reveal": "always", // 启动时自动切换到新终端
+                "close": false,
+                "panel": "new" // 每个任务用新的Terminal
+            }
+        },
+        {
+            "label": "step3",
+            "type": "shell",
+            "command": "make",
+            "args": [
+                "run/monkey_lab/1",
+                // "QEMU_OPT=\"-S -s\""
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}/build/x86_64"
+            },
+            "isBackground": true, 
+            "problemMatcher": {
+                "pattern": [
+                    {
+                        "regexp": ".",
+                        "file": 1,
+                        "location": 2,
+                        "message": 3
+                    }
+                ],
+                "background": {
+                    "activeOnStart": true,
+                    "beginsPattern": ".",
+                    "endsPattern": "hello from app1" // 👈 这里告诉 VSCode，看到这些关键字，就算"启动成功"
+                }
+            },
+            "presentation": {
+                "reveal": "always", // 启动时自动切换到新终端
+                "panel": "new", // 每个任务用新的Terminal
+                "close": false
+            }
+        },
+        {
+            "label": "step4",
+            "type": "shell",
+            "command": "make",
+            "args": [
+                "run/monkey_lab/2",
+                // "KERNEL=nova",                   // 根据你使用的Genode内核/board调整
+                // "BOARD=pc",
+                "QEMU_OPT=\"-S -s\""
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}/build/x86_64"
+            },
+            "isBackground": true, 
+            "problemMatcher": {
+                "pattern": [
+                    {
+                        "regexp": ".",
+                        "file": 1,
+                        "location": 2,
+                        "message": 3
+                    }
+                ],
+                "background": {
+                    "activeOnStart": true,
+                    "beginsPattern": ".",
+                    "endsPattern": "[bit 26]" // 👈 这里告诉 VSCode，看到这些关键字，就算"启动成功"
+                }
+            },
+            "presentation": {
+                "reveal": "always", // 启动时自动切换到新终端
+                "panel": "new", // 每个任务用新的Terminal
+                "close": false
+            }
+        },
+        {
+            "label": "debug_monkey_lab",
+            "dependsOn": [
+                "step1",
+                "step2",
+                "step3",
+                "step4"
+            ],
+            "dependsOrder": "sequence"
+        }
+    ]
+}

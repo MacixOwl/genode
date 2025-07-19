@@ -8,13 +8,15 @@
 /depot
 /public
 /repos/allwinner
-/repos/imx
+# /repos/imx
 /repos/riscv
 /repos/rpi
 /repos/world
 /repos/zynq
 
 .vscode/
+!.vscode/launch.json
+!.vscode/tasks.json
 .cache/
 
 hash

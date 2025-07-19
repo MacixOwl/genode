@@ -1,0 +1,8 @@
+drivers: mnt_reform2
+
+# supplemental depot content added to the system image
+import: pkg/sculpt_drivers-mnt_reform2
+import: pkg/glmark2-imx8q_evk
+
+deploy: gpu-imx8q_evk
+ram_fs: depot

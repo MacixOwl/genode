@@ -155,6 +155,24 @@ install_config {
                     <id>2</id>
                     <key>8370c1fe-d422-42d9-a261-05aed72313c3</key>
                 </app>
+                
+
+                <app>
+                    <id>3</id>
+                    <key>6ba4d662-fa26-4c45-8627-af6c1328fc12</key>
+                </app>
+                <app>
+                    <id>4</id>
+                    <key>248ed556-d5d9-4488-9b32-bd8110867908</key>
+                </app>
+                <app>
+                    <id>5</id>
+                    <key>c41a230f-f695-41b1-8b02-204da9cf69d8</key>
+                </app>
+                <app>
+                    <id>6</id>
+                    <key>c9ff804a-6228-44da-b9af-d8f7e7fca108</key>
+                </app>
 
             </monkey-concierge>
 
@@ -178,7 +196,7 @@ install_config {
 #
 
 
-build_boot_image { core ld.lib.so init timer monkey_concierge }
+build_boot_image [build_artifacts]
 
 append qemu_args " -nographic "
 append_qemu_nic_args "hostfwd=tcp:127.0.0.1:5555-:10000"

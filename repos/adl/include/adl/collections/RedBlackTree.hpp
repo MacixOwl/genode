@@ -49,6 +49,10 @@ public:
      */
     bool hasKey(const KeyType&);
 
+    bool contains(const KeyType& key) {
+        return hasKey(key);
+    }
+
     /**
      * Get data (ref) by key.
      * 
@@ -946,7 +950,7 @@ adl::size_t RedBlackTree<KeyType, DataType>::size() {
     ReadGuard _g {this};
 
     adl::size_t count = 0;
-    for (auto& it : *this) {
+    for (const auto& it : *this) {
         count++;
     }
     

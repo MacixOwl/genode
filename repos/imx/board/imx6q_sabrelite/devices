@@ -1,0 +1,57 @@
+<devices>
+	<device name="usbphy1" type="fsl,imx6q-usbphy">
+		<io_mem address="0x020c9000" size="0x1000"/>
+		<irq    number="76"/>
+		<clock  name="usbphy1"/>
+	</device>
+
+	<device name="usbphy2" type="fsl,imx6q-usbphy">
+		<io_mem address="0x020ca000" size="0x1000"/>
+		<irq    number="77"/>
+		<clock  name="usbphy2"/>
+	</device>
+
+	<device name="usbotg" type="fsl,imx6q-usb">
+		<io_mem address="0x02184000" size="0x200"/>
+		<irq    number="75"/>
+		<clock  name="usboh3"/>
+	</device>
+
+	<device name="usbmisc_imx" type="fsl,imx6q-usbmisc">
+		<io_mem address="0x02184800" size="0x200"/>
+		<clock  name="usboh3"/>
+	</device>
+
+	<device name="usbh1" type="fsl,imx6q-usb">
+		<io_mem address="0x02184200" size="0x200"/>
+		<irq    number="72"/>
+		<clock  name="usboh3"/>
+	</device>
+
+	<device name="gpio3" type="fsl,imx6q-gpio">
+		<io_mem address="0x20a4000" size="0x4000"/>
+		<irq    number="102"/>
+		<irq    number="103"/>
+	</device>
+
+	<device name="gpio7" type="fsl,imx6q-gpio">
+		<io_mem address="0x20b4000" size="0x4000"/>
+		<irq    number="110"/>
+		<irq    number="111"/>
+	</device>
+
+	<device name="mmc0" type="fsl,imx6q-usdhc">
+		<io_mem address="0x0219c000" size="0x4000"/>
+		<irq    number="57"/>
+	</device>
+
+	<device name="fec" type="fsl,imx6q-fec">
+		<io_mem address="0x2188000" size="0x4000"/>
+		<irq    number="150"/>
+		<irq    number="151"/>
+		<clock  name="enet"     driver_name="ipg"/>
+		<clock  name="enet"     driver_name="ahb"/>
+		<clock  name="enet_ref" driver_name="ptp"/>
+		<clock  name="enet_ref" driver_name="enet_out"/>
+	</device>
+</devices>

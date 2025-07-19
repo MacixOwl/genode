@@ -100,7 +100,7 @@ Status getMemoryMap(
     while (curr < until) {
         i++;
         try {
-            env.rm().attach_at(dynamicProber, curr);
+            env.rm().attach(dynamicProber, Genode::Region_map::Attr(curr));
             env.rm().detach(curr);
             freeSuccessNum++;
             ocpSuccessNum = 0;
